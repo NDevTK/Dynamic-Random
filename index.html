@@ -1,0 +1,50 @@
+<html>
+<head>
+    <title>PIGEONS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
+
+    <style>
+        body {
+            background: #fafafa;
+        }
+        ken-burns-carousel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-image: url("https://source.unsplash.com/random");
+        }
+    </style>
+</head>
+<body>
+<ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
+<script>
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+async function imagemgr() {
+    while (true) {
+        await getimages(2).then(urls => document.getElementById('bg').images = urls);
+    }
+}
+async function getimages(amount) {
+    var images = [];
+    for (i = 0; i < amount; i++) {
+        await fetch('https://source.unsplash.com/random').then(img => images.push(img.url));
+        await sleep(2000);
+    }
+    return images
+}
+window.addEventListener('WebComponentsReady', function(e) {
+    const kenBurnsCarousel = document.createElement('script');
+    kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
+    document.head.appendChild(kenBurnsCarousel);
+    kenBurnsCarousel.onload = () => {
+        imagemgr();
+    }
+});
+</script>
+</body>
+</html>

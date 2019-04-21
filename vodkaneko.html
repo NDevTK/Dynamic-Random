@@ -1,0 +1,38 @@
+<html>
+<head>
+    <title>RANDOM</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
+
+    <style>
+        body {
+            background: #fafafa;
+        }
+        ken-burns-carousel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-image: url("https://source.unsplash.com/random");
+        }
+    </style>
+</head>
+<body>
+<ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
+<script>
+window.addEventListener('WebComponentsReady', function(e) {
+    const kenBurnsCarousel = document.createElement('script');
+    kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
+    document.head.appendChild(kenBurnsCarousel);
+    kenBurnsCarousel.onload = () => {
+        document.getElementById("bg").images = [
+        "https://i.pinimg.com/originals/6f/30/75/6f30759430e87b84250228a29d629d09.png",
+        "https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/4daaecd9-0036-4533-b405-289a8965b23c/d4jxg1f-9519253c-ff46-47cf-89bc-e88051f7045b.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcLzRkYWFlY2Q5LTAwMzYtNDUzMy1iNDA1LTI4OWE4OTY1YjIzY1wvZDRqeGcxZi05NTE5MjUzYy1mZjQ2LTQ3Y2YtODliYy1lODgwNTFmNzA0NWIucG5nIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.0SSYLkE3Ts1TuTPr1gHf9v8JIb7lPvig4z3guvHgLwU",
+        "https://i.pinimg.com/originals/e5/dc/19/e5dc1973697e6d365fc051e583bc1796.jpg"
+        ];
+    }
+});
+</script>
+</body>
+</html>

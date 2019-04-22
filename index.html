@@ -19,23 +19,9 @@ ken-burns-carousel {
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
-function escapeHtml(text) {
-    var map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-
-    return text.replace(/[&<>"']/g, function(m) {
-        return map[m];
-    });
-}
-
 let params = (new URL(document.location)).searchParams;
 if (params.has('subject')) {
-    end = "featured/?" + escapeHtml(params.get('subject'));
+    end = "featured/?" + encodeURI(params.get('subject'));
 
 } else {
     end = 'random';

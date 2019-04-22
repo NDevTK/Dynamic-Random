@@ -1,46 +1,47 @@
 <html>
 <head>
-    <title>RANDOM</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
-
-    <style>
-        body {
-            background: #191919;
-            background-size: cover;
-        }
-        ken-burns-carousel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-    </style>
+<title>RANDOM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
+<style>
+body {
+	background: #191919;
+	background-size: cover;
+}
+ken-burns-carousel {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
+</style>
 </head>
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
 function escapeHtml(text) {
-  var map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
 
-  return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    return text.replace(/[&<>"']/g, function(m) {
+        return map[m];
+    });
 }
 
 let params = (new URL(document.location)).searchParams;
-if(params.has('subject')){
-end = "featured/?" + escapeHtml(params.get('subject'));
+if (params.has('subject')) {
+    end = "featured/?" + escapeHtml(params.get('subject'));
 
-}else{
-end = 'random';
+} else {
+    end = 'random';
 }
- document.body.style.backgroundImage = 'url(https://source.unsplash.com/'+end+')'
-    
+document.body.style.backgroundImage = 'url(https://source.unsplash.com/' + end + ')'
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -52,7 +53,7 @@ async function imagemgr() {
 async function getimages(amount) {
     var images = [];
     for (i = 0; i < amount; i++) {
-        await fetch('https://source.unsplash.com/'+end).then(img => images.push(img.url));
+        await fetch('https://source.unsplash.com/' + end).then(img => images.push(img.url));
         await sleep(2000);
     }
     return images

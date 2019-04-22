@@ -14,20 +14,32 @@
             width: 100%;
             height: 100%;
             background-size: cover;
-            background-image: url("https://source.unsplash.com/random");
         }
     </style>
 </head>
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
+function escapeHtml(text) {
+  var map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+
+  return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
 
 let params = (new URL(document.location)).searchParams;
 if(params.has('subject')){
-end = "featured/?" + params.get('subject');
+end = "featured/?" + escapeHtml(params.get('subject'));
+
 }else{
 end = 'random';
 }
+ document.body.style.background = 'url(https://source.unsplash.com/'+end+') no-repeat center center'
     
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

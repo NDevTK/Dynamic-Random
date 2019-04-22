@@ -39,7 +39,7 @@ end = "featured/?" + escapeHtml(params.get('subject'));
 }else{
 end = 'random';
 }
- document.body.style.background = 'url(https://source.unsplash.com/'+end+') no-repeat center center'
+ document.body.style.background = 'url(https://source.unsplash.com/'+end+')'
     
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

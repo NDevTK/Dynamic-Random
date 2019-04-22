@@ -21,12 +21,14 @@
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
+
 let params = (new URL(document.location)).searchParams;
 if(params.has('subject')){
-subject = params.get('subject'); // is the string "Jonathan Smith".
+end = "featured/" + params.get('subject');
 }else{
-subject = 'random';
+end = 'random';
 }
+    
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -38,7 +40,7 @@ async function imagemgr() {
 async function getimages(amount) {
     var images = [];
     for (i = 0; i < amount; i++) {
-        await fetch('https://source.unsplash.com/'+subject).then(img => images.push(img.url));
+        await fetch('https://source.unsplash.com/'+end).then(img => images.push(img.url));
         await sleep(2000);
     }
     return images

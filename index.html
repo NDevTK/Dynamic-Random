@@ -33,7 +33,7 @@ function sleep(ms) {
 }
 async function imagemgr() {
     while (true) {
-        await getimages(2).then(urls => document.getElementById('bg').images = urls);
+        await getimages(1).then(urls => document.getElementById('bg').images = urls);
     }
 }
 async function getimages(amount) {

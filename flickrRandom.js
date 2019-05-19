@@ -1,6 +1,6 @@
 FlickrRND = {}
 FlickrRND.update_rate = 2000; // Get new images every second :D
-FlickrRND.bufferAmount = 3;
+FlickrRND.bufferAmount = 2;
 FlickrRND.skip = ":D";
 FlickrRND.queue = [];
 FlickrRND.per_event = 2;
@@ -80,7 +80,7 @@ function SendEvent() {
     }
     var evurls = [];
     var evcredits = [];
-    for (i = 0; i < FlickrRND.per_event; i++) {
+    for (i = 1; i < FlickrRND.per_event; i++) {
         if(i > FlickrRND.queue.length) return false;
         evurls.push(FlickrRND.queue[i].detail.url)
         evcredits.push(FlickrRND.queue[i].detail.credit)

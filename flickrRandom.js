@@ -73,13 +73,13 @@ function RandomOrder(pages) {
 }
 
 function SendEvent(){
-	if(FlickrRND.queue.length > 1) FlickrRND.queue.shift();
 	if(FlickrRND.queue.length == 0) {
 		GetImage();
 		return false;
 	}
 	var event1 = new CustomEvent("onFlickrImage", FlickrRND.queue[0]);
-    window.dispatchEvent(event1);
+	window.dispatchEvent(event1);
+	if(FlickrRND.queue.length > 1) FlickrRND.queue.shift();
 	GetImage();
 }
 

@@ -2,6 +2,7 @@
 <head>
 <title>RANDOM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js" integrity="sha384-HkipI22XmPfYh/sTVk+3rOcb4Gtfhu5oMP6n/ksrA/VA54SFDBrQcqUfy7+9j5CR" crossorigin="anonymous"></script>
+<script src="flickrRandom.js"></script>
 <style>
 body {
 	background: #191919;
@@ -20,9 +21,12 @@ ken-burns-carousel {
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
 let params = (new URL(document.location)).searchParams;
-if (params.has('subject')) {
-    end = "featured/?" + encodeURI(params.get('subject'));
 
+// Unsplash Start
+unsplash = params.has('unsplash');
+subject = encodeURI(params.get('subject'));
+if (params.has('subject')) {
+    end = "featured/?" + subject;
 } else {
     end = 'random';
 }
@@ -44,12 +48,21 @@ async function getimages(amount) {
     }
     return images
 }
+// Unsplash End
+
+if (!unsplash) InitFlickrRandom(subject);
 window.addEventListener('WebComponentsReady', function(e) {
     const kenBurnsCarousel = document.createElement('script');
     kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
     document.head.appendChild(kenBurnsCarousel);
     kenBurnsCarousel.onload = () => {
-        imagemgr();
+        if (unsplash) {
+            imagemgr(); // Unsplash
+        } else {
+            window.addEventListener("onFlickrImage", function(event) { // Flickr
+                document.getElementById('bg').images = [event.detail.url];
+            });
+        }
     }
 });
 </script>

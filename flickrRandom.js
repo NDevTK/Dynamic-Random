@@ -98,7 +98,7 @@ function SendEvent() {
 
 function event(data) { // Main callback from flickr (returns true if event)
     if (FlickrRND.bufferAmount == FlickrRND.queue.length) return false;
-    if (FlickrRND.skip == data.photos.photo[0].id) {
+    if (data.photos.photo[0].id && FlickrRND.skip == data.photos.photo[0].id) {
         GetImage();
         return false;
     }
@@ -106,10 +106,6 @@ function event(data) { // Main callback from flickr (returns true if event)
         var error = "FlickrAPI: " + data.message;
         alert(error);
         console.log(error);
-    }
-    if (!data.photos.photo[0].url_o){
-        GetImage();
-        return false;
     }
     FlickrRND.pages = data.photos.pages; // Get total pages
     if (FlickrRND.state > FlickrRND.pages) {

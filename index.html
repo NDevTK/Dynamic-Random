@@ -65,7 +65,7 @@ window.addEventListener('WebComponentsReady', function(e) {
             imagemgr(); // Unsplash
         } else {
             window.addEventListener("onFlickrImage", function(event) { // Flickr
-                document.getElementById('bg').images = [event.detail.url];
+                document.getElementById('bg').images = event.detail.urls;
             });
         }
     }

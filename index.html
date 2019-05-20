@@ -2,7 +2,7 @@
 <head>
 <title>RANDOM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js" integrity="sha384-HkipI22XmPfYh/sTVk+3rOcb4Gtfhu5oMP6n/ksrA/VA54SFDBrQcqUfy7+9j5CR" crossorigin="anonymous"></script>
-<script src="flickrRandom.js"></script>
+<script src="https://officialnoob.github.io/flickrRandom/flickrRandom.js"></script>
 <style>
 html, body {
     border: 0px;
@@ -25,6 +25,11 @@ ken-burns-carousel {
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
+
+function CreateURL(page){ // Override from flickrRandom
+return "https://imgapi.ndev.tk/" + FlickrRND.subject + "/" + page;
+}
+
 let params = (new URL(document.location)).searchParams;
 
 // Unsplash Start

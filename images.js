@@ -27,7 +27,7 @@ async function getimages(amount) {
     var images = [];
     for (i = 0; i < amount; i++) {
         await fetch('https://source.unsplash.com/' + end).then(img => images.push(img.url));
-        await sleep(2000);
+        await sleep(3000);
     }
     return images
 }

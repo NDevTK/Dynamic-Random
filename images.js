@@ -8,15 +8,15 @@ let params = (new URL(document.location)).searchParams;
 // Unsplash Start
 unsplash = params.has('unsplash');
 subject = encodeURI(params.get('subject'));
-if (params.has('subject')) {
-    end = "featured/?" + subject;
-} else {
-    end = 'random';
-}
+
+type = (params.has('subject')) ? "featured" : "random";
 
 res =  window.screen.availHeight+"x"+window.screen.availWidth;
-src = "https://source.unsplash.com/" + res + "/" + end;
-document.body.style.backgroundImage = 'url(' + src +')'
+
+src = "https://source.unsplash.com/" + type + "/" + res;
+if(params.has('subject')) src = src.concat("/?"+subject);
+
+document.body.style.backgroundImage = 'url(' + src +')';
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

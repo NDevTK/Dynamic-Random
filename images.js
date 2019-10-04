@@ -15,7 +15,8 @@ if (params.has('subject')) {
 }
 
 res =  window.screen.availHeight+"x"+window.screen.availWidth;
-document.body.style.backgroundImage = 'url(https://source.unsplash.com/' + res + end + ')'
+src = "https://source.unsplash.com/" + res + "/" + end;
+document.body.style.backgroundImage = 'url(' + src +')'
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -28,7 +29,7 @@ async function imagemgr() {
 async function getimages(amount) {
     var images = [];
     for (i = 0; i < amount; i++) {
-        await fetch('https://source.unsplash.com/' + end).then(img => images.push(img.url));
+        await fetch(src).then(img => images.push(img.url));
         await sleep(3000);
     }
     return images

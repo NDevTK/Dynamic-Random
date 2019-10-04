@@ -13,7 +13,9 @@ if (params.has('subject')) {
 } else {
     end = 'random';
 }
-document.body.style.backgroundImage = 'url(https://source.unsplash.com/' + end + ')'
+
+res =  window.screen.availHeight+"x"+window.screen.availWidth;
+document.body.style.backgroundImage = 'url(https://source.unsplash.com/' + res + end + ')'
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

@@ -26,6 +26,7 @@ async function imagemgr() {
         await getimages(1).then(urls => document.getElementById('bg').images = urls);
     }
 }
+
 async function getimages(amount) {
     var images = [];
     for (i = 0; i < amount; i++) {
@@ -46,7 +47,7 @@ window.addEventListener('WebComponentsReady', function(e) {
             imagemgr(); // Unsplash
         } else {
             window.addEventListener("onFlickrImage", function(event) { // Flickr
-                document.getElementById('bg').images = event.detail.urls;
+                document.getElementById('bg').images.push(event.detail.urls);
             });
         }
     }

@@ -26,19 +26,9 @@ function sleep(ms) {
 
 async function imagemgr() {
     while (true) {
-        await getimages(1).then(urls => {
-            addImages(urls);
-        });
+	    await fetch(src).then(img => images.push(img.url));
+	    await sleep(3000);
     }
-}
-
-async function getimages(amount) {
-    var images = [];
-    for (i = 0; i < amount; i++) {
-        await fetch(src).then(img => images.push(img.url));
-        await sleep(3000);
-    }
-    return images
 }
 
 function addImages(array) {

@@ -43,7 +43,6 @@ if (unsplash) {
     InitFlickrRandom(subject, "none", 10, 3000);
     window.addEventListener("onFlickrImage", function(event) { // Flickr
         event.detail.urls.forEach(url => {
-            bg.images.push(url);
             if(!bg.hasOwnProperty("images")) {
                 bg.images = url;
             } else {

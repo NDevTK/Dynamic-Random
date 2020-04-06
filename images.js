@@ -34,7 +34,7 @@ async function imagemgr() {
     }
 }
 
-oldCount = 1;
+oldCount = 0;
 function addImage(url) {
     if(bg.images === undefined) {
         bg.images = [url];
@@ -42,10 +42,12 @@ function addImage(url) {
         if(bg.images.length > 3) return
         bg.images.push(url);
         // Cleanup images
-        while(bg._zCounter > oldCount) {
-            bg.images.shift();
-        }
-        oldCount = bg._zCounter;
+	if(bg._zCounter > oldCount) {
+	    while(bg._zCounter > oldCount) {
+	        bg.images.shift();
+            }
+	    oldCount = bg._zCounter;
+	}
     }
 }
 

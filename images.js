@@ -26,26 +26,26 @@ function sleep(ms) {
 
 async function imagemgr() {
     while (true) {
-	    await fetch(src).then(img => addImages([img.url]));
-	    await sleep(3000);
+        if(bg.images.length < 3) {
+            await fetch(src).then(img => addImage(img.url));
+            await sleep(3000);
+        }
     }
 }
 
 oldCount = 0;
-function addImages(array) {
-    array.forEach(url => {
-        if(bg.images === undefined) {
-            bg.images = [url];
-        } else {
-	    if(bg.images.length >= 3) return
-	    bg.images.push(url);
-            // Cleanup images
-            while(bg._zCounter !== oldCount) {
-	        bg.images.shift();
-            }
-            oldCount = bg._zCounter;
-	}
-    })
+function addImage(url) {
+    if(bg.images === undefined) {
+        bg.images = [url];
+    } else {
+        if(bg.images.length < 3) return
+        bg.images.push(url);
+        // Cleanup images
+        while(bg._zCounter !== oldCount) {
+            bg.images.shift();
+        }
+        oldCount = bg._zCounter;
+    }
 }
 
 function Start() {
@@ -54,7 +54,7 @@ function Start() {
 	} else {
 		document.body.style.backgroundImage = 'url(' + src +')';
 		window.addEventListener("onFlickrImage", function(event) { // Flickr
-			addImages(event.detail.urls);
+			addImage(event.detail.urls[0]);
 		})
 		InitFlickrRandom(subject);
 	}

@@ -17,8 +17,6 @@ res =  window.screen.availHeight+"x"+window.screen.availWidth;
 src = "https://source.unsplash.com/" + type + "/" + res;
 if(params.has('subject')) src = src.concat("/?"+subject);
 
-document.body.style.backgroundImage = 'url(' + src +')';
-
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -50,10 +48,11 @@ function addImages(array) {
             while(bg.images.length > 5) {
                 bg.images.shift();
             }
-        }
-	})
+	}
+    })
 }
 
+bg.images = [src];
 if (unsplash) {
     imagemgr(); // Unsplash
 } else {

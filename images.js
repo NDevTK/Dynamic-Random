@@ -37,6 +37,7 @@ function addImages(array) {
         if(bg.images === undefined) {
             bg.images = [url];
         } else {
+	    if(bg.images.length >= 3) return
 	    bg.images.push(url);
             // Cleanup images
             while(bg._zCounter !== oldCount) {

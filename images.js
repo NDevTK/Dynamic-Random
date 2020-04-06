@@ -1,7 +1,7 @@
 FlickrRND.JSONP = false;
 
 function CreateURL(page){ // Override from flickrRandom
-return "https://imgapi.ndev.tk/" + FlickrRND.subject + "/" + page;
+    return "https://imgapi.ndev.tk/" + FlickrRND.subject + "/" + page;
 }
 
 let params = (new URL(document.location)).searchParams;
@@ -50,7 +50,7 @@ function Start() {
 	if (unsplash) {
 		imagemgr(); // Unsplash
 	} else {
-		InitFlickrRandom(subject, "none", 10);
+		InitFlickrRandom(subject);
 		window.addEventListener("onFlickrImage", function(event) { // Flickr
 			addImages(event.detail.urls);
 		})

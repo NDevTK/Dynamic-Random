@@ -40,10 +40,16 @@ async function getimages(amount) {
 if (unsplash) {
     imagemgr(); // Unsplash
 } else {
-    InitFlickrRandom(subject, "none", 10, 5000);
+    InitFlickrRandom(subject, "none", 10, 3000);
     window.addEventListener("onFlickrImage", function(event) { // Flickr
         event.detail.urls.forEach(url => {
             bg.images.push(url);
+            if(!bg.hasOwnProperty("images")) {
+                bg.images = url;
+            } else {
+                // Preload images
+                bg.length.splice(0, bg.length - 5);
+            }
         });
     });
 }

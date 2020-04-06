@@ -17,6 +17,8 @@ res =  window.screen.availHeight+"x"+window.screen.availWidth;
 src = "https://source.unsplash.com/" + type + "/" + res;
 if(params.has('subject')) src = src.concat("/?"+subject);
 
+document.body.style.backgroundImage = 'url(' + src +')';
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -52,12 +54,13 @@ function addImages(array) {
     })
 }
 
-bg.images = [src];
-if (unsplash) {
-    imagemgr(); // Unsplash
-} else {
-    InitFlickrRandom(subject, "none", 10, 3000);
-    window.addEventListener("onFlickrImage", function(event) { // Flickr
-        addImages(event.detail.urls);
-    })
+function Start() {
+	if (unsplash) {
+		imagemgr(); // Unsplash
+	} else {
+		InitFlickrRandom(subject, "none", 10, 3000);
+		window.addEventListener("onFlickrImage", function(event) { // Flickr
+			addImages(event.detail.urls);
+		})
+	}
 }

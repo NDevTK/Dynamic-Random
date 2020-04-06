@@ -23,7 +23,7 @@ function sleep(ms) {
 }
 async function imagemgr() {
     while (true) {
-        await getimages(1).then(urls => document.getElementById('bg').images = urls);
+        await getimages(1).then(urls => bg.images = urls);
     }
 }
 
@@ -48,7 +48,7 @@ window.addEventListener('WebComponentsReady', function(e) {
         } else {
             window.addEventListener("onFlickrImage", function(event) { // Flickr
                 event.detail.urls.forEach(url => {
-                    document.getElementById('bg').images.push(event.detail.url);
+                    bg.images.push(url);
                 });
             });
         }

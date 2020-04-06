@@ -38,7 +38,7 @@ function addImages(array) {
         } else {
 	    bg.images.push(url);
             // Preload images
-            while(bg.images.length > 5) {
+            while(bg._zCounter > 5 && bg.images.length > 5) {
                 bg.images.shift();
             }
 	}

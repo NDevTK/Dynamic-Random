@@ -42,7 +42,7 @@ function addImages(array) {
             while(bg._zCounter !== oldCount) {
 	        bg.images.shift();
             }
-            count = oldCount;
+            oldCount = bg._zCounter;
 	}
     })
 }

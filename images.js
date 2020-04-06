@@ -34,7 +34,7 @@ async function imagemgr() {
     }
 }
 
-oldCount = 0;
+oldCount = 1;
 function addImage(url) {
     if(bg.images === undefined) {
         bg.images = [url];

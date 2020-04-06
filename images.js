@@ -47,7 +47,9 @@ window.addEventListener('WebComponentsReady', function(e) {
             imagemgr(); // Unsplash
         } else {
             window.addEventListener("onFlickrImage", function(event) { // Flickr
-                document.getElementById('bg').images.push(event.detail.urls);
+                event.detail.urls.forEach(url => {
+                    document.getElementById('bg').images.push(event.detail.url);
+                });
             });
         }
     }

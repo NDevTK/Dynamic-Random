@@ -50,7 +50,7 @@ function Start() {
 	if (unsplash) {
 		imagemgr(); // Unsplash
 	} else {
-		InitFlickrRandom(subject, "none", 10, 3000);
+		InitFlickrRandom(subject, "none", 10);
 		window.addEventListener("onFlickrImage", function(event) { // Flickr
 			addImages(event.detail.urls);
 		})

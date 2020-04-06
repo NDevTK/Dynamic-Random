@@ -1,4 +1,5 @@
 FlickrRND.JSONP = false;
+FlickrRND.per_event = 1;
 
 function CreateURL(page){ // Override from flickrRandom
     return "https://imgapi.ndev.tk/" + FlickrRND.subject + "/" + page;
@@ -38,7 +39,7 @@ function addImage(url) {
     if(bg.images === undefined) {
         bg.images = [url];
     } else {
-        if(bg.images.length < 3) return
+        if(bg.images.length > 3) return
         bg.images.push(url);
         // Cleanup images
         while(bg._zCounter > oldCount) {

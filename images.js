@@ -45,6 +45,7 @@ function addImages(array) {
         if(!bg.hasOwnProperty("images")) {
             bg.images = [url];
         } else {
+	    bg.images.push(url);
             // Preload images
             while(bg.images.length > 5) {
                 bg.images.shift();

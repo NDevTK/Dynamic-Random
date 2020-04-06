@@ -15,7 +15,9 @@ type = (params.has('subject')) ? "featured" : "random";
 res =  window.screen.availHeight+"x"+window.screen.availWidth;
 
 src = "https://source.unsplash.com/" + type + "/" + res;
-if(params.has('subject')) src = src.concat("/?"+subject);
+if(params.has('subject')) {
+	src = src.concat("/?"+subject);
+}
 
 document.body.style.backgroundImage = 'url(' + src +')';
 

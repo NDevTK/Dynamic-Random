@@ -47,7 +47,9 @@ if (unsplash) {
                 bg.images = url;
             } else {
                 // Preload images
-                bg.splice(0, bg.length - 5);
+                while(bg.images.length > 5) {
+                    bg.images.shift();
+                }
             }
         });
     });

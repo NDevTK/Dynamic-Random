@@ -46,10 +46,10 @@ function addImages(array) {
 }
 
 function Start() {
-	document.body.style.backgroundImage = 'url(' + src +')';
 	if (unsplash) {
 		imagemgr(); // Unsplash
 	} else {
+		document.body.style.backgroundImage = 'url(' + src +')';
 		window.addEventListener("onFlickrImage", function(event) { // Flickr
 			addImages(event.detail.urls);
 		})

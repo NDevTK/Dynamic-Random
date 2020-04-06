@@ -24,7 +24,9 @@ function sleep(ms) {
 }
 async function imagemgr() {
     while (true) {
-        await getimages(1).then(urls => bg.images = urls);
+        await getimages(1).then(urls => {
+            addImages(urls);
+        });
     }
 }
 
@@ -37,20 +39,23 @@ async function getimages(amount) {
     return images
 }
 
+function addImages(array) {
+    array.forEach(url => {
+        if(!bg.hasOwnProperty("images")) {
+            bg.images = url;
+        } else {
+            // Preload images
+            while(bg.images.length > 5) {
+                bg.images.shift();
+            }
+        }
+}
+
 if (unsplash) {
     imagemgr(); // Unsplash
 } else {
     InitFlickrRandom(subject, "none", 10, 3000);
     window.addEventListener("onFlickrImage", function(event) { // Flickr
-        event.detail.urls.forEach(url => {
-            if(!bg.hasOwnProperty("images")) {
-                bg.images = url;
-            } else {
-                // Preload images
-                while(bg.images.length > 5) {
-                    bg.images.shift();
-                }
-            }
-        });
-    });
+        addImages(event.detail.urls);
+    }
 }

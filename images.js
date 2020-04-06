@@ -1,4 +1,5 @@
 FlickrRND.JSONP = false;
+
 function CreateURL(page){ // Override from flickrRandom
 return "https://imgapi.ndev.tk/" + FlickrRND.subject + "/" + page;
 }
@@ -35,22 +36,14 @@ async function getimages(amount) {
     }
     return images
 }
-// Unsplash End
 
-if (!unsplash) InitFlickrRandom(subject);
-window.addEventListener('WebComponentsReady', function(e) {
-    const kenBurnsCarousel = document.createElement('script');
-    kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
-    document.head.appendChild(kenBurnsCarousel);
-    kenBurnsCarousel.onload = () => {
-        if (unsplash) {
-            imagemgr(); // Unsplash
-        } else {
-            window.addEventListener("onFlickrImage", function(event) { // Flickr
-                event.detail.urls.forEach(url => {
-                    bg.images.push(url);
-                });
-            });
-        }
-    }
-});
+if (unsplash) {
+    imagemgr(); // Unsplash
+} else {
+    InitFlickrRandom(subject, "none", 10, 5000);
+    window.addEventListener("onFlickrImage", function(event) { // Flickr
+        event.detail.urls.forEach(url => {
+            bg.images.push(url);
+        });
+    });
+}

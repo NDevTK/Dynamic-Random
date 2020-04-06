@@ -31,6 +31,7 @@ async function imagemgr() {
     }
 }
 
+oldCount = 0;
 function addImages(array) {
     array.forEach(url => {
         if(bg.images === undefined) {
@@ -38,9 +39,10 @@ function addImages(array) {
         } else {
 	    bg.images.push(url);
             // Preload images
-            while(bg._zCounter > 5 && bg.images.length > 5) {
-                bg.images.shift();
+            while(bg._zCounter !== oldCount) {
+	        bg.images.shift();
             }
+            count = oldCount;
 	}
     })
 }

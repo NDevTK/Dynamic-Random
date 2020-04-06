@@ -42,7 +42,7 @@ async function getimages(amount) {
 function addImages(array) {
     array.forEach(url => {
         if(!bg.hasOwnProperty("images")) {
-            bg.images = url;
+            bg.images = [url];
         } else {
             // Preload images
             while(bg.images.length > 5) {

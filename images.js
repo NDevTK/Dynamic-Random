@@ -22,6 +22,7 @@ document.body.style.backgroundImage = 'url(' + src +')';
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
 async function imagemgr() {
     while (true) {
         await getimages(1).then(urls => {
@@ -49,6 +50,7 @@ function addImages(array) {
                 bg.images.shift();
             }
         }
+	})
 }
 
 if (unsplash) {
@@ -57,5 +59,5 @@ if (unsplash) {
     InitFlickrRandom(subject, "none", 10, 3000);
     window.addEventListener("onFlickrImage", function(event) { // Flickr
         addImages(event.detail.urls);
-    }
+    })
 }

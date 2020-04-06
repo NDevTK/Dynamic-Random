@@ -26,7 +26,7 @@ function sleep(ms) {
 
 async function imagemgr() {
     while (true) {
-	    await fetch(src).then(img => images.push(img.url));
+	    await fetch(src).then(img => addImages([img.url]));
 	    await sleep(3000);
     }
 }

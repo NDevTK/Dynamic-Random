@@ -38,7 +38,7 @@ function addImages(array) {
             bg.images = [url];
         } else {
 	    bg.images.push(url);
-            // Preload images
+            // Cleanup images
             while(bg._zCounter !== oldCount) {
 	        bg.images.shift();
             }

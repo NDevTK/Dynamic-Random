@@ -33,7 +33,7 @@ async function imagemgr() {
 
 function addImages(array) {
     array.forEach(url => {
-        if(!bg.hasOwnProperty("images")) {
+        if(bg.images === undefined) {
             bg.images = [url];
         } else {
 	    bg.images.push(url);

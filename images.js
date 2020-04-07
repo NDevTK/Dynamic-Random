@@ -1,6 +1,7 @@
   
 FlickrRND.JSONP = false;
 FlickrRND.per_event = 1;
+oldCount = 1;
 
 function CreateURL(page){ // Override from flickrRandom
     return "https://imgapi.ndev.tk/" + FlickrRND.subject + "/" + page;
@@ -28,7 +29,6 @@ function sleep(ms) {
 
 async function imagemgr() {
     bg.images = [url];
-    oldCount = 1;
     while (true) {
         if(bg.images.length < 3) {
             await fetch(src).then(img => addImage(img.url));

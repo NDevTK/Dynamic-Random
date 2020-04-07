@@ -54,7 +54,6 @@ function Start() {
 	if (unsplash) {
 		imagemgr(); // Unsplash
 	} else {
-		document.body.style.backgroundImage = 'url(' + src +')';
 		window.addEventListener("onFlickrImage", function(event) { // Flickr
 			addImage(event.detail.urls[0]);
 		})

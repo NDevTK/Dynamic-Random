@@ -28,7 +28,6 @@ function sleep(ms) {
 }
 
 async function imagemgr() {
-    bg.images = [src];
     while (true) {
         if(bg.images.length < 3) {
             await fetch(src).then(img => addImage(img.url));
@@ -51,6 +50,7 @@ function addImage(url) {
 }
 
 function Start() {
+	bg.images = [src];
 	if (unsplash) {
 		imagemgr(); // Unsplash
 	} else {

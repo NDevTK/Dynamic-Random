@@ -48,7 +48,6 @@ function addImage(url) {
             }
 	    oldCount = bg._zCounter;
 	}
-    }
 }
 
 function Start() {

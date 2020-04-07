@@ -27,6 +27,7 @@ function sleep(ms) {
 
 async function imagemgr() {
     bg.images = [url];
+    oldCount = bg.images.length;
     while (true) {
         if(bg.images.length < 3) {
             await fetch(src).then(img => addImage(img.url));
@@ -35,7 +36,7 @@ async function imagemgr() {
     }
 }
 
-oldCount = 0;
+
 function addImage(url) {
 	if(bg.images.length > 3) return
         bg.images.push(url);

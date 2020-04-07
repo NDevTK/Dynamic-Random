@@ -28,7 +28,7 @@ function sleep(ms) {
 }
 
 async function imagemgr() {
-    bg.images = [url];
+    bg.images = [src];
     while (true) {
         if(bg.images.length < 3) {
             await fetch(src).then(img => addImage(img.url));

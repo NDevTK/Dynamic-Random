@@ -26,6 +26,7 @@ function sleep(ms) {
 }
 
 async function imagemgr() {
+    bg.images = [url];
     while (true) {
         if(bg.images.length < 3) {
             await fetch(src).then(img => addImage(img.url));
@@ -36,18 +37,15 @@ async function imagemgr() {
 
 oldCount = 0;
 function addImage(url) {
-    if(bg.images === undefined) {
-        bg.images = [url];
-    } else {
-        if(bg.images.length > 3) return
+	if(bg.images.length > 3) return
         bg.images.push(url);
         // Cleanup images
-	//if(bg._zCounter > oldCount) {
-	//    while(bg._zCounter > oldCount) {
-	//        bg.images.shift();
-      //      }
-	//    oldCount = bg._zCounter;
-	//}
+	if(bg._zCounter > oldCount) {
+	    while(bg._zCounter > oldCount) {
+	        bg.images.shift();
+            }
+	    oldCount = bg._zCounter;
+	}
     }
 }
 

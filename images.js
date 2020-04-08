@@ -50,6 +50,7 @@ function addImage(url) {
 }
 
 function Start() {
+	return console.warn("Dynamic-Random NOT WORKING :-(");
 	bg.images = [src];
 	if (unsplash) {
 		imagemgr(); // Unsplash

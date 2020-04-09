@@ -22,17 +22,15 @@ function sleep(ms) {
 
 async function imagemgr() {
     while (true) {
-        if (bg.images.length < 3) {
-            await fetch(src).then(img => addImage(img.url));
+	    await fetch(src).then(img => addImage(img.url));
             await sleep(3000);
-        }
     }
 }
 
 function addImage(url) {
     bg.images.push(url);
-    while(bg.images.length > 3) {
-		bg.images.shift();
+    while(bg.images.length > 4) {
+	    bg.images.shift();
     }
 }
 

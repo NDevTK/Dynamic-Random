@@ -35,7 +35,7 @@ function addImage(url) {
 }
 
 function Start() {
-    bg.images = [src];
+    bg.images = [];
     if (unsplash) {
         imagemgr();
     } else {

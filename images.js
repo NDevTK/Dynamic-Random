@@ -8,7 +8,7 @@ function CreateURL(page) {
 let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
 subject = encodeURI(params.get('subject'));
-type = (params.has('subject')) ? "featured" : "random";
+type = (params.has('subject')) ? "featured" : "nature";
 res = window.screen.availHeight + "x" + window.screen.availWidth;
 src = "https://source.unsplash.com/" + type + "/" + res;
 

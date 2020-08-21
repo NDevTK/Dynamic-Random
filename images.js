@@ -20,13 +20,6 @@ async function imagemgr() {
     }
 }
 
-function addImage(url) {
-    bg.animateImages([url]);
-    while(bg.images.length > 4) {
-        bg.images.shift();
-    }
-}
-
 function Start() {
     if (unsplash) {
 	    src = "https://source.unsplash.com/" + type + "/" + res;

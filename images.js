@@ -10,13 +10,18 @@ function sleep(ms) {
 
 async function imagemgr() {
     while (true) {
-	    await fetch(src).then(img => addImage(img.url));
+	    while(bg.images.length < 4) {
+		    bg.images.push(src + "?c=" + Math.random());
+	    }
+	    while(bg.images.length > 4) {
+		    bg.images.shift();
+	    }
             await sleep(3000);
     }
 }
 
 function addImage(url) {
-    bg.images.push(url);
+    bg.animateImages([url]);
     while(bg.images.length > 4) {
         bg.images.shift();
     }

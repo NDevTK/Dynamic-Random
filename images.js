@@ -23,14 +23,14 @@ function addImage(url) {
 }
 
 function Start() {
-    bg.images = [unsplash];
     if (unsplash) {
-	    src = "https://source.unsplash.com/" + type + "/" + res;
+        src = "https://source.unsplash.com/" + type + "/" + res;
 	    if (params.has('subject')) {
-		    src = src.concat("/?" + subject);
+            src = src.concat("/?" + subject);
 	    }
     } else {
 	    src = "https://imgapi.ndev.tk/"+subject+"/embed"
     }
+    bg.images = [src];
     imagemgr();
 }

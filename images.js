@@ -10,13 +10,13 @@ function sleep(ms) {
 
 async function imagemgr() {
     while (true) {
-	    while(bg.images.length < 4) {
-		    bg.images.push(src + "?c=" + Math.random());
-	    }
-	    while(bg.images.length > 4) {
-		    bg.images.shift();
-	    }
-            await sleep(3000);
+        while (bg.images.length > 3) {
+            bg.images.shift();
+        }
+        while (bg.images.length < 4) {
+            bg.images.push(src + "?c=" + Math.random());
+        }
+        await sleep(3000);
     }
 }
 

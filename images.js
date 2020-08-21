@@ -17,7 +17,7 @@ async function imagemgr() {
 
 function addImage(url) {
     bg.images.push(url);
-    while(bg.images.length > 3) {
+    while(bg.images.length > 4) {
         bg.images.shift();
     }
 }

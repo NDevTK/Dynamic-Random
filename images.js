@@ -27,7 +27,7 @@ function Start() {
 		    src = src.concat("/?" + subject);
 	    }
     } else {
-	    src = "https://imgapi.ndev.tk/"+subject+"/embed"
+	    src = "https://imgapi.ndev.workers.dev/?subject="+subject;
     }
     bg.images = [src];
     imagemgr();

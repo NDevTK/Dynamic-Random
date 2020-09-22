@@ -14,7 +14,7 @@ async function imagemgr() {
             bg.images.shift();
         }
         while (bg.images.length < 4) {
-            bg.images.push(src);
+            bg.images.push(src + "&c=" + Math.random());
         }
         await sleep(4000);
     }

@@ -9,15 +9,9 @@ function sleep(ms) {
 }
 
 async function imagemgr() {
-    while (true) {
-        while (bg.images.length > 3) {
-            bg.images.shift();
-        }
-        while (bg.images.length < 4) {
-            bg.images.push(src + "&c=" + Math.random());
-        }
-        await sleep(4000);
-    }
+	setInterval(_ => {
+		bg.images.push(src + "&c=" + Math.random());
+	}, 1000);
 }
 
 function Start() {

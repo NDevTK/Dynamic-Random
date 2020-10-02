@@ -7,7 +7,7 @@ res = window.screen.availHeight + "x" + window.screen.availWidth;
 async function imagemgr() {
 	setInterval(_ => {
 		bg.images.push(src + "&c=" + Math.random());
-	}, 500);
+	}, 10000);
 }
 
 function Start() {

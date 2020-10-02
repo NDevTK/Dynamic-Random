@@ -13,6 +13,5 @@ function Start() {
     } else {
 	    src = "https://imgapi.ndev.workers.dev/?subject="+subject;
     }
-    bg.images = [src];
     bg.images = Array.from({length: 100000}, (_, i) => src+"&c=" + i + 1);
 }

@@ -5,9 +5,7 @@ type = (params.has('subject')) ? "featured" : "random";
 res = window.screen.availHeight + "x" + window.screen.availWidth;
 
 async function imagemgr() {
-	setInterval(_ => {
-		bg.images = [src + "&c=" + Math.random()];
-	}, 500);
+		
 }
 
 function Start() {
@@ -20,5 +18,5 @@ function Start() {
 	    src = "https://imgapi.ndev.workers.dev/?subject="+subject;
     }
     bg.images = [src];
-    imagemgr();
+    bg.images = Array.from({length: 100000}, (_, i) => src+"&c=" + i + 1);
 }

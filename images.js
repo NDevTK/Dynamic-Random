@@ -4,10 +4,6 @@ subject = (params.has('subject')) ? encodeURI(params.get('subject')) : "nature";
 type = (params.has('subject')) ? "featured" : "random";
 res = window.screen.availHeight + "x" + window.screen.availWidth;
 
-async function imagemgr() {
-		
-}
-
 function Start() {
     if (unsplash) {
 	    src = "https://source.unsplash.com/" + type + "/" + res;

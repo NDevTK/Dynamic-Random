@@ -4,10 +4,6 @@ subject = (params.has('subject')) ? encodeURI(params.get('subject')) : "nature";
 type = (params.has('subject')) ? "featured" : "random";
 res = window.screen.availHeight + "x" + window.screen.availWidth;
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 async function imagemgr() {
 	setInterval(_ => {
 		bg.images.push(src + "&c=" + Math.random());

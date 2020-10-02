@@ -5,5 +5,4 @@ By default Flikr will be used.
 For unsplash prepend: ?unsplash  
 For a custom subject: ?subject=cats,mammal  
 
-Library: https://github.com/NDevTK/flickrRandom  
 Code also used in https://github.com/NDevTK/Dynamic-Pigeons

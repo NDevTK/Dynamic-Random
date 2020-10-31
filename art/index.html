@@ -2,7 +2,7 @@
 <head>
     <title>ART</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
-
+    <script src="https://unpkg.com/bicubic-interpolate@%5E1.0.0/dist/min.js" integrity="sha384-VByZVtGyiKLOLFzdrKbq6mv1bkaWYEovKyxCdN1ZWpeZaxPBRhZ4ysIc/f/0u/qf" crossorigin="anonymous"></script>
     <style>
         body {
             background: #212529;
@@ -14,6 +14,11 @@
             width: 100%;
             height: 100%;
             background-size: cover;
+        }
+        img {
+            image-rendering: auto;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
         }
     </style>
 </head>

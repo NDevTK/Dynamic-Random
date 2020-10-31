@@ -23,7 +23,7 @@
 window.addEventListener('WebComponentsReady', async _ => {
     var images = await art();
     const kenBurnsCarousel = document.createElement('script');
-    kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
+    kenBurnsCarousel.src = '/ken-burns-carousel.min.js';
     document.head.appendChild(kenBurnsCarousel);
     kenBurnsCarousel.onload = _ => {
         document.getElementById("bg").images = images;

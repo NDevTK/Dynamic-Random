@@ -1,0 +1,45 @@
+<html>
+<head>
+    <title>ART</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
+
+    <style>
+        body {
+            background: #fafafa;
+        }
+        ken-burns-carousel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+        }
+    </style>
+</head>
+<body>
+<ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
+<script>
+window.addEventListener('WebComponentsReady', async _ => {
+    const kenBurnsCarousel = document.createElement('script');
+    kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
+    document.head.appendChild(kenBurnsCarousel);
+    var images = await art();
+    kenBurnsCarousel.onload = _ => {
+        document.getElementById("bg").images = images;
+    }
+});
+
+async function art() {
+        var images = [];
+        var response = await fetch('https://api.github.com/repos/NDevTK/NDevTK/contents/');
+        var data = await response.json();
+        for (let file of data) {
+          if(!file.name.endsWith(".png") || !file.name.startsWith("art_")) continue;
+          images.push("https://raw.githubusercontent.com/NDevTK/NDevTK/master/"+encodeURI(file.name));
+        }
+        return images
+}
+</script>
+</body>
+</html>

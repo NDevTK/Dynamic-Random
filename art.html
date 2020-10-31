@@ -20,11 +20,11 @@
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
-window.addEventListener('WebComponentsReady', async _ => {
+var images = await art();
+window.addEventListener('WebComponentsReady', async _ => {    
     const kenBurnsCarousel = document.createElement('script');
     kenBurnsCarousel.src = 'ken-burns-carousel.min.js';
     document.head.appendChild(kenBurnsCarousel);
-    var images = await art();
     kenBurnsCarousel.onload = _ => {
         document.getElementById("bg").images = images;
     }

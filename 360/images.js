@@ -16,8 +16,8 @@ function Start() {
         src = "https://imgapi.ndev.workers.dev/?subject=" + subject;
     }
     var i = 1;
-    bg.setAttribute("height", window.screen.availHeight);
-    bg.setAttribute("width", window.screen.availWidth);
+    bg.setAttribute("height", window.innerHeight);
+    bg.setAttribute("width", window.innerWidth);
     bg.setAttribute("src", src + prefix + "c=" + i);
     setInterval(_ => {
         bg.setAttribute("src", src + prefix + "c=" + i);

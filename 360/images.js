@@ -13,8 +13,8 @@ function Start() {
 	    src = "https://imgapi.ndev.workers.dev/?subject="+subject;
     }
     var count = 1;
-    bg.setAttribute(height, window.screen.availHeight);
-    bg.setAttribute(width, window.screen.availWidth);
+    bg.setAttribute("height", window.screen.availHeight);
+    bg.setAttribute("width", window.screen.availWidth);
     setInterval(_ => {
       bg.src = src+"&c=" + i;
       i += 1;

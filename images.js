@@ -5,12 +5,11 @@ type = (params.has('subject')) ? "featured" : "random";
 res = window.screen.availHeight + "x" + window.screen.availWidth;
 
 function Start() {
-    var prefix = "?";
+    var prefix = "&";
     if (unsplash) {
 	    src = "https://source.unsplash.com/" + type + "/" + res;
 	    if (params.has('subject')) {
-		    src = src.concat("/"+ prefix + subject);
-		    prefix = "&";
+		    src = src.concat("/?" + subject);
 	    }
     } else {
 	    src = "https://imgapi.ndev.workers.dev/?subject="+subject;

@@ -6,10 +6,10 @@ type = (params.has('subject')) ? "featured" : "random";
 function Start() {
     var prefix = "&";
     if (unsplash) {
+        src = "https://source.unsplash.com/" + type;
         if (params.has('subject')) {
             src = src.concat("/?" + subject);
         } else {
-            src = "https://source.unsplash.com/" + type;
             prefix = "?";
         }
     } else {

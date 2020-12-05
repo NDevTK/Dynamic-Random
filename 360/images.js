@@ -15,6 +15,7 @@ function Start() {
     var count = 1;
     bg.setAttribute("height", window.screen.availHeight);
     bg.setAttribute("width", window.screen.availWidth);
+    bg.setAttribute("src", bg.src = src+"&c=" + i);
     setInterval(_ => {
       bg.setAttribute("src", bg.src = src+"&c=" + i);
       i += 1;

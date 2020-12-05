@@ -1,6 +1,6 @@
 # Dynamic-Random
 A website with dynamically changing stuff!   
-
+![A pigeon](preview.png)
 By default Flikr will be used.  
 For unsplash prepend: ?unsplash  
 For a custom subject: ?subject=cats,mammal  

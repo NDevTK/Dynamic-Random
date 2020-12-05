@@ -16,7 +16,7 @@ function Start() {
     bg.setAttribute("height", window.screen.availHeight);
     bg.setAttribute("width", window.screen.availWidth);
     setInterval(_ => {
-      bg.setAttribute("width", bg.src = src+"&c=" + i);
+      bg.setAttribute("src", bg.src = src+"&c=" + i);
       i += 1;
     }, 10000);
 }

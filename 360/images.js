@@ -10,5 +10,5 @@ function Start() {
     setInterval(_ => {
       bg.setAttribute("src", src+"&c=" + i);
       i += 1;
-    }, 10000);
+    }, 5000);
 }

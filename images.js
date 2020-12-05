@@ -2,7 +2,7 @@ let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
 subject = (params.has('subject')) ? encodeURI(params.get('subject')) : "nature";
 type = (params.has('subject')) ? "featured" : "random";
-res = window.innerHeight + "x" + window.innerHeight;
+res = window.innerHeight + "x" + window.innerWidth;
 
 function Start() {
     var prefix = "&";

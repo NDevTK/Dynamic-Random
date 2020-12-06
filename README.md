@@ -1,6 +1,8 @@
 # Dynamic-Random
 A website with dynamically changing stuff!   
 By default Flikr will be used.  
+This product uses the Flickr API but is not endorsed or certified by SmugMug, Inc
+
 For unsplash prepend: ?unsplash  
 For a custom subject: ?subject=cats,mammal  
 

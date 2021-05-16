@@ -55,7 +55,7 @@ async function art() {
         var data = await response.json();
         for (let file of data) {
           if(!file.name.endsWith(".png") || !file.name.startsWith("art_")) continue;
-          images.push("https://raw.githubusercontent.com/NDevTK/NDevTK/master/"+encodeURI(file.name));
+          images.push("https://media.githubusercontent.com/media/NDevTK/NDevTK/master/"+encodeURI(file.name));
         }
         return shuffle(images)
 }

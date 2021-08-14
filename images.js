@@ -7,13 +7,13 @@ res = window.innerHeight + "x" + window.innerWidth;
 function getSeason() {
     const month = new Date().getMonth() + 1;
     switch (Math.floor(month / 4)) {
-        case 1:
+        case 0:
             return "Spring";
-        case 2:
+        case 1:
             return "Summer";
-        case 3:
+        case 2:
             return "Autumn";
-        case 4:
+        case 3:
             return "Winter";
     }
 }

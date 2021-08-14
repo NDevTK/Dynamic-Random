@@ -22,7 +22,7 @@ function Start() {
     var prefix = "&";
     if (unsplash) {
         src = "https://source.unsplash.com/" + type;
-        if (params.has('subject')) {
+        if (subject) {
             src = src.concat("/?" + subject);
         } else {
             prefix = "?";

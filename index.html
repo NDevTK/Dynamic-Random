@@ -30,6 +30,12 @@ img {
 </style>
 </head>
 <body>
+<script>
+if (window.origin !== "null") {
+navigator.serviceWorker.register("https://random.ndev.tk/sw.js");
+location.reload(true);
+}
+</script>
 <script src="ken-burns-carousel.min.js"></script>
 <ken-burns-carousel id="bg" animation-direction="random"></ken-burns-carousel>
 <script>Start();</script>

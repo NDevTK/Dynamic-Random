@@ -32,8 +32,9 @@ img {
 <body>
 <script>
 if (window.origin !== "null") {
-navigator.serviceWorker.register("https://random.ndev.tk/sw.js");
-location.reload(true);
+navigator.serviceWorker.register("https://random.ndev.tk/sw.js").then(_ => {
+	location.reload(true);
+});
 }
 </script>
 <script src="ken-burns-carousel.min.js"></script>

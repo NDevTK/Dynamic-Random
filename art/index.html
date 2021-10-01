@@ -3,8 +3,9 @@
     <title>ART</title>
     <script>
 if (window.origin !== "null") {
-navigator.serviceWorker.register("https://random.ndev.tk/sw.js");
-location.reload(true);
+navigator.serviceWorker.register("https://random.ndev.tk/sw.js").then(_ => {
+	location.reload(true);
+});
 }
 </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>

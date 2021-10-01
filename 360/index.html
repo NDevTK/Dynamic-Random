@@ -20,8 +20,9 @@ body {
 <body>
 <script>
 if (window.origin !== "null") {
-navigator.serviceWorker.register("https://random.ndev.tk/sw.js");
-location.reload(true);
+navigator.serviceWorker.register("https://random.ndev.tk/sw.js").then(_ => {
+	location.reload(true);
+});
 }
 </script>
 <script src="https://rawcdn.githack.com/MozillaReality/immersive-custom-elements/9bd5541717d14793269ee7ade5697988bad80c5f/build/immersive-custom-elements.min.js" integrity="sha384-ohiTCA7L0lMAUEhBDhsoqC+qwC2g/3RvY3LJoy84jpJ8dnBO2XSRPmXs+pqHGYpC" crossorigin="anonymous"></script>

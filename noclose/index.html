@@ -1,0 +1,13 @@
+<script>
+if (window.opener) {
+  alert("Please no opener");
+  throw "noopener";
+}
+
+function load() {
+  open("https://random.ndev.tk/noclose/payload.html#"+url);
+}
+</script>
+<label for="url">URL:</label>
+<input type="text" id="url" name="url">
+<button type="button" onclick="load"> Click Me!</button>

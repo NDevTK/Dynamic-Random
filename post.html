@@ -5,15 +5,15 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
 
-      async function check(value, url, attempts = 50000) {
+      async function check(value, url, attempts) {
         let array = [...Array(attempts)];
-        let time1 = await time('', url, attempts, array);
-        let time2 = await time(value, url, attempts, array);
-        return (time2 < time1);
+        let time1 = await time('', url, attempts);
+        let time2 = await time(value, url, attempts);
+        return (time1 < time2);
       }
 
-      function time(value, url, attempts, array) {
-        array.forEach(() => target.contentWindow.postMessage(value, '*'));
+      function time(value, url, attempts = 5e5) {
+        for(i=attempts;i--;) target.contentWindow.postMessage(value, '*'));
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);

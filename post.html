@@ -13,7 +13,7 @@
       }
 
       function time(value, attempts = 5e5) {
-        for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*'));
+        for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);

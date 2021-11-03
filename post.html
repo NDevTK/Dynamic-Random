@@ -4,9 +4,9 @@
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
-      let array = [];
+
       async function check(value, url, attempts = 50000) {
-        array = [...Array(attempts)];
+        let array = [...Array(attempts)];
         let time1 = await time('', url, attempts, array);
         let time2 = await time(value, url, attempts, array);
         return (time2 < time1);

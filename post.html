@@ -5,7 +5,7 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
       
-      async function check(value, url, attempts = 100000) {
+      async function check(value, url, attempts = 50000) {
         let time1 = await time('', url, attempts);
         let time2 = await time(value, url, attempts);
         return (time2 > time1);
@@ -18,7 +18,7 @@
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          checker.src = url;
+          checker.contentWindow.location = url;
         });
       }
     </script>

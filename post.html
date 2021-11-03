@@ -5,7 +5,7 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
       
-      async function time(value, url, attempts = 1e7) {
+      function time(value, url, attempts = 1e7) {
         [...Array(attempts)].forEach(_ => target.postMessage(value, '*'));
         return new Promise(resolve => {
           checker.onload = () => {

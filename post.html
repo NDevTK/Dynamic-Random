@@ -5,8 +5,8 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
       
-      async function time(value, url) {
-        [...Array(1e7)].forEach(_ => target.postMessage(value, '*'));
+      async function time(value, url, attempts = 1e7) {
+        [...Array(attempts)].forEach(_ => target.postMessage(value, '*'));
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);

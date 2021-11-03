@@ -5,12 +5,12 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
 
-      async function check(value, attempts = 10000) {
+      async function check(value, attempts = 50000) {
         let time1 = await time('', attempts);
-        let time2 = await time(value, attempts);
+        let time2 = await time('', attempts);
         let avg1 = (time1 + time2)/2;
         
-        let time3 = await time('', attempts);
+        let time3 = await time(value, attempts);
         let time4 = await time(value, attempts);
         let avg2 = (time3 + time4)/2;
    

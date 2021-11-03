@@ -1,14 +1,12 @@
 <body>
     <iframe id="target" src="detect.html"></iframe>
-    <iframe id="checker" src="detect.html"></iframe>
     <script>
       let target = document.getElementById('target');
-      let checker = document.getElementById('checker');
       
       function time(value, url, attempts = 1e7) {
         [...Array(attempts)].forEach(() => target.contentWindow.postMessage(value, '*'));
         return new Promise(resolve => {
-          checker.onload = () => {
+          target.onload = () => {
             resolve(performance.now() - start);
           };
           let start = performance.now();

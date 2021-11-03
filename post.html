@@ -6,7 +6,7 @@
       let checker = document.getElementById('checker');
       
       function time(value, url, attempts = 1e7) {
-        [...Array(attempts)].forEach(() => target.postMessage(value, '*'));
+        [...Array(attempts)].forEach(() => target.contentWindow.postMessage(value, '*'));
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);

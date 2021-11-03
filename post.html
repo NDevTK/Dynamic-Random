@@ -8,7 +8,7 @@
         
       async function score(value, attempts = 50000, verify = 10) {
           let score = 0;
-          for(let i=verify; i--;) check(value, attempts);
+          for(let i=verify; i--;) await check(value, attempts);
           return score;
       }
         

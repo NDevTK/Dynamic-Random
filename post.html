@@ -5,9 +5,7 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
 
-      async function check(value, attempts) {
-        let array = [...Array(attempts)];
-
+      async function check(value, attempts = 5e5) {
         let time1 = await time('', attempts);
         let time2 = await time(value, attempts);
         let avg1 = (time1 + time2)/2;
@@ -17,7 +15,7 @@
         return (avg1 < avg2);
       }
 
-      function time(value, attempts = 5e5) {
+      function time(value, attempts) {
         for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
         return new Promise(resolve => {
           checker.onload = () => {

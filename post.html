@@ -4,17 +4,18 @@
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
-
-      async function check(value, attempts = 50000) {
-        let time1 = await time('', attempts);
-        let time2 = await time('', attempts);
-        let avg1 = (time1 + time2)/2;
+      
         
-        let time3 = await time(value, attempts);
-        let time4 = await time(value, attempts);
-        let avg2 = (time3 + time4)/2;
-   
-        return (avg1 < avg2);
+      async function score(value, attempts = 50000, verify = 10) {
+          let score = 0;
+          for(let i=verify; i--;) check(value, attempts);
+          return score;
+      }
+        
+      async function check(value, attempts) {
+        let time1 = await time('', attempts);
+        let time2 = await time(value, attempts);
+        return (time1 < time2);
       }
 
       function time(value, attempts) {

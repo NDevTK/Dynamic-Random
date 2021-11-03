@@ -5,7 +5,13 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
       
-      function time(value, url, attempts = 1e7) {
+      async function check(value, url, attempts = 5000) {
+        let time1 = await time('', url, attempts);
+        let time2 = await time(value, url, attempts);
+        return (time2 > time1);
+      }
+
+      function time(value, url, attempts) {
         [...Array(attempts)].forEach(() => target.contentWindow.postMessage(value, '*'));
         return new Promise(resolve => {
           checker.onload = () => {

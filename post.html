@@ -5,11 +5,16 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
 
-      async function check(value, url, attempts) {
+      async function check(value, attempts) {
         let array = [...Array(attempts)];
-        let time1 = await time('', url, attempts);
-        let time2 = await time(value, url, attempts);
-        return (time1 < time2);
+
+        let time1 = await time('', attempts);
+        let time2 = await time(value, attempts);
+        let avg1 = (time1 + time2)/2;
+        let time3 = await time('', attempts);
+        let time4 = await time(value, attempts);
+        let avg2 = (time3 + time4)/2;
+        return (avg1 < avg2);
       }
 
       function time(value, attempts = 5e5) {

@@ -5,7 +5,7 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
       
-      async function check(value, url, attempts = 5000) {
+      async function check(value, url, attempts = 100000) {
         let time1 = await time('', url, attempts);
         let time2 = await time(value, url, attempts);
         return (time2 > time1);

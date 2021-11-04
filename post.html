@@ -7,7 +7,7 @@
 
       function worker_function() {
           self.onmessage = function (event) {
-              for(let i=5e5; i--;) opener.target.contentWindow.postMessage(value, '*');
+              for(let i=80000; i--;) opener.target.contentWindow.postMessage(value, '*');
           } 
       }
 

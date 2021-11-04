@@ -7,7 +7,9 @@
        
       async function check(value, attempts = 100000) {
         let attempt = await time(value, attempts);
-        let knownbad = await time('', attempts);
+        let knownbad1 = await time('', attempts);
+        let knownbad2 = await time('', attempts);
+        let knownbad = (knownbad1 > knownbad2) ? knownbad1 : knownbad2;
         return attempt - knownbad;
       }
 

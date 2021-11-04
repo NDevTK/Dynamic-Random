@@ -15,7 +15,7 @@
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);
-            checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
+            target.contentWindow.location = "https://ndevtk.github.io/cross-site/";
           };
           for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
           let start = performance.now();

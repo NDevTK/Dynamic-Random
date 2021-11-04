@@ -6,26 +6,16 @@
       let checker = document.getElementById('checker');
       
         
-      async function score(value, attempts = 80000, verify = 5) {
-          let score = 0;
+      async function check(value, attempts = 80000, verify = 5) {
+          let total1;
+          let total2;
           for(let i=verify; i--;) {
-              if (await check(value, attempts)) {
-                  score += 1;
-              } else {
-                  score -= 1;
-              }
+              total1 += await time('xx', attempts);
+              total2 += await time(value, attempts);
           }
-          return score;
+          return (total1/verify) < (total2/verify);
       }
         
-      async function check(value, attempts) {
-        let time1 = await time('xx', attempts);
-        let time2 = await time(value, attempts);
-        console.log("time1: "+time1);
-        console.log("time2: "+time2);
-        return (time1 < time2);
-      }
-
       function time(value, attempts) {
         for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
         return new Promise(resolve => {

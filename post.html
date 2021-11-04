@@ -14,7 +14,7 @@
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          spam.contentWindow.postMessage("");
+          spam.contentWindow.postMessage("", "*");
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

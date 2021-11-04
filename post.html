@@ -14,7 +14,7 @@
         }
         for(let i=5; i--;) {
             let result = await time(value, attempts);
-            if (knownbad < attempt) knownbad = result;
+            if (result < knownbad) knownbad = result;
         }
         return attempt - knownbad;
       }

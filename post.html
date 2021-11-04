@@ -25,11 +25,11 @@
       }
 
       function time(value, attempts) {
-        for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);
           };
+          for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
           let start = performance.now();
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });

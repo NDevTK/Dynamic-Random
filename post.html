@@ -7,11 +7,7 @@
        
       async function check(value, attempts = 100000) {
         let attempt = await time(value, attempts);
-        let knownbad1 = await time('', attempts);
-        let knownbad2 = await time('', attempts);
-        let knownbad3 = await time('', attempts);
-        let knownbad = (knownbad1 > knownbad2) ? knownbad1 : knownbad2;
-        knownbad = (knownbad > knownbad3) ? knownbad : knownbad3;
+        let knownbad = await time('', attempts);
         return attempt - knownbad;
       }
 
@@ -19,6 +15,7 @@
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);
+            checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
           };
           for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
           let start = performance.now();

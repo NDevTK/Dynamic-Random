@@ -18,7 +18,7 @@
           };
           for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
           let start = performance.now();
-          target.contentWindow.focus();
+          checker.contentWindow.location = "https://ndevtk.github.io/cross-site/#focus";
         });
       }
     </script>

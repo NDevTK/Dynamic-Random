@@ -4,24 +4,11 @@
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
-      
-        
-      async function score(value, attempts = 80000, verify = 5) {
-          let score = 0;
-          for(let i=verify; i--;) {
-              if (await check(value, attempts)) {
-                  score += 1;
-              } else {
-                  score -= 1;
-              }
-          }
-          return score;
-      }
-        
-      async function check(value, attempts) {
+       
+      async function check(value, attempts, diff) {
         let time1 = await time('', attempts);
         let time2 = await time(value, attempts);
-        return (time1 < time2);
+        return (time1 < time2 && time2 - time1 > diff);
       }
 
       function time(value, attempts) {

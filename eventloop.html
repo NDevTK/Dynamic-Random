@@ -54,7 +54,7 @@
         const sharedBuffer = new SharedArrayBuffer(
           Uint32Array.BYTES_PER_ELEMENT
         );
-
+        const sharedArray = new Uint32Array(sharedBuffer);
         worker.postMessage(sharedBuffer);
         
         let start;

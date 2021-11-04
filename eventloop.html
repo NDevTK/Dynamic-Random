@@ -24,6 +24,7 @@
   </head>
   <body>
     <iframe id="frame"></iframe>
+    <iframe id="test"></iframe>
     <div class="navbar"><h1>Iframe monitor</h1></div>
     <label for="target">Target </label
     ><input type="text" id="target" /><br />
@@ -31,6 +32,10 @@
     <div class="wrapper">
       <div id="chart"></div>
       <script>
+        target.onchange = () => {
+          test.src = target.value;
+        }
+        
         // Define a function to be ran inside a WebWorker
         function timer() {
           self.onmessage = function(event) {

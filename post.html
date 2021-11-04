@@ -8,6 +8,7 @@
       async function check(value, attempts = 80000, diff = 5) {
         let time1 = await time('', attempts);
         let time2 = await time(value, attempts);
+        console.log(time2 - time1);
         return (time1 < time2 && time2 - time1 > diff);
       }
 

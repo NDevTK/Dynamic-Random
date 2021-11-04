@@ -31,11 +31,7 @@
 
     <div class="wrapper">
       <div id="chart"></div>
-      <script>
-        target.onchange = () => {
-          test.src = target.value;
-        }
-        
+      <script>        
         // Define a function to be ran inside a WebWorker
         function timer() {
           self.onmessage = function(event) {
@@ -65,6 +61,7 @@
         let start;
         
         target.onchange = () => {
+          test.contentWindow.location = target.value;
           frame.contentWindow.location = target.value;
         }
         

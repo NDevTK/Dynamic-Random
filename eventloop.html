@@ -78,6 +78,7 @@
           };
           start = Atomics.load(sharedArray, 0);
           frame.contentWindow.location = target.value;
+          frame.src = target.value;
         }
 
         Plotly.plot("chart", [

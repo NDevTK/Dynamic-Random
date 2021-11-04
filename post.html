@@ -19,7 +19,7 @@
       }
         
       async function check(value, attempts) {
-        let time1 = await time('', attempts);
+        let time1 = await time('01', attempts);
         let time2 = await time(value, attempts);
         return (time1 < time2);
       }

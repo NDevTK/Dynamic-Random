@@ -5,10 +5,10 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
        
-      async function check(value, attempts = 50000, diff = 50) {
+      async function check(value, attempts = 100000) {
         let knownbad = await time('', attempts);
         let attempt = await time(value, attempts);
-        return (attempt - knownbad > diff);
+        return attempt - knownbad;
       }
 
       function time(value, attempts) {

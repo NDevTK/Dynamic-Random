@@ -6,10 +6,16 @@
       let checker = document.getElementById('checker');
        
       async function check(value, attempts = 100000) {
-        let attempt = await time(value, attempts);
-        let knownbad1 = await time('xx', attempts);
-        let knownbad2 = await time('xx', attempts);
-        let knownbad = (knownbad1 > knownbad2) ? knownbad1 : knownbad2;
+        let attempt = 1000000;
+        let knownbad = 1000000;
+        for(let i=5; i--;) {
+            let result = await time(value, attempts);
+            if (result < attempt) attempt = result;
+        }
+        for(let i=5; i--;) {
+            let result = await time(value, attempts);
+            if (knownbad < attempt) knownbad = result;
+        }
         return attempt - knownbad;
       }
 

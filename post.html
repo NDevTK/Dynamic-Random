@@ -1,20 +1,36 @@
 <body>
     <iframe id="target" src="https://ndevtk.github.io/cross-site/"></iframe>
     <iframe id="checker" src="https://ndevtk.github.io/cross-site/"></iframe>
-    <iframe id="spam" src="https://terjanq.me/xss.php?js=onmessage=function(e){for(let i=80000;i--;)parent[0].postMessage(e.data,'*');}"></iframe>
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
-      let spam = document.getElementById('checker');
+      
+        
+      async function score(value, attempts = 80000, verify = 5) {
+          let score = 0;
+          for(let i=verify; i--;) {
+              if (await check(value, attempts)) {
+                  score += 1;
+              } else {
+                  score -= 1;
+              }
+          }
+          return score;
+      }
+        
+      async function check(value, attempts) {
+        let time1 = await time('', attempts);
+        let time2 = await time(value, attempts);
+        return (time1 < time2);
+      }
 
-
-      function time(value) {
+      function time(value, attempts) {
+        for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          spam.contentWindow.postMessage(value, "https://terjanq.me");
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

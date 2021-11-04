@@ -3,22 +3,16 @@
     <iframe id="checker" src="https://ndevtk.github.io/cross-site/"></iframe>
     <script>
       let target = document.getElementById('target');
-      
-      async function check(value, attempts) {
-          let knownbad = await time('xx', attempts);
-          let attempt = await time(value, attempts);
-          return attempt - knownbad;
-      }
-       
+      let checker = document.getElementById('checker');
+
       function time(value, attempts) {
         return new Promise(resolve => {
-          window.focus();
-          window.onblur = () => {
+          checker.onload = () => {
             resolve(performance.now() - start);
           };
           for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
           let start = performance.now();
-          checker.contentWindow.location = "https://ndevtk.github.io/cross-site/#focus";
+          checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }
     </script>

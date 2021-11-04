@@ -3,7 +3,13 @@
     <iframe id="checker" src="https://ndevtk.github.io/cross-site/"></iframe>
     <script>
       let target = document.getElementById('target');
-
+      
+      async function check(value, attempts) {
+          let knownbad = await time('xx', attempts);
+          let attempt = await time(value, attempts);
+          return attempt - knownbad;
+      }
+       
       function time(value, attempts) {
         return new Promise(resolve => {
           window.focus();

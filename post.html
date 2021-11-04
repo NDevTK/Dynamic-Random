@@ -15,9 +15,13 @@
           }
           return (total1/verify) < (total2/verify);
       }
-        
-      function time(value, attempts) {
+
+      async function spam() {
         for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
+      }
+
+      function time(value, attempts) {
+        spam();
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);

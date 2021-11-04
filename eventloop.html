@@ -30,7 +30,7 @@
 
     <div class="wrapper">
       <div id="chart"></div>
-      <script>       
+      <script>
         // Define a function to be ran inside a WebWorker
         function timer() {
           self.onmessage = function(event) {
@@ -59,6 +59,10 @@
         
         let start;
         
+        target.onchange = () => {
+          frame.contentWindow.location = target.value;
+        }
+        
         frame.onload = () => {
           let time = Atomics.load(sharedArray, 0);
           if (start) {
@@ -84,7 +88,6 @@
         ]);
 
         var cnt = 0;
-        frame.src = "about:blank";
       </script>
     </div>
   </body>

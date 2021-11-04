@@ -9,7 +9,9 @@
         let attempt = await time(value, attempts);
         let knownbad1 = await time('', attempts);
         let knownbad2 = await time('', attempts);
+        let knownbad3 = await time('', attempts);
         let knownbad = (knownbad1 > knownbad2) ? knownbad1 : knownbad2;
+        knownbad = (knownbad > knownbad3) ? knownbad : knownbad3;
         return attempt - knownbad;
       }
 

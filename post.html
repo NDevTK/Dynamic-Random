@@ -16,7 +16,7 @@
           return (total1/verify) < (total2/verify);
       }
 
-      async function spam(attempts) {
+      async function spam(attempts, value) {
         for(let i=attempts; i--;) target.contentWindow.postMessage(value, '*');
       }
 
@@ -26,7 +26,7 @@
             resolve(performance.now() - start);
           };
           let start = performance.now();
-          spam(attempts);
+          spam(attempts, value);
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

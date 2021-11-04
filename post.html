@@ -5,11 +5,17 @@
       let target = document.getElementById('target');
       let checker = document.getElementById('checker');
        
-      async function check(value, attempts = 80000, diff = 5) {
-        let time1 = await time('', attempts);
-        let time2 = await time(value, attempts);
-        console.log(time2 - time1);
-        return (time1 < time2 && time2 - time1 > diff);
+      async function check(value, attempts = 80000, diff = 30) {
+          for (;;) {
+              let time1 = await time('', attempts);
+              let time2 = await time(value, attempts);
+              console.log(time2 - time1); 
+              if (time1 < time2) {
+                  if (time2 - time1 > diff) return (time1 < time2)
+              } else if (time1 -  time2 > diff) {
+                  return (time1 < time2);
+              }
+          }
       }
 
       function time(value, attempts) {

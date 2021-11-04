@@ -63,6 +63,10 @@
           frame.contentWindow.location = target.value;
         }
         
+        setInterval(() => {
+          frame.contentWindow.location = target.value;
+        }, 1000);
+        
         frame.onload = () => {
           let time = Atomics.load(sharedArray, 0);
           if (start) {
@@ -78,7 +82,6 @@
           };
           start = Atomics.load(sharedArray, 0);
           frame.contentWindow.location = target.value;
-          frame.src = target.value;
         }
 
         Plotly.plot("chart", [

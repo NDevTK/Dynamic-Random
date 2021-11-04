@@ -6,10 +6,9 @@
       let checker = document.getElementById('checker');
        
       async function check(value, attempts = 50000, diff = 50) {
-        let time1 = await time('', attempts);
-        let time2 = await time(value, attempts);
-        console.log(time2 - time1);
-        return (time1 < time2 && time2 - time1 > diff);
+        let knownbad = await time('', attempts);
+        let attempt = await time(value, attempts);
+        return (attempt - knownbad > diff);
       }
 
       function time(value, attempts) {

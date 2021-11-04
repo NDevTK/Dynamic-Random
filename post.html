@@ -21,12 +21,12 @@
       }
 
       function time(value, attempts) {
-        spam(attempts);
         return new Promise(resolve => {
           checker.onload = () => {
             resolve(performance.now() - start);
           };
           let start = performance.now();
+          spam(attempts);
           checker.contentWindow.location = "https://ndevtk.github.io/cross-site/";
         });
       }

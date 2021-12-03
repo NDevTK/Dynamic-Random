@@ -11,6 +11,8 @@ function getRandom(max, min = 0) {
   return Math.random() * (max - min) + min;
 }
 
+let tab;
+
 function create(url = "https://raw.githubusercontent.com/NDevTK/website/master/Discord.webp") {
   if (tab) {
     tab.close();

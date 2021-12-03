@@ -7,7 +7,11 @@ window.onload = e => {
     create();
   }
 };
-  
+
+function getRandom(max, min = 0) {
+  return Math.random() * (max - min) + min;
+}
+
 function create(url = "https://ndev.tk/Discord.webp") {
   if (tab) {
     tab.close();

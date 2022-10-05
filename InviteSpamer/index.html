@@ -10,10 +10,10 @@ window.onload = e => {
 };
 
 async function InviteSpam() {
-  // Spam Client
-  var discord = await popunder(server);
   // User input
   const server = "https://discord.gg/"+prompt("discord server id");
+  // Spam Client
+  var discord = await popunder(server);
   setInterval(function(){
     discord.location.href = server;
   }, 0);

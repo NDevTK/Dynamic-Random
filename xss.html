@@ -3,7 +3,6 @@
 </head>
 <body>
 <script>
-if (DOMPurify.isSupported) return;
-eval(location.search);
+if (!DOMPurify) eval(location.search);
 </script>
 </body>

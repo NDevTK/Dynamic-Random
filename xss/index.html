@@ -1,0 +1,10 @@
+<script>
+  const frame = document.createElement('iframe');
+  frame.sandbox = '';
+  frame.srcdoc = '<h1>:)</h1>';
+  document.body.appendChild(frame);
+  onmessage = (e) => {
+    if (e.source != frame.contentWindow || e.origin != 'null') return;
+    eval(e.data);
+  }
+</script>

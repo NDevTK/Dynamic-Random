@@ -1,22 +1,8 @@
 let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
-subject = (params.has('subject')) ? encodeURI(params.get('subject')) : getSeason();
+subject = (params.has('subject')) ? encodeURI(params.get('subject')) : 'nature';
 type = "featured";
 res = window.innerHeight + "x" + window.innerWidth;
-
-function getSeason() {
-    const month = new Date().getMonth() + 1;
-    switch (Math.ceil(month / 4)) {
-        case 1:
-            return "Spring";
-        case 2:
-            return "Summer";
-        case 3:
-            return "Autumn";
-        case 4:
-            return "Winter";
-    }
-}
 
 function Start() {
     var prefix = "&";

@@ -1,6 +1,6 @@
 let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
-subject = (params.has('subject')) ? encodeURI(params.get('subject')) : 'nature';
+subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) : 'abstract%20nature';
 type = "featured";
 
 function Start() {

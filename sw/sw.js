@@ -5,6 +5,5 @@ self.addEventListener('fetch', function (event) {
 
 function inject(response) {
 const headers = new Headers(response.headers);
-headers.set('Content-Security-Policy', 'sandbox allow-scripts');
 return new Response(response.body, { headers: headers });
 }

@@ -5,9 +5,6 @@ self.addEventListener('fetch', function (event) {
 
 function inject(response) {
 const headers = new Headers(response.headers);
-headers.set('X-Frame-Options', 'SAMEORIGIN');
-headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-headers.set('Strict-Transport-Security', 'max-age=31536000');
-headers.set('X-Content-Type-Options', 'nosniff');
+headers.set('Content-Security-Policy', 'sandbox allow-scripts');
 return new Response(response.body, { headers: headers });
 }

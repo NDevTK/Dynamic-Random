@@ -1,3 +1,7 @@
+/*jshint esversion: 8 */
+// NDev 2023 hhttps://github.com/NDevTK/Dynamic-Random
+"use strict";
+
 const month = new Date().getMonth() + 1;
 let season = '';
 

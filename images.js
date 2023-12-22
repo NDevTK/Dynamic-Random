@@ -15,7 +15,8 @@ if ([6, 7, 8].includes(month))
 if ([9, 10, 11].includes(month))
     season = 'autumn';
 
-let params = (new URL(document.location)).searchParams;
+const params = (new URL(document.location)).searchParams;
+
 const unsplash = params.has('unsplash');
 const useseason = params.has('useseason');
 const type = "featured";

@@ -1,6 +1,19 @@
+let season = '';
+
+// probbaly not going to be correct :/
+if ([12, 1, 2].includes(month))
+    season = 'winter';
+    changeSnowflake('❄️');
+if ([3, 4, 5].includes(month))
+    season = 'spring';
+if ([6, 7, 8].includes(month))
+    season = 'summer';
+if ([9, 10, 11].includes(month))
+    season = 'autumn';
+
 let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
-subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) : 'abstract%20nature';
+subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) : 'abstract%20nature%20' + season;
 type = "featured";
 
 function Start() {
@@ -17,3 +30,4 @@ function Start() {
     }
     bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "c=" + i + 1);
 }
+

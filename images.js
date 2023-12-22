@@ -1,3 +1,4 @@
+const month = new Date().getMonth() + 1;
 let season = '';
 
 // probbaly not going to be correct :/

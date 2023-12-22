@@ -19,7 +19,7 @@ const params = (new URL(document.location)).searchParams;
 
 const unsplash = params.has('unsplash');
 const useseason = params.has('useseason');
-const type = "featured";
+const type = 'featured';
 
 const suffix = useseason ? '%20' + season : '';
 const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;

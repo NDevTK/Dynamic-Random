@@ -3,7 +3,6 @@ let season = '';
 // probbaly not going to be correct :/
 if ([12, 1, 2].includes(month))
     season = 'winter';
-    changeSnowflake('❄️');
 if ([3, 4, 5].includes(month))
     season = 'spring';
 if ([6, 7, 8].includes(month))

@@ -25,7 +25,7 @@ const suffix = useseason ? '%20' + season : '';
 const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
 
 function Start() {
-    var prefix = '&';
+    let prefix = '&';
     let src = '';
     if (unsplash) {
         src = 'https://source.unsplash.com/' + type;

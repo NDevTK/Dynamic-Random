@@ -16,25 +16,25 @@ if ([9, 10, 11].includes(month))
     season = 'autumn';
 
 let params = (new URL(document.location)).searchParams;
-unsplash = params.has('unsplash');
-useseason = params.has('useseason');
+const unsplash = params.has('unsplash');
+const useseason = params.has('useseason');
+const type = "featured";
 
 const suffix = useseason ? '%20' + season : '';
-
-subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
-type = "featured";
+const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
 
 function Start() {
-    var prefix = "&";
+    var prefix = '&';
+    let src = '';
     if (unsplash) {
-        src = "https://source.unsplash.com/" + type;
+        src = 'https://source.unsplash.com/' + type;
         if (subject) {
-            src = src.concat("/?" + subject);
+            src = src.concat('/?' + subject);
         } else {
-            prefix = "?";
+            prefix = '?';
         }
     } else {
-        src = "https://imgapi.ndev.workers.dev/?subject=" + subject;
+        src = 'https://imgapi.ndev.workers.dev/?subject=' + subject;
     }
     bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "c=" + i + 1);
 }

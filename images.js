@@ -13,7 +13,11 @@ if ([9, 10, 11].includes(month))
 
 let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
-subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) : 'nature%20' + season;
+useseason = params.has('useseason');
+
+const suffix = useseason ? '%20' + season : '';
+
+subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
 type = "featured";
 
 function Start() {

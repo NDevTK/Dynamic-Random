@@ -16,8 +16,7 @@ if ([9, 10, 11].includes(month))
     season = 'autumn';
 
 const hour = new Date().getHours();
-const isNight = (hour > 6 && hour < 20) ? '' : '%20night';
-season += isNight;
+season += (hour > 6 && hour < 20) ? '' : '%20night';
 
 const params = (new URL(document.location)).searchParams;
 

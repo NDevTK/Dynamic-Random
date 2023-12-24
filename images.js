@@ -18,7 +18,7 @@ if ([6, 7, 8].includes(month))
 if ([9, 10, 11].includes(month))
     season = 'autumn';
 
-season += '%20' + dayState;
+season += ',' + dayState;
 
 const params = (new URL(document.location)).searchParams;
 
@@ -26,9 +26,9 @@ const unsplash = params.has('unsplash');
 const useseason = params.has('useseason');
 const type = 'featured';
 
-const suffix = useseason ? '%20' + season : '';
+const suffix = useseason ? ',' + season : '';
 
-const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
+const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature,' + season;
 
 function Start() {
     let prefix = '&';

@@ -3,7 +3,7 @@
 "use strict";
 
 const hour = new Date().getHours();
-const dayState = (hour > 6 && hour < 20) ? 'day' : 'night';
+const dayState = (hour > 6 && hour < 20) ? '' : '%20night';
 
 const month = new Date().getMonth() + 1;
 let season = '';
@@ -18,7 +18,7 @@ if ([6, 7, 8].includes(month))
 if ([9, 10, 11].includes(month))
     season = 'autumn';
 
-season += '%20' + dayState;
+season += dayState;
 
 const params = (new URL(document.location)).searchParams;
 

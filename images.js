@@ -18,7 +18,7 @@ if ([6, 7, 8].includes(month))
 if ([9, 10, 11].includes(month))
     season = 'autumn';
 
-season += '%20%'+dayState;
+season += '%20' + dayState;
 
 const params = (new URL(document.location)).searchParams;
 

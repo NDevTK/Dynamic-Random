@@ -1,5 +1,5 @@
 /*jshint esversion: 8 */
-// NDev 2023 hhttps://github.com/NDevTK/Dynamic-Random
+// NDev 2023 https://github.com/NDevTK/Dynamic-Random
 "use strict";
 
 const month = new Date().getMonth() + 1;
@@ -41,6 +41,7 @@ function Start() {
     } else {
         src = 'https://imgapi.ndev.workers.dev/?subject=' + subject;
     }
-    bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "c=" + i + 1);
+    bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "cacheId=" + crypto.randomUUID() + 1);
 }
 
+onkeydown = (e) => { if (e.key === 'ArrowRight') location.reload(); }

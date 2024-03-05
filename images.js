@@ -43,5 +43,3 @@ function Start() {
     }
     bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "cacheId=" + crypto.randomUUID() + 1);
 }
-
-onkeydown = (e) => { if (e.key === 'ArrowRight') location.reload(); }

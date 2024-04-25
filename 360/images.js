@@ -1,3 +1,8 @@
+if (window !== window.top && window.origin !== 'null') {
+  console.error('Please use a sandboxed iframe');
+  return
+}
+
 let params = (new URL(document.location)).searchParams;
 unsplash = params.has('unsplash');
 subject = (params.has('subject')) ? encodeURI(params.get('subject')) : "nature";

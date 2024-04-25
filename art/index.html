@@ -1,7 +1,6 @@
 <html>
 <head>
     <title>ART</title>
-    <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.0/webcomponents-loader.js"></script>
     <style>
         body {
@@ -25,6 +24,12 @@
 <body>
 <ken-burns-carousel id="bg" animation-direction="random"></ken-burns-carousel>
 <script>
+
+if (window.origin !== 'null') {
+    console.error('Please sandbox me!');
+    return
+}
+
 window.addEventListener('WebComponentsReady', async _ => {
     var images = await art();
     const kenBurnsCarousel = document.createElement('script');

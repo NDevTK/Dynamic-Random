@@ -2,6 +2,12 @@
 // NDev 2023 https://github.com/NDevTK/Dynamic-Random
 "use strict";
 
+if (window.trustedTypes && trustedTypes.createPolicy) { // I will be lazy!
+  trustedTypes.createPolicy('default', {
+    createHTML: (string, sink) => DOMPurify.sanitize(string, {RETURN_TRUSTED_TYPE: true, ALLOWED_TAGS: ["iframe"]})
+  });
+}
+
 const month = new Date().getMonth() + 1;
 let season = '';
 

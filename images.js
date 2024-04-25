@@ -2,11 +2,6 @@
 // NDev 2023 https://github.com/NDevTK/Dynamic-Random
 "use strict";
 
-if (window !== window.top && window.origin !== 'null') {
-  console.error('Please use a sandboxed iframe');
-  return
-}
-
 const month = new Date().getMonth() + 1;
 let season = '';
 
@@ -34,6 +29,7 @@ const suffix = useseason ? '%20' + season : '';
 const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
 
 function Start() {
+    if (window !== window.top && window.origin !== 'null') { console.error('Please use a sandboxed iframe'); return }
     let prefix = '&';
     let src = '';
     if (unsplash) {

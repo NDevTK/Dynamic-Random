@@ -4,7 +4,7 @@
 
 if (window.trustedTypes && trustedTypes.createPolicy) { // I will be lazy!
   trustedTypes.createPolicy('default', {
-    createHTML: (string, sink) => DOMPurify.sanitize(string, {RETURN_TRUSTED_TYPE: true, ALLOWED_TAGS: ["iframe"]})
+    createHTML: (string, sink) => DOMPurify.sanitize(string, {RETURN_TRUSTED_TYPE: true})
   });
 }
 

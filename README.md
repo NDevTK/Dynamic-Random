@@ -1,4 +1,4 @@
 # Dynamic-Random
-A website with dynamically changing stuff!   
+My website background.
 
 Code also used in https://github.com/NDevTK/Dynamic-Pigeons  

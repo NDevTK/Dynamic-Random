@@ -14,7 +14,6 @@ function Start() {
             prefix = "?";
         }
     } else {
-        src = "https://imgapi.ndev.workers.dev/?subject=" + subject;
     }
     var i = 1;
     bg.setAttribute("height", window.innerHeight);

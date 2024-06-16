@@ -20,7 +20,7 @@ season += (hour > 6 && hour < 20) ? '' : '%20night';
 
 const params = (new URL(document.location)).searchParams;
 
-const unsplash = params.has('unsplash');
+const unsplash = true;
 const useseason = params.has('useseason');
 const type = 'featured';
 

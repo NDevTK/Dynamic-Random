@@ -27,20 +27,3 @@ const type = 'featured';
 const suffix = useseason ? '%20' + season : '';
 
 const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;
-
-function Start() {
-    if (window !== window.top && window.origin !== 'null') { console.error('Please use a sandboxed iframe'); return }
-    let prefix = '&';
-    let src = '';
-    if (unsplash) {
-        src = 'https://source.unsplash.com/' + type;
-        if (subject) {
-            src = src.concat('/?' + subject);
-        } else {
-            prefix = '?';
-        }
-    } else {
-
-    }
-    bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "cacheId=" + crypto.randomUUID() + 1);
-}

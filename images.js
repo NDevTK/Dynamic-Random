@@ -40,7 +40,7 @@ function Start() {
             prefix = '?';
         }
     } else {
-        src = 'https://imgapi.ndev.workers.dev/?subject=' + subject;
+
     }
     bg.images = Array.from({length: 100000}, (_, i) => src + prefix + "cacheId=" + crypto.randomUUID() + 1);
 }

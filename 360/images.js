@@ -1,5 +1,5 @@
 let params = (new URL(document.location)).searchParams;
-unsplash = params.has('unsplash');
+unsplash = true;
 subject = (params.has('subject')) ? encodeURI(params.get('subject')) : "nature";
 type = (params.has('subject')) ? "featured" : "random";
 

@@ -17,13 +17,3 @@ if ([9, 10, 11].includes(month))
 
 const hour = new Date().getHours();
 season += (hour > 6 && hour < 20) ? '' : '%20night';
-
-const params = (new URL(document.location)).searchParams;
-
-const unsplash = true;
-const useseason = params.has('useseason');
-const type = 'featured';
-
-const suffix = useseason ? '%20' + season : '';
-
-const subject = (params.has('subject')) ? encodeURIComponent(params.get('subject')) + suffix : 'nature%20' + season;

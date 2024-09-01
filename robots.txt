@@ -1,3 +1,0 @@
-# Bye World
-User-agent: *
-Disallow: /

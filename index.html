@@ -6,14 +6,6 @@
     <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
     <title>Celestial Canvas</title>
     <style>
-        :root {
-            /* Define CSS variables for the gradient colors for easy JS access */
-            --gradient-color-1: #0d0d2b;
-            --gradient-color-2: #2c1a4c;
-            --gradient-color-3: #522b5b;
-            --gradient-color-4: #23a6d5;
-        }
-
         body, html {
             margin: 0;
             padding: 0;
@@ -24,35 +16,19 @@
             color: white;
         }
 
-        /* --- New Animated Gradient Background --- */
+        /* --- Animated Gradient Background --- */
         body {
-            /* 
-             * COOL BACKGROUND UPDATE:
-             * We are now layering an animated gradient ON TOP of a static nebula image.
-             * The 'overlay' blend mode makes the colors from the gradient dynamically
-             * light up the image below, creating a beautiful, deep-space effect.
-            */
-            background-image: 
-                linear-gradient(-45deg, 
-                    var(--gradient-color-1), 
-                    var(--gradient-color-2), 
-                    var(--gradient-color-3), 
-                    var(--gradient-color-4)),
-                url('https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=1740&q=80');
-            
-            background-size: 400% 400%, cover; /* Size for gradient, size for image */
-            background-position: center;
-            background-blend-mode: overlay; /* This is the magic! */
+            background-size: 400% 400%;
             animation: gradientAnimation 20s ease infinite;
         }
 
         @keyframes gradientAnimation {
-            0% { background-position: 0% 50%, center; }
-            50% { background-position: 100% 50%, center; }
-            100% { background-position: 0% 50%, center; }
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
-        /* --- New Cursor Glow Effect --- */
+        /* --- Cursor Glow Effect --- */
         #cursor-glow {
             position: fixed;
             top: 0;
@@ -64,7 +40,7 @@
             pointer-events: none;
             z-index: 1;
             transform: translate(-50%, -50%);
-            transition: background 0.2s; /* Smooth color transition */
+            transition: background 0.2s;
         }
 
         #particles-js {
@@ -73,7 +49,7 @@
             height: 100%;
             top: 0;
             left: 0;
-            z-index: 2; /* Raised to be above the cursor glow */
+            z-index: 2;
         }
 
         .controls-panel {
@@ -89,15 +65,64 @@
             box-shadow: 0 4px 30px rgba(0,0,0,0.25);
             border: 1px solid rgba(255, 255, 255, 0.1);
             width: 250px;
-            /* New: Added transition for smooth hide/show */
             transition: opacity 0.4s ease, transform 0.4s ease;
         }
-        /* New: Class to hide the panel when the iframe is off-screen */
         .controls-panel.hidden {
             opacity: 0;
             transform: translateY(20px);
             pointer-events: none;
         }
+        
+        /* --- New: Panel Header and Toggle --- */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .panel-header h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        #toggle-controls {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            font-weight: bold;
+            font-size: 18px;
+            line-height: 24px;
+            transition: background-color 0.2s;
+        }
+        #toggle-controls:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        /* --- New: Panel Content Styling for Collapse --- */
+        .panel-content {
+            transition: max-height 0.4s ease-out, opacity 0.3s ease-in-out;
+            max-height: 600px; /* Adjust if more controls are added */
+            overflow: hidden;
+            opacity: 1;
+        }
+        .controls-panel.collapsed .panel-content {
+            max-height: 0;
+            opacity: 0;
+        }
+        .controls-panel.collapsed {
+            padding-bottom: 10px;
+        }
+        .controls-panel.collapsed .panel-header {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+        
         .controls-panel div {
             margin-bottom: 15px;
         }
@@ -110,7 +135,7 @@
             font-size: 14px;
             font-weight: 500;
         }
-        .controls-panel input[type="color"] {
+        .controls-panel input[type="color"], .controls-panel select {
             width: 100%;
             height: 30px;
             border: 1px solid rgba(255,255,255,0.2);
@@ -119,6 +144,24 @@
             border-radius: 5px;
             cursor: pointer;
         }
+        /* --- New: Select Styling --- */
+        .controls-panel select {
+            background-color: rgba(0,0,0,0.3);
+            color: white;
+            padding: 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 1em;
+        }
+        .controls-panel select option {
+             background-color: #2c3e50;
+             color: white;
+        }
+        
         .controls-panel input[type="range"] {
             width: 100%;
             cursor: pointer;
@@ -154,38 +197,94 @@
     <div id="cursor-glow"></div>
     <div id="particles-js"></div>
 
-    <div class="controls-panel">
-        <div>
-            <label for="particle-color">Particle Color</label>
-            <input type="color" id="particle-color" value="#ffffff">
+    <div class="controls-panel" id="controls-panel">
+        <!-- New: Header and Toggle Button -->
+        <div class="panel-header">
+            <h2>Canvas Controls</h2>
+            <button id="toggle-controls" title="Toggle Controls">-</button>
         </div>
-        <div>
-            <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
-            <input type="range" id="particle-count" min="10" max="500" value="80">
-        </div>
-        <!-- New Controls -->
-        <div>
-            <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
-            <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
-        </div>
-        <div>
-            <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
-            <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
-        </div>
-        <div class="checkbox-wrapper">
-            <input type="checkbox" id="link-particles" checked>
-            <label for="link-particles">Link Particles</label>
-        </div>
-        <!-- End New Controls -->
-        <div>
-            <button id="randomize-gradient">New Background</button>
+
+        <div class="panel-content" id="panel-content">
+            <!-- New: Theme Preset Selector -->
+            <div>
+                <label for="theme-preset">Theme Preset</label>
+                <select id="theme-preset">
+                    <option value="random">Randomize</option>
+                    <!-- Options will be populated by JS -->
+                </select>
+            </div>
+            
+            <!-- New: Particle Shape Selector -->
+            <div>
+                <label for="particle-shape">Particle Shape</label>
+                <select id="particle-shape">
+                    <option value="circle">Circle</option>
+                    <option value="star">Star</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="edge">Edge</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="particle-color">Particle Color</label>
+                <input type="color" id="particle-color" value="#ffffff">
+            </div>
+            <div>
+                <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
+                <input type="range" id="particle-count" min="10" max="500" value="80">
+            </div>
+            <div>
+                <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
+                <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
+            </div>
+            <div>
+                <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
+                <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
+            </div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="link-particles" checked>
+                <label for="link-particles">Link Particles</label>
+            </div>
+            <div>
+                <button id="randomize-gradient">New Background</button>
+            </div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        // Global variable to hold the particles.js configuration
-        const particlesConfig = {
+        // Global variable to hold the particles.js instance
+        let pJS;
+
+        // --- New: Theme Presets ---
+        const themePresets = {
+            "cosmic_dream": {
+                name: "Cosmic Dream",
+                gradient: ["hsl(260, 50%, 20%)", "hsl(290, 60%, 30%)", "hsl(230, 70%, 25%)", "hsl(320, 55%, 35%)"],
+                particleColor: "#e0c3ff",
+                config: { size: 3, speed: 2, count: 100, linked: true, shape: 'circle' }
+            },
+            "aurora": {
+                name: "Aurora",
+                gradient: ["hsl(180, 50%, 20%)", "hsl(140, 60%, 30%)", "hsl(220, 70%, 25%)", "hsl(160, 55%, 35%)"],
+                particleColor: "#a7ffea",
+                config: { size: 2.5, speed: 4, count: 120, linked: true, shape: 'circle' }
+            },
+            "cyber_grid": {
+                name: "Cyber Grid",
+                gradient: ["hsl(225, 50%, 15%)", "hsl(190, 80%, 25%)", "hsl(250, 60%, 10%)", "hsl(180, 90%, 20%)"],
+                particleColor: "#00f6ff",
+                config: { size: 2, speed: 8, count: 150, linked: true, shape: 'edge' }
+            },
+            "sunstone": {
+                name: "Sunstone",
+                gradient: ["hsl(15, 80%, 40%)", "hsl(35, 75%, 50%)", "hsl(5, 70%, 45%)", "hsl(50, 85%, 55%)"],
+                particleColor: "#fff2a8",
+                config: { size: 4, speed: 1, count: 60, linked: false, shape: 'star' }
+            }
+        };
+
+        const initialParticlesConfig = {
             "particles": {
                 "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
                 "color": { "value": "#ffffff" },
@@ -206,124 +305,153 @@
             "retina_detect": true
         };
 
-        // Function to generate a random HSL color for the background
         function getRandomColor() {
             const h = Math.floor(Math.random() * 360);
-            const s = Math.floor(Math.random() * 20) + 75; // Saturated colors
-            const l = Math.floor(Math.random() * 20) + 50; // Darker, rich colors
+            const s = Math.floor(Math.random() * 20) + 75;
+            const l = Math.floor(Math.random() * 20) + 50;
             return `hsl(${h}, ${s}%, ${l}%)`;
         }
-        
-        // Function to convert HSL values to a HEX string for the color input
-        function hslToHex(h, s, l) {
-            l /= 100;
-            const a = s * Math.min(l, 1 - l) / 100;
-            const f = n => {
-                const k = (n + h / 30) % 12;
-                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                return Math.round(255 * color).toString(16).padStart(2, '0');
-            };
-            return `#${f(0)}${f(8)}${f(4)}`;
-        }
 
-        // Updated function to set the random animated gradient background
+        function setGradient(colors) {
+            const gradient = `linear-gradient(-45deg, ${colors.join(', ')})`;
+            document.body.style.background = gradient;
+            document.body.style.backgroundSize = '400% 400%';
+        }
+        
         function setRandomGradient() {
-            // COOL BACKGROUND UPDATE:
-            // Instead of directly setting the body's background style (which would
-            // overwrite our new image layer), we now update the CSS variables.
-            // The CSS automatically uses these new variables in the gradient.
-            document.documentElement.style.setProperty('--gradient-color-1', getRandomColor());
-            document.documentElement.style.setProperty('--gradient-color-2', getRandomColor());
-            document.documentElement.style.setProperty('--gradient-color-3', getRandomColor());
-            document.documentElement.style.setProperty('--gradient-color-4', getRandomColor());
+            setGradient([getRandomColor(), getRandomColor(), getRandomColor(), getRandomColor()]);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Get all control elements
-            const particleColorInput = document.getElementById('particle-color');
-            const particleCountInput = document.getElementById('particle-count');
-            const particleCountValue = document.getElementById('particle-count-value');
-            const particleSizeInput = document.getElementById('particle-size');
-            const particleSizeValue = document.getElementById('particle-size-value');
-            const particleSpeedInput = document.getElementById('particle-speed');
-            const particleSpeedValue = document.getElementById('particle-speed-value');
-            const linkParticlesInput = document.getElementById('link-particles');
-            const randomizeGradientBtn = document.getElementById('randomize-gradient');
-            const cursorGlow = document.getElementById('cursor-glow');
-            
-            if (window.self !== window.top) { // Only run if in an iframe
-                if (window.innerHeight < 1000) {
-                    document.getElementsByClassName('controls-panel')[0].hidden = ':)';
-                }
+            const controls = {
+                panel: document.getElementById('controls-panel'),
+                content: document.getElementById('panel-content'),
+                toggleBtn: document.getElementById('toggle-controls'),
+                themePreset: document.getElementById('theme-preset'),
+                particleShape: document.getElementById('particle-shape'),
+                particleColor: document.getElementById('particle-color'),
+                particleCount: document.getElementById('particle-count'),
+                particleCountValue: document.getElementById('particle-count-value'),
+                particleSize: document.getElementById('particle-size'),
+                particleSizeValue: document.getElementById('particle-size-value'),
+                particleSpeed: document.getElementById('particle-speed'),
+                particleSpeedValue: document.getElementById('particle-speed-value'),
+                linkParticles: document.getElementById('link-particles'),
+                randomizeGradientBtn: document.getElementById('randomize-gradient'),
+                cursorGlow: document.getElementById('cursor-glow')
+            };
+
+            // Improved iframe detection logic
+            if (window.self !== window.top && window.innerHeight < 1000) {
+                controls.panel.classList.add('hidden');
             }
 
-            // Randomize particle color on load for contrast
-            const randomHue = Math.floor(Math.random() * 360);
-            const randomSaturation = Math.floor(Math.random() * 30) + 70;
-            const randomLightness = Math.floor(Math.random() * 30) + 60; // Brighter particles
-            const randomParticleColor = hslToHex(randomHue, randomSaturation, randomLightness);
-            
-            // Update config before initializing
-            particlesConfig.particles.color.value = randomParticleColor;
-            particlesConfig.particles.line_linked.color = randomParticleColor;
-            particleColorInput.value = randomParticleColor;
+            // Populate theme presets dropdown
+            for (const key in themePresets) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = themePresets[key].name;
+                controls.themePreset.appendChild(option);
+            }
+
+            // Function to apply a theme preset
+            function applyPreset(presetKey) {
+                if (presetKey === 'random') {
+                    setRandomGradient();
+                    return;
+                }
+                const preset = themePresets[presetKey];
+                if (!preset) return;
+
+                setGradient(preset.gradient);
+                
+                // Update particles config
+                pJS.particles.color.value = preset.particleColor;
+                pJS.particles.line_linked.color = preset.particleColor;
+                pJS.particles.number.value = preset.config.count;
+                pJS.particles.size.value = preset.config.size;
+                pJS.particles.move.speed = preset.config.speed;
+                pJS.particles.line_linked.enable = preset.config.linked;
+                pJS.particles.shape.type = preset.config.shape;
+
+                pJS.fn.particlesRefresh();
+                updateControlsUI();
+            }
+
+            // Function to update UI controls to match current state
+            function updateControlsUI() {
+                controls.particleColor.value = pJS.particles.color.value;
+                controls.particleCount.value = pJS.particles.number.value;
+                controls.particleCountValue.textContent = pJS.particles.number.value;
+                controls.particleSize.value = pJS.particles.size.value;
+                controls.particleSizeValue.textContent = pJS.particles.size.value;
+                controls.particleSpeed.value = pJS.particles.move.speed;
+                controls.particleSpeedValue.textContent = pJS.particles.move.speed;
+                controls.linkParticles.checked = pJS.particles.line_linked.enable;
+                controls.particleShape.value = pJS.particles.shape.type;
+            }
 
             // Initial setup
-            setRandomGradient(); // Set the initial random gradient colors
-            particlesJS('particles-js', particlesConfig);
-            const pJS = window.pJSDom[0].pJS;
-
-            // Initialize display values for new sliders
-            particleSizeValue.textContent = particleSizeInput.value;
-            particleSpeedValue.textContent = particleSpeedInput.value;
+            setRandomGradient();
+            particlesJS('particles-js', initialParticlesConfig);
+            pJS = window.pJSDom[0].pJS;
+            updateControlsUI();
 
             // --- Event Listeners ---
 
-            // Cursor glow follows mouse
             window.addEventListener('mousemove', e => {
-                cursorGlow.style.left = `${e.clientX}px`;
-                cursorGlow.style.top = `${e.clientY}px`;
+                controls.cursorGlow.style.left = `${e.clientX}px`;
+                controls.cursorGlow.style.top = `${e.clientY}px`;
             });
             
-            // Particle color
-            particleColorInput.addEventListener('input', (e) => {
+            controls.toggleBtn.addEventListener('click', () => {
+                controls.panel.classList.toggle('collapsed');
+                controls.toggleBtn.textContent = controls.panel.classList.contains('collapsed') ? '+' : '-';
+            });
+            
+            controls.themePreset.addEventListener('change', (e) => applyPreset(e.target.value));
+            
+            controls.particleShape.addEventListener('change', (e) => {
+                pJS.particles.shape.type = e.target.value;
+                pJS.fn.particlesRefresh();
+            });
+
+            controls.particleColor.addEventListener('input', (e) => {
                 pJS.particles.color.value = e.target.value;
                 pJS.particles.line_linked.color = e.target.value;
                 pJS.fn.particlesRefresh();
             });
 
-            // Particle count
-            particleCountInput.addEventListener('input', (e) => {
+            controls.particleCount.addEventListener('input', (e) => {
                 const count = parseInt(e.target.value, 10);
                 pJS.particles.number.value = count;
-                particleCountValue.textContent = count;
+                controls.particleCountValue.textContent = count;
                 pJS.fn.particlesRefresh();
             });
 
-            // New: Particle size
-            particleSizeInput.addEventListener('input', (e) => {
+            controls.particleSize.addEventListener('input', (e) => {
                 const size = parseFloat(e.target.value);
                 pJS.particles.size.value = size;
-                particleSizeValue.textContent = size;
+                controls.particleSizeValue.textContent = size;
                 pJS.fn.particlesRefresh();
             });
 
-            // New: Particle speed
-            particleSpeedInput.addEventListener('input', (e) => {
+            controls.particleSpeed.addEventListener('input', (e) => {
                 const speed = parseFloat(e.target.value);
                 pJS.particles.move.speed = speed;
-                particleSpeedValue.textContent = speed;
+                controls.particleSpeedValue.textContent = speed;
                 pJS.fn.particlesRefresh();
             });
 
-            // New: Link particles toggle
-            linkParticlesInput.addEventListener('change', (e) => {
+            controls.linkParticles.addEventListener('change', (e) => {
                 pJS.particles.line_linked.enable = e.target.checked;
                 pJS.fn.particlesRefresh();
             });
 
-            // Randomize gradient button
-            randomizeGradientBtn.addEventListener('click', setRandomGradient);
+            controls.randomizeGradientBtn.addEventListener('click', () => {
+                setRandomGradient();
+                controls.themePreset.value = 'random';
+            });
         });
     </script>
 </body>

@@ -226,28 +226,11 @@
             const randomizeGradientBtn = document.getElementById('randomize-gradient');
             const cursorGlow = document.getElementById('cursor-glow');
             
-            // --- New: Intersection Observer to hide controls when iframe is off-screen ---
             if (window.self !== window.top) { // Only run if in an iframe
-                const controlsPanel = document.querySelector('.controls-panel');
-                
-                const observer = new IntersectionObserver((entries) => {
-                    const entry = entries[0];
-                    if (entry.isIntersecting) {
-                        controlsPanel.classList.remove('hidden');
-                    } else {
-                        controlsPanel.classList.add('hidden');
-                    }
-                }, {
-                    threshold: 0,
-                    trackVisibility: true,
-                    delay: 100
-                });
-
-                // Observing the body of this document tells us when the iframe
-                // it lives in becomes visible or hidden in the parent window.
-                observer.observe(document.body);
+                if (window.innerHeight < 1000) {
+                    document.getElementsByClassName('controls-panel')[0].hidden = ':)';
+                }
             }
-            // --- End of new logic ---
 
             // Randomize particle color on load for contrast
             const randomHue = Math.floor(Math.random() * 360);

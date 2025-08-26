@@ -261,6 +261,29 @@
                 shootingStarsContainer: document.getElementById('shooting-stars-container')
             };
 
+            // --- FIX START: Helper function to convert HSL color strings to HEX format ---
+            const hslStringToHex = (hsl) => {
+                if (typeof hsl !== 'string' || !hsl.startsWith('hsl')) {
+                    return hsl; // Return if already hex, not a string, or invalid
+                }
+                try {
+                    // Extracts numbers: e.g., "hsl(200, 50%, 50%)" -> [200, 50, 50]
+                    const [h, s, l] = hsl.match(/\d+(\.\d+)?/g).map(Number);
+                    const l_norm = l / 100;
+                    const a = (s / 100) * Math.min(l_norm, 1 - l_norm);
+                    const f = n => {
+                        const k = (n + h / 30) % 12;
+                        const color = l_norm - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                        return Math.round(255 * color).toString(16).padStart(2, '0');
+                    };
+                    return `#${f(0)}${f(8)}${f(4)}`;
+                } catch (e) {
+                    console.error("Could not parse HSL string:", hsl);
+                    return "#ffffff"; // Fallback color
+                }
+            };
+            // --- FIX END ---
+
             const defaultGroupOptions = (groupName) => ({
                 group: groupName, number: { value: 0 }, color: { value: "#ffffff" }, shape: { type: "circle" },
                 opacity: { value: 0.8 }, size: { value: 3 }, links: { enable: false, opacity: 0.4 },
@@ -398,7 +421,8 @@
                 ui.particleCount.slider.value = group.number.value; ui.particleCount.value.textContent = group.number.value;
                 ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value.toFixed(1);
                 ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed.toFixed(1);
-                ui.particleColor.value = group.color.value;
+                // --- FIX: Use the HSL to HEX converter for the color input ---
+                ui.particleColor.value = hslStringToHex(group.color.value);
                 document.querySelector('.audio-map[data-target="bass"]').value = group.audioMap.bass;
                 document.querySelector('.audio-map[data-target="mids"]').value = group.audioMap.mids;
                 document.querySelector('.audio-map[data-target="treble"]').value = group.audioMap.treble;

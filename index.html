@@ -9,15 +9,8 @@
         :root {
             --panel-bg: rgba(255, 255, 255, 0.3); --panel-text: #2c3e50; --control-bg: rgba(255, 255, 255, 0.7);
             --summary-hover: rgba(0,0,0,0.05); --border-color: rgba(0,0,0,0.1); --button-text: #fff;
-            /* Colors below are fallbacks, they will be replaced by JavaScript on load */
-            --accent-color: #e67e22;
-            --accent-color-dark: #d35400;
-            --bg-color-1: #6c5ce7;
-            --bg-color-2: #fd79a8;
-            --bg-color-3: #00cec9;
-            --bg-color-4: #ffeaa7;
-            --star-color: #ffffff;
-            --dust-color: rgba(255, 255, 255, 0.05);
+            --accent-color: #e67e22; --accent-color-dark: #d35400; --bg-color-1: #6c5ce7; --bg-color-2: #fd79a8;
+            --bg-color-3: #00cec9; --bg-color-4: #ffeaa7; --star-color: #ffffff; --dust-color: rgba(255, 255, 255, 0.05);
         }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #000; }
         .parallax-layer { position: absolute; top: -5%; left: -5%; width: 110%; height: 110%; pointer-events: none; will-change: transform; }
@@ -78,130 +71,94 @@
     <audio id="audio-player" style="display:none;"></audio>
 
     <div class="controls-panel" id="controls">
-        <div class="toolbar">
-            <button class="tool-button active" data-tool="select">Select</button>
-            <button class="tool-button" data-tool="push">Push</button>
-            <button class="tool-button" data-tool="pull">Pull</button>
-            <button class="tool-button" data-tool="erase">Erase</button>
-        </div>
-        <div class="tab-nav">
-            <button class="tab-button active" data-tab="tab-groups">Groups</button>
-            <button class="tab-button" data-tab="tab-audio">Audio</button>
-            <button class="tab-button" data-tab="tab-system">System</button>
-        </div>
-
-        <div id="tab-groups" class="tab-content active">
-            <div class="group-selector">
-                <button class="group-button active" data-group="0">1</button><button class="group-button" data-group="1">2</button>
-                <button class="group-button" data-group="2">3</button><button class="group-button" data-group="3">4</button>
-            </div>
-            <details open><summary>Core</summary>
-                <div class="control-group"><label>Enabled<input type="checkbox" id="group-enabled"></label></div>
-                <div class="control-group"><label for="particle-count">Count <span id="particle-count-value"></span></label><input type="range" id="particle-count" min="0" max="2000" step="1" value="0"></div>
-                <div class="control-group"><label for="particle-size">Size <span id="particle-size-value"></span></label><input type="range" id="particle-size" min="0.1" max="50" step="0.1" value="3"></div>
-                <div class="control-group"><label for="particle-speed">Speed <span id="particle-speed-value"></span></label><input type="range" id="particle-speed" min="0" max="50" step="0.1" value="1"></div>
-                <div class="control-group"><label for="particle-color">Color</label><input type="color" id="particle-color" value="#ffffff"></div>
-            </details>
-            <details><summary>Audio Reactivity</summary>
-                <div class="control-group"><label for="audio-bass-map">Bass maps to</label><select class="audio-map" data-target="bass"><option>None</option><option>Size</option><option>Speed</option></select></div>
-                <div class="control-group"><label for="audio-mids-map">Mids map to</label><select class="audio-map" data-target="mids"><option>None</option><option>Size</option><option>Speed</option></select></div>
-                <div class="control-group"><label for="audio-treble-map">Treble maps to</label><select class="audio-map" data-target="treble"><option>None</option><option>Size</option><option>Speed</option></select></div>
-            </details>
-        </div>
-
-        <div id="tab-audio" class="tab-content">
-            <div class="control-group"><label>Source</label><input type="file" id="audio-file-input" accept="audio/*" style="font-size:12px;"><button id="mic-input-btn">Use Mic</button></div>
-        </div>
-
-         <div id="tab-system" class="tab-content">
-             <div class="control-group"><label>UI Dark Mode<input type="checkbox" id="dark-mode-toggle"></label></div>
-             <div class="control-group"><label>Constellations<input type="checkbox" id="constellation-toggle"></label></div>
-             <div class="control-group"><label for="preset-select">Preset</label><select id="preset-select"></select></div>
-             <div class="control-group">
-                <div class="button-row">
-                    <button id="export-preset-btn">Export State</button>
-                    <input type="file" id="import-preset-input" accept=".json" style="display:none;">
-                    <button onclick="document.getElementById('import-preset-input').click();">Import State</button>
-                </div>
-             </div>
-             <div class="control-group"><button id="reset-sim-btn" style="background: #c0392b;">Reset Simulation</button></div>
-         </div>
+        <div class="toolbar"><button class="tool-button active" data-tool="select">Select</button><button class="tool-button" data-tool="push">Push</button><button class="tool-button" data-tool="pull">Pull</button><button class="tool-button" data-tool="erase">Erase</button></div>
+        <div class="tab-nav"><button class="tab-button active" data-tab="tab-groups">Groups</button><button class="tab-button" data-tab="tab-audio">Audio</button><button class="tab-button" data-tab="tab-system">System</button></div>
+        <div id="tab-groups" class="tab-content active"><div class="group-selector"><button class="group-button active" data-group="0">1</button><button class="group-button" data-group="1">2</button><button class="group-button" data-group="2">3</button><button class="group-button" data-group="3">4</button></div><details open><summary>Core</summary><div class="control-group"><label>Enabled<input type="checkbox" id="group-enabled"></label></div><div class="control-group"><label for="particle-count">Count <span id="particle-count-value"></span></label><input type="range" id="particle-count" min="0" max="2000" step="1" value="0"></div><div class="control-group"><label for="particle-size">Size <span id="particle-size-value"></span></label><input type="range" id="particle-size" min="0.1" max="50" step="0.1" value="3"></div><div class="control-group"><label for="particle-speed">Speed <span id="particle-speed-value"></span></label><input type="range" id="particle-speed" min="0" max="50" step="0.1" value="1"></div><div class="control-group"><label for="particle-color">Color</label><input type="color" id="particle-color" value="#ffffff"></div></details><details><summary>Audio Reactivity</summary><div class="control-group"><label for="audio-bass-map">Bass maps to</label><select class="audio-map" data-target="bass"><option>None</option><option>Size</option><option>Speed</option></select></div><div class="control-group"><label for="audio-mids-map">Mids map to</label><select class="audio-map" data-target="mids"><option>None</option><option>Size</option><option>Speed</option></select></div><div class="control-group"><label for="audio-treble-map">Treble maps to</label><select class="audio-map" data-target="treble"><option>None</option><option>Size</option><option>Speed</option></select></div></details></div>
+        <div id="tab-audio" class="tab-content"><div class="control-group"><label>Source</label><input type="file" id="audio-file-input" accept="audio/*" style="font-size:12px;"><button id="mic-input-btn">Use Mic</button></div></div>
+        <div id="tab-system" class="tab-content"><div class="control-group"><label>UI Dark Mode<input type="checkbox" id="dark-mode-toggle"></label></div><div class="control-group"><label>Constellations<input type="checkbox" id="constellation-toggle"></label></div><div class="control-group"><label for="preset-select">Preset</label><select id="preset-select"></select></div><div class="control-group"><div class="button-row"><button id="export-preset-btn">Export State</button><input type="file" id="import-preset-input" accept=".json" style="display:none;"><button onclick="document.getElementById('import-preset-input').click();">Import State</button></div></div><div class="control-group"><button id="reset-sim-btn" style="background: #c0392b;">Reset Simulation</button></div></div>
     </div>
     <div class="toggle-button" id="toggle-controls">CONTROLS</div>
 
     <script src="https://cdn.jsdelivr.net/npm/tsparticles-all@2.12.0/tsparticles.all.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            // --- 1. STATE AND UI VARIABLES ---
             let particlesContainer, audioContext, analyser, activeMicStream = null;
             let isMouseDown = false, mousePos = { x: 0, y: 0 };
             
             const state = {
                 activeTool: 'select', activeGroup: 0,
-                particleGroups: [], initialGroups: [],
+                particleGroups: [],
                 activePresetConfig: null
             };
 
             const ui = {
-                body: document.body, controlsPanel: document.getElementById('controls'),
-                fps: document.getElementById('fps'), particlesCanvas: document.getElementById('tsparticles'), darkModeToggle: document.getElementById('dark-mode-toggle'),
+                body: document.body, controlsPanel: document.getElementById('controls'), fps: document.getElementById('fps'), particlesCanvas: document.getElementById('tsparticles'), darkModeToggle: document.getElementById('dark-mode-toggle'),
                 presetSelect: document.getElementById('preset-select'), exportPresetBtn: document.getElementById('export-preset-btn'), importPresetInput: document.getElementById('import-preset-input'),
-                toolbar: document.querySelector('.toolbar'), tabNav: document.querySelector('.tab-nav'), groupSelector: document.querySelector('.group-selector'),
-                groupEnabled: document.getElementById('group-enabled'),
+                toolbar: document.querySelector('.toolbar'), tabNav: document.querySelector('.tab-nav'), groupSelector: document.querySelector('.group-selector'), groupEnabled: document.getElementById('group-enabled'),
                 particleCount: { slider: document.getElementById('particle-count'), value: document.getElementById('particle-count-value') },
                 particleSize: { slider: document.getElementById('particle-size'), value: document.getElementById('particle-size-value') },
                 particleSpeed: { slider: document.getElementById('particle-speed'), value: document.getElementById('particle-speed-value') },
-                particleColor: document.getElementById('particle-color'),
-                audioFileInput: document.getElementById('audio-file-input'), micInputBtn: document.getElementById('mic-input-btn'),
-                audioMaps: document.querySelectorAll('.audio-map'),
-                constellationToggle: document.getElementById('constellation-toggle'),
-                resetSimBtn: document.getElementById('reset-sim-btn'),
-                toggleControlsBtn: document.getElementById('toggle-controls'),
-                parallaxLayers: document.querySelectorAll('.parallax-layer'),
-                shootingStarsContainer: document.getElementById('shooting-stars-container')
+                particleColor: document.getElementById('particle-color'), audioFileInput: document.getElementById('audio-file-input'), micInputBtn: document.getElementById('mic-input-btn'), audioMaps: document.querySelectorAll('.audio-map'),
+                constellationToggle: document.getElementById('constellation-toggle'), resetSimBtn: document.getElementById('reset-sim-btn'), toggleControlsBtn: document.getElementById('toggle-controls'),
+                parallaxLayers: document.querySelectorAll('.parallax-layer'), shootingStarsContainer: document.getElementById('shooting-stars-container')
             };
 
+            // --- 2. FUNCTION DEFINITIONS ---
             const hslStringToHex = (hsl) => {
                 if (typeof hsl !== 'string' || !hsl.startsWith('hsl')) return hsl;
                 try {
                     const [h, s, l] = hsl.match(/\d+(\.\d+)?/g).map(Number);
-                    const l_norm = l / 100;
-                    const a = (s / 100) * Math.min(l_norm, 1 - l_norm);
-                    const f = n => {
-                        const k = (n + h / 30) % 12;
-                        const color = l_norm - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                        return Math.round(255 * color).toString(16).padStart(2, '0');
-                    };
+                    const l_norm = l / 100; const a = (s / 100) * Math.min(l_norm, 1 - l_norm);
+                    const f = n => { const k = (n + h / 30) % 12; const color = l_norm - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); };
                     return `#${f(0)}${f(8)}${f(4)}`;
-                } catch (e) {
-                    console.error("Could not parse HSL string:", hsl);
-                    return "#ffffff";
-                }
+                } catch (e) { console.error("Could not parse HSL string:", hsl); return "#ffffff"; }
             };
 
             const defaultGroupOptions = (groupName) => ({
-                group: groupName, number: { value: 0 }, color: { value: "#ffffff" }, shape: { type: "circle" },
-                opacity: { value: 0.8 }, size: { value: 3 }, links: { enable: false, opacity: 0.4 },
-                move: { enable: true, speed: 1, direction: "none", random: true, straight: false, outModes: "out" },
-                collisions: { enable: true, mode: "bounce" },
-                audioMap: { bass: 'None', mids: 'None', treble: 'None' }
+                group: groupName, number: { value: 0 }, color: { value: "#ffffff" }, shape: { type: "circle" }, opacity: { value: 0.8 }, size: { value: 3 }, links: { enable: false, opacity: 0.4 },
+                move: { enable: true, speed: 1, direction: "none", random: true, straight: false, outModes: "out" }, collisions: { enable: true, mode: "bounce" }, audioMap: { bass: 'None', mids: 'None', treble: 'None' }
             });
-            
-            const basePresets = {
-                default: {
-                    groups: [ { ...defaultGroupOptions("group1"), number: { value: 300 }, color: { value: "#ffffff" }, size: { value: 2 } }, { ...defaultGroupOptions("group2") }, { ...defaultGroupOptions("group3") }, { ...defaultGroupOptions("group4") } ]
-                },
-                symphony: {
-                    groups: [
-                        { ...defaultGroupOptions("group1"), number: { value: 150 }, color: { value: "#e74c3c" }, size: {value: 5}, audioMap: { bass: 'Size', mids: 'None', treble: 'None' } },
-                        { ...defaultGroupOptions("group2"), number: { value: 400 }, color: { value: "#3498db" }, move: {speed: 2}, audioMap: { bass: 'None', mids: 'None', treble: 'Speed' } },
-                        { ...defaultGroupOptions("group3") }, { ...defaultGroupOptions("group4") }
-                    ]
-                },
+
+            const updateEngine = (fullRefresh = false) => {
+                if (!particlesContainer) return;
+                const activeGroups = state.particleGroups.filter(g => g.number.value > 0);
+                particlesContainer.options.particles.groups = activeGroups;
+                if (fullRefresh) particlesContainer.refresh(); else particlesContainer.play();
+            };
+
+            const syncUiToState = () => {
+                const group = state.particleGroups[state.activeGroup];
+                ui.groupEnabled.checked = group.number.value > 0;
+                ui.particleCount.slider.value = group.number.value; ui.particleCount.value.textContent = group.number.value;
+                ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value.toFixed(1);
+                ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed.toFixed(1);
+                ui.particleColor.value = hslStringToHex(group.color.value);
+                document.querySelector('.audio-map[data-target="bass"]').value = group.audioMap.bass;
+                document.querySelector('.audio-map[data-target="mids"]').value = group.audioMap.mids;
+                document.querySelector('.audio-map[data-target="treble"]').value = group.audioMap.treble;
             };
             
+            const applyPreset = (presetConfig) => {
+                state.activePresetConfig = JSON.parse(JSON.stringify(presetConfig));
+                state.particleGroups = JSON.parse(JSON.stringify(presetConfig.groups));
+                syncUiToState();
+                updateEngine(true);
+            };
+
+            const syncStateAndUiToPreset = (presetConfig) => {
+                state.activePresetConfig = JSON.parse(JSON.stringify(presetConfig));
+                state.particleGroups = JSON.parse(JSON.stringify(presetConfig.groups));
+                syncUiToState();
+            };
+
+            const basePresets = {
+                default: { groups: [ { ...defaultGroupOptions("group1"), number: { value: 300 }, color: { value: "#ffffff" }, size: { value: 2 } }, { ...defaultGroupOptions("group2") }, { ...defaultGroupOptions("group3") }, { ...defaultGroupOptions("group4") } ] },
+                symphony: { groups: [ { ...defaultGroupOptions("group1"), number: { value: 150 }, color: { value: "#e74c3c" }, size: {value: 5}, audioMap: { bass: 'Size', mids: 'None', treble: 'None' } }, { ...defaultGroupOptions("group2"), number: { value: 400 }, color: { value: "#3498db" }, move: {speed: 2}, audioMap: { bass: 'None', mids: 'None', treble: 'Speed' } }, { ...defaultGroupOptions("group3") }, { ...defaultGroupOptions("group4") } ] },
+            };
+
             const generateAndApplyRandomTheme = () => {
-                const root = document.documentElement;
-                const baseHue = Math.random() * 360;
+                const root = document.documentElement; const baseHue = Math.random() * 360;
                 const accentColor = `hsl(${baseHue}, 85%, 58%)`, accentColorDark = `hsl(${baseHue}, 80%, 48%)`;
                 root.style.setProperty('--accent-color', accentColor); root.style.setProperty('--accent-color-dark', accentColorDark);
                 const starColor = `hsl(${baseHue}, 40%, 95%)`, deepSpaceColor = `hsl(${(baseHue + 200) % 360}, 50%, 5%)`;
@@ -209,9 +166,11 @@
                 const bgColor1 = `hsl(${(baseHue + 20) % 360}, 70%, 50%)`, bgColor2 = `hsl(${(baseHue - 20) % 360}, 75%, 55%)`, bgColor3 = `hsl(${(baseHue + 180) % 360}, 60%, 45%)`, bgColor4 = `hsl(${(baseHue + 160) % 360}, 65%, 40%)`;
                 root.style.setProperty('--bg-color-1', bgColor1); root.style.setProperty('--bg-color-2', bgColor2); root.style.setProperty('--bg-color-3', bgColor3); root.style.setProperty('--bg-color-4', bgColor4);
                 const dustColor = `hsla(${(baseHue + 220) % 360}, 40%, 50%, 0.07)`; root.style.setProperty('--dust-color', dustColor);
-                basePresets.default.groups[0].color.value = `hsl(${Math.random() * 360}, 100%, 85%)`;
+                const themedDefaultPreset = JSON.parse(JSON.stringify(basePresets.default));
+                themedDefaultPreset.groups[0].color.value = `hsl(${Math.random() * 360}, 100%, 85%)`;
                 basePresets.symphony.groups[0].color.value = `hsl(${baseHue}, 90%, 60%)`;
                 basePresets.symphony.groups[1].color.value = `hsl(${(baseHue + 180) % 360}, 90%, 65%)`;
+                return themedDefaultPreset;
             };
 
             const engineLoop = () => {
@@ -257,33 +216,6 @@
                 setTimeout(() => star.remove(), (duration + delay) * 1000);
             };
 
-            const updateEngine = (fullRefresh = false) => {
-                if (!particlesContainer) return;
-                const activeGroups = state.particleGroups.filter(g => g.number.value > 0);
-                particlesContainer.options.particles.groups = activeGroups;
-                if (fullRefresh) particlesContainer.refresh(); else particlesContainer.play();
-            };
-
-            const syncUiToState = () => {
-                const group = state.particleGroups[state.activeGroup];
-                ui.groupEnabled.checked = group.number.value > 0;
-                ui.particleCount.slider.value = group.number.value; ui.particleCount.value.textContent = group.number.value;
-                ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value.toFixed(1);
-                ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed.toFixed(1);
-                ui.particleColor.value = hslStringToHex(group.color.value);
-                document.querySelector('.audio-map[data-target="bass"]').value = group.audioMap.bass;
-                document.querySelector('.audio-map[data-target="mids"]').value = group.audioMap.mids;
-                document.querySelector('.audio-map[data-target="treble"]').value = group.audioMap.treble;
-            };
-
-            const applyPreset = (presetConfig) => {
-                state.activePresetConfig = JSON.parse(JSON.stringify(presetConfig));
-                state.particleGroups = JSON.parse(JSON.stringify(presetConfig.groups));
-                state.initialGroups = JSON.parse(JSON.stringify(presetConfig.groups));
-                syncUiToState();
-                updateEngine(true);
-            };
-
             const visualizerLoop = () => {
                 if (analyser) {
                     const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -293,7 +225,7 @@
                     const treble = dataArray.slice(60, 100).reduce((a,b)=>a+b,0)/(40*255);
                     let needsUpdate = false;
                     state.particleGroups.forEach(group => {
-                        const initialGroup = state.initialGroups.find(ig => ig.group === group.group);
+                        const initialGroup = state.activePresetConfig.groups.find(ig => ig.group === group.group);
                         if (!initialGroup) return;
                         const mappings = {
                             Size: v => group.size.value = Math.max(0.1, initialGroup.size.value * (1 + v * 5)),
@@ -312,12 +244,12 @@
                 ui.toolbar.addEventListener('click', (e) => { if (e.target.classList.contains('tool-button')) { state.activeTool = e.target.dataset.tool; ui.toolbar.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.particlesCanvas.classList.toggle('tool-active', state.activeTool !== 'select'); } });
                 ui.tabNav.addEventListener('click', (e) => { if (e.target.classList.contains('tab-button')) { ui.tabNav.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.controlsPanel.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); document.getElementById(e.target.dataset.tab).classList.add('active'); } });
                 ui.groupSelector.addEventListener('click', (e) => { if (e.target.classList.contains('group-button')) { state.activeGroup = parseInt(e.target.dataset.group, 10); ui.groupSelector.querySelectorAll('.group-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); syncUiToState(); } });
-                ui.groupEnabled.addEventListener('change', (e) => { const countSlider = ui.particleCount.slider; state.particleGroups[state.activeGroup].number.value = e.target.checked ? (countSlider.value > 0 ? Number(countSlider.value) : 100) : 0; state.initialGroups[state.activeGroup].number.value = state.particleGroups[state.activeGroup].number.value; syncUiToState(); updateEngine(true); });
                 const addSliderListener = (uiElement, updater) => { uiElement.slider.addEventListener('input', (e) => { const value = parseFloat(e.target.value); if (parseFloat(e.target.step) >= 1) { uiElement.value.textContent = Math.round(value); } else { uiElement.value.textContent = value.toFixed(1); } updater(value); updateEngine(); }); };
-                addSliderListener(ui.particleCount, v => { const val = Math.round(v); state.particleGroups[state.activeGroup].number.value = val; state.initialGroups[state.activeGroup].number.value = val; });
-                addSliderListener(ui.particleSize, v => { state.particleGroups[state.activeGroup].size.value = v; state.initialGroups[state.activeGroup].size.value = v; });
-                addSliderListener(ui.particleSpeed, v => { state.particleGroups[state.activeGroup].move.speed = v; state.initialGroups[state.activeGroup].move.speed = v; });
+                addSliderListener(ui.particleCount, v => { const val = Math.round(v); state.particleGroups[state.activeGroup].number.value = val; });
+                addSliderListener(ui.particleSize, v => { state.particleGroups[state.activeGroup].size.value = v; });
+                addSliderListener(ui.particleSpeed, v => { state.particleGroups[state.activeGroup].move.speed = v; });
                 ui.particleColor.addEventListener('input', (e) => { state.particleGroups[state.activeGroup].color.value = e.target.value; updateEngine(); });
+                ui.groupEnabled.addEventListener('change', (e) => { const countSlider = ui.particleCount.slider; state.particleGroups[state.activeGroup].number.value = e.target.checked ? (countSlider.value > 0 ? Number(countSlider.value) : 100) : 0; syncUiToState(); updateEngine(true); });
                 ui.audioMaps.forEach(sel => sel.addEventListener('change', (e) => { state.particleGroups[state.activeGroup].audioMap[e.target.dataset.target] = e.target.value; }));
                 ui.micInputBtn.addEventListener('click', async () => { try { document.getElementById('audio-player').pause(); if (activeMicStream) { activeMicStream.getTracks().forEach(track => track.stop()); } const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); activeMicStream = stream; setupAudio(stream); } catch (err) { alert("Mic access denied."); } });
                 ui.audioFileInput.addEventListener('change', (e) => { if (activeMicStream) { activeMicStream.getTracks().forEach(track => track.stop()); activeMicStream = null; } const player = document.getElementById('audio-player'); player.src = URL.createObjectURL(e.target.files[0]); player.play(); setupAudio(player); });
@@ -327,7 +259,7 @@
                 ui.darkModeToggle.addEventListener('change', (e) => ui.controlsPanel.classList.toggle('dark-mode', e.target.checked));
                 ui.toggleControlsBtn.addEventListener('click', () => ui.controlsPanel.classList.toggle('hidden'));
                 ui.exportPresetBtn.addEventListener('click', () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ groups: state.particleGroups }, null, 2)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "aether_canvas_state.json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); });
-                ui.importPresetInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const newState = JSON.parse(event.target.result); if (newState && Array.isArray(newState.groups)) { applyPreset(newState); } else { alert("Invalid state file: Missing 'groups' array."); } } catch (err) { alert("Error parsing state file. Make sure it's a valid JSON."); } }; reader.readAsText(file); e.target.value = ''; });
+                ui.importPresetInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const newState = JSON.parse(event.target.result); if (newState && Array.isArray(newState.groups)) { const existingImport = ui.presetSelect.querySelector('option[value="imported"]'); if (existingImport) { existingImport.remove(); } const importOption = document.createElement('option'); importOption.textContent = file.name.replace('.json', ''); importOption.value = "imported"; ui.presetSelect.prepend(importOption); ui.presetSelect.value = "imported"; basePresets.imported = newState; applyPreset(newState); } else { alert("Invalid state file: Missing 'groups' array."); } } catch (err) { alert("Error parsing state file. Make sure it's a valid JSON."); } }; reader.readAsText(file); e.target.value = ''; });
             };
 
             const setupAudio = (streamOrElement) => {
@@ -353,26 +285,22 @@
 
             const setupFpsCounter = () => { const times = []; requestAnimationFrame(function loop() { const now = performance.now(); while (times.length > 0 && times[0] <= now - 1000) { times.shift(); } times.push(now); ui.fps.textContent = `FPS: ${times.length}`; requestAnimationFrame(loop); }); };
 
-            // --- INITIALIZATION ---
-            generateAndApplyRandomTheme();
+            // --- 3. EXECUTION LOGIC ---
+            const themedDefaultPreset = generateAndApplyRandomTheme();
             Object.keys(basePresets).forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; ui.presetSelect.appendChild(opt); });
             
-            setupFpsCounter();
             bindUI();
+            setupFpsCounter();
             
             const initialOptions = {
-                background: {
-                    color: { value: "transparent" }
-                },
-                particles: {
-                    groups: basePresets.default.groups
-                }
+                background: { color: { value: "transparent" } },
+                particles: { groups: themedDefaultPreset.groups }
             };
             
             tsParticles.load("tsparticles", initialOptions).then(container => {
                 particlesContainer = container;
                 setupCanvasListeners(container.canvas.element);
-                applyPreset(basePresets.default);
+                syncStateAndUiToPreset(themedDefaultPreset);
                 engineLoop();
             });
 

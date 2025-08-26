@@ -238,7 +238,9 @@
                         controlsPanel.classList.add('hidden');
                     }
                 }, {
-                    threshold: 0 // Fires as soon as 1px is visible/hidden
+                    threshold: 0,
+                    trackVisibility: true,
+                    delay: 100
                 });
 
                 // Observing the body of this document tells us when the iframe

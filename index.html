@@ -8,14 +8,53 @@
     <style>
         :root {
             --panel-bg: rgba(255, 255, 255, 0.3); --panel-text: #2c3e50; --control-bg: rgba(255, 255, 255, 0.7);
-            --summary-hover: rgba(0,0,0,0.05); --border-color: rgba(0,0,0,0.1); --button-text: #fff; --accent-color: #e67e22;
+            --summary-hover: rgba(0,0,0,0.05); --border-color: rgba(0,0,0,0.1); --button-text: #fff;
+            /* Colors below are fallbacks, they will be replaced by JavaScript on load */
+            --accent-color: #e67e22;
+            --accent-color-dark: #d35400;
+            --bg-color-1: #6c5ce7;
+            --bg-color-2: #fd79a8;
+            --bg-color-3: #00cec9;
+            --bg-color-4: #ffeaa7;
         }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-        .background-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background-color: #000; }
-        .nebula-bg::before, .nebula-bg::after { content: ''; position: absolute; width: 100%; height: 100%; animation: nebula-flow 50s linear infinite; background-repeat: no-repeat; will-change: transform; }
-        .nebula-bg::before { background-image: radial-gradient(circle at 20% 20%, #6c5ce7, transparent 40%), radial-gradient(circle at 80% 70%, #fd79a8, transparent 40%); background-position: 0% 0%; }
-        .nebula-bg::after { background-image: radial-gradient(circle at 50% 80%, #00cec9, transparent 40%), radial-gradient(circle at 10% 90%, #ffeaa7, transparent 40%); animation-direction: reverse; filter: blur(30px); }
-        @keyframes nebula-flow { from { transform: rotate(0deg) scale(1.5); } to { transform: rotate(360deg) scale(1.5); } }
+        
+        #galaxy-background {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000510; overflow: hidden; z-index: -2;
+        }
+        #galaxy-background::before,
+        #galaxy-background::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 250vmax; height: 250vmax;
+            background-repeat: no-repeat;
+            animation-name: galaxy-swirl; animation-timing-function: linear; animation-iteration-count: infinite;
+        }
+        #galaxy-background::before {
+            margin-top: -125vmax; margin-left: -125vmax;
+            background-image:
+                radial-gradient(ellipse at center, var(--bg-color-1) 0%, transparent 40%),
+                radial-gradient(ellipse at center, var(--bg-color-2) 0%, transparent 40%);
+            background-position: 10% 90%, 80% 20%;
+            background-size: 100vmax 100vmax, 120vmax 120vmax;
+            animation-duration: 50s;
+            opacity: 0.4; filter: blur(20px);
+        }
+        #galaxy-background::after {
+            margin-top: -125vmax; margin-left: -125vmax;
+            background-image:
+                radial-gradient(ellipse at center, var(--bg-color-3) 0%, transparent 40%),
+                radial-gradient(ellipse at center, var(--bg-color-4) 0%, transparent 40%);
+            background-position: 40% 10%, 60% 80%;
+            background-size: 140vmax 140vmax, 90vmax 90vmax;
+            animation-duration: 65s; animation-direction: reverse;
+            opacity: 0.3; filter: blur(50px);
+        }
+        @keyframes galaxy-swirl {
+            from { transform: rotate(0deg) scale(1.2); }
+            to { transform: rotate(360deg) scale(1.2); }
+        }
+
         #tsparticles { position: absolute; width: 100%; height: 100%; z-index: 1; cursor: default; }
         #tsparticles.tool-active { cursor: crosshair; }
         .info-overlay { position: fixed; top: 10px; left: 10px; z-index: 100; font-family: monospace; }
@@ -42,14 +81,16 @@
         .control-group { padding: 10px 5px 0 5px; }
         .control-group label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
         .controls-panel input, .controls-panel select, .controls-panel button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--control-bg); box-sizing: border-box; cursor: pointer; font-size: 14px; color: var(--panel-text); margin-top: 5px; }
-        .controls-panel button { background: linear-gradient(45deg, #d35400, var(--accent-color)); color: var(--button-text); font-weight: bold; border: none; }
+        .controls-panel button { background: linear-gradient(45deg, var(--accent-color-dark), var(--accent-color)); color: var(--button-text); font-weight: bold; border: none; }
         .controls-panel input[type="checkbox"] { width: auto; }
-        .toggle-button { position: fixed; bottom: 20px; right: -30px; width: 30px; height: 100px; /* ... other styles */ z-index: 9; }
+        .control-group .button-row { display: flex; gap: 10px; }
+        .control-group .button-row button { flex: 1; }
+        .toggle-button { position: fixed; bottom: 20px; right: -30px; width: 30px; height: 100px; z-index: 9; }
         .controls-panel.hidden + .toggle-button { right: 0; }
     </style>
 </head>
 <body>
-    <div class="background-container nebula-bg"></div>
+    <div id="galaxy-background"></div>
     <div id="tsparticles"></div>
     <div class="info-overlay"><span class="label" id="fps">FPS: --</span></div>
     <audio id="audio-player" style="display:none;"></audio>
@@ -94,7 +135,13 @@
              <div class="control-group"><label>UI Dark Mode<input type="checkbox" id="dark-mode-toggle"></label></div>
              <div class="control-group"><label>Constellations<input type="checkbox" id="constellation-toggle"></label></div>
              <div class="control-group"><label for="preset-select">Preset</label><select id="preset-select"></select></div>
-             <div class="control-group"><button id="export-preset-btn">Export State</button><input type="file" id="import-preset-input" accept=".json" style="display:none;"><button onclick="document.getElementById('import-preset-input').click();">Import State</button></div>
+             <div class="control-group">
+                <div class="button-row">
+                    <button id="export-preset-btn">Export State</button>
+                    <input type="file" id="import-preset-input" accept=".json" style="display:none;">
+                    <button onclick="document.getElementById('import-preset-input').click();">Import State</button>
+                </div>
+             </div>
              <div class="control-group"><button id="reset-sim-btn" style="background: #c0392b;">Reset Simulation</button></div>
          </div>
     </div>
@@ -112,7 +159,7 @@
             };
 
             const ui = {
-                body: document.body, controlsPanel: document.getElementById('controls'), backgroundBase: document.querySelector('.background-container'),
+                body: document.body, controlsPanel: document.getElementById('controls'),
                 fps: document.getElementById('fps'), particlesCanvas: document.getElementById('tsparticles'), darkModeToggle: document.getElementById('dark-mode-toggle'),
                 presetSelect: document.getElementById('preset-select'), exportPresetBtn: document.getElementById('export-preset-btn'), importPresetInput: document.getElementById('import-preset-input'),
                 toolbar: document.querySelector('.toolbar'), tabNav: document.querySelector('.tab-nav'), groupSelector: document.querySelector('.group-selector'),
@@ -123,9 +170,6 @@
                 particleColor: document.getElementById('particle-color'),
                 audioFileInput: document.getElementById('audio-file-input'), micInputBtn: document.getElementById('mic-input-btn'),
                 audioMaps: document.querySelectorAll('.audio-map'),
-                audioMapBass: document.querySelector('.audio-map[data-target="bass"]'),
-                audioMapMids: document.querySelector('.audio-map[data-target="mids"]'),
-                audioMapTreble: document.querySelector('.audio-map[data-target="treble"]'),
                 constellationToggle: document.getElementById('constellation-toggle'),
                 resetSimBtn: document.getElementById('reset-sim-btn'),
                 toggleControlsBtn: document.getElementById('toggle-controls')
@@ -133,7 +177,7 @@
 
             const defaultGroupOptions = (groupName) => ({
                 group: groupName, number: { value: 0 }, color: { value: "#ffffff" }, shape: { type: "circle" },
-                opacity: { value: 0.8 }, size: { value: 3 }, links: { enable: false },
+                opacity: { value: 0.8 }, size: { value: 3 }, links: { enable: false, opacity: 0.4 },
                 move: { enable: true, speed: 1, direction: "none", random: true, straight: false, outModes: "out" },
                 collisions: { enable: true, mode: "bounce" },
                 audioMap: { bass: 'None', mids: 'None', treble: 'None' }
@@ -151,30 +195,36 @@
                     ]
                 },
             };
+            
+            const generateAndApplyRandomTheme = () => {
+                const root = document.documentElement;
+                const accentHue = Math.random() * 360;
+                const accentColor = `hsl(${accentHue}, 85%, 58%)`;
+                const accentColorDark = `hsl(${accentHue}, 80%, 48%)`;
+                root.style.setProperty('--accent-color', accentColor);
+                root.style.setProperty('--accent-color-dark', accentColorDark);
+
+                const bgColors = Array.from({length: 4}, (_, i) => `hsl(${(accentHue + (i * 90) + (Math.random() * 60 - 30)) % 360}, 70%, 15%)`);
+                root.style.setProperty('--bg-color-1', bgColors[0]); root.style.setProperty('--bg-color-2', bgColors[1]);
+                root.style.setProperty('--bg-color-3', bgColors[2]); root.style.setProperty('--bg-color-4', bgColors[3]);
+
+                basePresets.default.groups[0].color.value = `hsl(${Math.random() * 360}, 100%, 85%)`;
+                basePresets.symphony.groups[0].color.value = `hsl(${Math.random() * 60}, 90%, 60%)`;
+                basePresets.symphony.groups[1].color.value = `hsl(${200 + Math.random() * 100}, 90%, 65%)`;
+            };
 
             const engineLoop = () => {
                 if (isMouseDown && state.activeTool !== 'select' && particlesContainer) {
                     const brushRadius = 100;
                     const particles = particlesContainer.particles.quadTree.queryCircle(mousePos, brushRadius);
-                    
                     for (const particle of particles) {
-                        const dx = particle.position.x - mousePos.x;
-                        const dy = particle.position.y - mousePos.y;
+                        const dx = particle.position.x - mousePos.x, dy = particle.position.y - mousePos.y;
                         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
                         const force = Math.max(0, (brushRadius - dist) / brushRadius);
-
                         switch(state.activeTool) {
-                            case 'push':
-                                particle.velocity.x += (dx / dist) * force * 0.5;
-                                particle.velocity.y += (dy / dist) * force * 0.5;
-                                break;
-                            case 'pull':
-                                particle.velocity.x -= (dx / dist) * force * 0.5;
-                                particle.velocity.y -= (dy / dist) * force * 0.5;
-                                break;
-                            case 'erase':
-                                particle.destroy();
-                                break;
+                            case 'push': particle.velocity.x += (dx / dist) * force * 0.5; particle.velocity.y += (dy / dist) * force * 0.5; break;
+                            case 'pull': particle.velocity.x -= (dx / dist) * force * 0.5; particle.velocity.y -= (dy / dist) * force * 0.5; break;
+                            case 'erase': particle.destroy(); break;
                         }
                     }
                 }
@@ -182,26 +232,22 @@
             };
 
             const updateEngine = (fullRefresh = false) => {
+                if (!particlesContainer) return;
                 const activeGroups = state.particleGroups.filter(g => g.number.value > 0);
-                const options = { particles: activeGroups };
-                if (!particlesContainer) {
-                    tsParticles.load("tsparticles", { particles: activeGroups }).then(c => particlesContainer = c);
-                } else {
-                    particlesContainer.options.particles = activeGroups;
-                    if (fullRefresh) particlesContainer.refresh(); else particlesContainer.play();
-                }
+                particlesContainer.options.particles.groups = activeGroups;
+                if (fullRefresh) particlesContainer.refresh(); else particlesContainer.play();
             };
 
             const syncUiToState = () => {
                 const group = state.particleGroups[state.activeGroup];
                 ui.groupEnabled.checked = group.number.value > 0;
                 ui.particleCount.slider.value = group.number.value; ui.particleCount.value.textContent = group.number.value;
-                ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value;
-                ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed;
+                ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value.toFixed(1);
+                ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed.toFixed(1);
                 ui.particleColor.value = group.color.value;
-                ui.audioMapBass.value = group.audioMap.bass;
-                ui.audioMapMids.value = group.audioMap.mids;
-                ui.audioMapTreble.value = group.audioMap.treble;
+                document.querySelector('.audio-map[data-target="bass"]').value = group.audioMap.bass;
+                document.querySelector('.audio-map[data-target="mids"]').value = group.audioMap.mids;
+                document.querySelector('.audio-map[data-target="treble"]').value = group.audioMap.treble;
             };
 
             const applyPreset = (presetConfig) => {
@@ -209,17 +255,6 @@
                 state.initialGroups = JSON.parse(JSON.stringify(presetConfig.groups));
                 syncUiToState();
                 updateEngine(true);
-            };
-
-            const setupAudio = (streamOrElement) => {
-                if (audioContext && audioContext.state === 'running') audioContext.close();
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser(); analyser.fftSize = 256;
-                const source = streamOrElement instanceof MediaStream ? audioContext.createMediaStreamSource(streamOrElement) : audioContext.createMediaElementSource(streamOrElement);
-                source.connect(analyser);
-                if (!(streamOrElement instanceof MediaStream)) analyser.connect(audioContext.destination);
-                if (window.audioVisualizerLoop) cancelAnimationFrame(window.audioVisualizerLoop);
-                window.audioVisualizerLoop = requestAnimationFrame(visualizerLoop);
             };
 
             const visualizerLoop = () => {
@@ -234,12 +269,10 @@
                     state.particleGroups.forEach(group => {
                         const initialGroup = state.initialGroups.find(ig => ig.group === group.group);
                         if (!initialGroup) return;
-
                         const mappings = {
                             Size: v => group.size.value = Math.max(0.1, initialGroup.size.value * (1 + v * 5)),
                             Speed: v => group.move.speed = Math.max(0, initialGroup.move.speed * (1 + v * 5))
                         };
-                        
                         if (group.audioMap.bass !== 'None') { mappings[group.audioMap.bass](bass); needsUpdate = true; }
                         if (group.audioMap.mids !== 'None') { mappings[group.audioMap.mids](mids); needsUpdate = true; }
                         if (group.audioMap.treble !== 'None') { mappings[group.audioMap.treble](treble); needsUpdate = true; }
@@ -248,15 +281,15 @@
                 }
                 window.audioVisualizerLoop = requestAnimationFrame(visualizerLoop);
             };
-
+            
             const bindUI = () => {
                 ui.toolbar.addEventListener('click', (e) => { if (e.target.classList.contains('tool-button')) { state.activeTool = e.target.dataset.tool; ui.toolbar.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.particlesCanvas.classList.toggle('tool-active', state.activeTool !== 'select'); } });
                 ui.tabNav.addEventListener('click', (e) => { if (e.target.classList.contains('tab-button')) { ui.tabNav.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.controlsPanel.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); document.getElementById(e.target.dataset.tab).classList.add('active'); } });
                 ui.groupSelector.addEventListener('click', (e) => { if (e.target.classList.contains('group-button')) { state.activeGroup = parseInt(e.target.dataset.group, 10); ui.groupSelector.querySelectorAll('.group-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); syncUiToState(); } });
                 
                 ui.groupEnabled.addEventListener('change', (e) => { const countSlider = ui.particleCount.slider; state.particleGroups[state.activeGroup].number.value = e.target.checked ? (countSlider.value > 0 ? Number(countSlider.value) : 100) : 0; state.initialGroups[state.activeGroup].number.value = state.particleGroups[state.activeGroup].number.value; syncUiToState(); updateEngine(true); });
-                const addSliderListener = (uiElement, updater) => { uiElement.slider.addEventListener('input', (e) => { const value = parseFloat(e.target.value); uiElement.value.textContent = Math.round(value); updater(value); updateEngine(); }); };
-                addSliderListener(ui.particleCount, v => { state.particleGroups[state.activeGroup].number.value = v; state.initialGroups[state.activeGroup].number.value = v; });
+                const addSliderListener = (uiElement, updater) => { uiElement.slider.addEventListener('input', (e) => { const value = parseFloat(e.target.value); if (parseFloat(e.target.step) >= 1) { uiElement.value.textContent = Math.round(value); } else { uiElement.value.textContent = value.toFixed(1); } updater(value); updateEngine(); }); };
+                addSliderListener(ui.particleCount, v => { const val = Math.round(v); state.particleGroups[state.activeGroup].number.value = val; state.initialGroups[state.activeGroup].number.value = val; });
                 addSliderListener(ui.particleSize, v => { state.particleGroups[state.activeGroup].size.value = v; state.initialGroups[state.activeGroup].size.value = v; });
                 addSliderListener(ui.particleSpeed, v => { state.particleGroups[state.activeGroup].move.speed = v; state.initialGroups[state.activeGroup].move.speed = v; });
                 ui.particleColor.addEventListener('input', (e) => { state.particleGroups[state.activeGroup].color.value = e.target.value; updateEngine(); });
@@ -265,15 +298,55 @@
                 ui.micInputBtn.addEventListener('click', async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); setupAudio(stream); } catch (err) { alert("Mic access denied."); } });
                 ui.audioFileInput.addEventListener('change', (e) => { const player = document.getElementById('audio-player'); player.src = URL.createObjectURL(e.target.files[0]); player.play(); setupAudio(player); });
                 
-                ui.constellationToggle.addEventListener('change', (e) => { particlesContainer.options.load({ interactivity: { modes: { triangles: { enable: e.target.checked, frequency: 0.1, opacity: 0.1 } } } }); });
+                ui.constellationToggle.addEventListener('change', (e) => { particlesContainer.options.particles.links.enable = e.target.checked; particlesContainer.refresh(); });
                 ui.resetSimBtn.addEventListener('click', () => applyPreset({ groups: JSON.parse(JSON.stringify(state.initialGroups)) }));
                 ui.presetSelect.addEventListener('change', (e) => applyPreset(basePresets[e.target.value]));
                 ui.darkModeToggle.addEventListener('change', (e) => ui.controlsPanel.classList.toggle('dark-mode', e.target.checked));
                 ui.toggleControlsBtn.addEventListener('click', () => ui.controlsPanel.classList.toggle('hidden'));
+
+                ui.exportPresetBtn.addEventListener('click', () => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ groups: state.particleGroups }, null, 2));
+                    const downloadAnchorNode = document.createElement('a');
+                    downloadAnchorNode.setAttribute("href", dataStr);
+                    downloadAnchorNode.setAttribute("download", "aether_canvas_state.json");
+                    document.body.appendChild(downloadAnchorNode);
+                    downloadAnchorNode.click();
+                    downloadAnchorNode.remove();
+                });
+
+                ui.importPresetInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const newState = JSON.parse(event.target.result);
+                            if (newState && Array.isArray(newState.groups)) {
+                                applyPreset(newState);
+                            } else {
+                                alert("Invalid state file: Missing 'groups' array.");
+                            }
+                        } catch (err) {
+                            alert("Error parsing state file. Make sure it's a valid JSON.");
+                        }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = ''; // Reset input
+                });
             };
 
-            const setupCanvasListeners = () => {
-                const canvas = ui.particlesCanvas;
+            const setupAudio = (streamOrElement) => {
+                if (audioContext && audioContext.state === 'running') audioContext.close();
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser(); analyser.fftSize = 256;
+                const source = streamOrElement instanceof MediaStream ? audioContext.createMediaStreamSource(streamOrElement) : audioContext.createMediaElementSource(streamOrElement);
+                source.connect(analyser);
+                if (!(streamOrElement instanceof MediaStream)) analyser.connect(audioContext.destination);
+                if (window.audioVisualizerLoop) cancelAnimationFrame(window.audioVisualizerLoop);
+                window.audioVisualizerLoop = requestAnimationFrame(visualizerLoop);
+            };
+
+            const setupCanvasListeners = (canvas) => {
                 canvas.addEventListener('mousedown', (e) => { isMouseDown = true; mousePos = { x: e.offsetX, y: e.offsetY }; });
                 canvas.addEventListener('mouseup', () => { isMouseDown = false; });
                 canvas.addEventListener('mouseleave', () => { isMouseDown = false; });
@@ -282,14 +355,20 @@
 
             const setupFpsCounter = () => { const times = []; requestAnimationFrame(function loop() { const now = performance.now(); while (times.length > 0 && times[0] <= now - 1000) { times.shift(); } times.push(now); ui.fps.textContent = `FPS: ${times.length}`; requestAnimationFrame(loop); }); };
 
-            // INITIALIZATION
+            // --- INITIALIZATION ---
+            generateAndApplyRandomTheme();
             for(let i=0; i<4; i++) state.particleGroups.push(defaultGroupOptions(`group${i+1}`));
             Object.keys(basePresets).forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; ui.presetSelect.appendChild(opt); });
+            
             setupFpsCounter();
             bindUI();
-            setupCanvasListeners();
-            applyPreset(basePresets.default);
-            engineLoop();
+            
+            tsParticles.load("tsparticles", { particles: { groups: [] } }).then(container => {
+                particlesContainer = container;
+                setupCanvasListeners(container.canvas.element);
+                applyPreset(basePresets.default);
+                engineLoop();
+            });
         });
     </script>
 </body>

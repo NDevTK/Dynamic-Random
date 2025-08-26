@@ -14,10 +14,9 @@
             overflow: hidden;
             font-family: 'Segoe UI', 'Roboto', sans-serif;
             color: white;
-            perspective: 1000px; /* New: Added for 3D parallax effect */
         }
 
-        /* --- Animated Gradient Background --- */
+        /* --- New Animated Gradient Background --- */
         body {
             background-size: 400% 400%;
             animation: gradientAnimation 20s ease infinite;
@@ -29,32 +28,7 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* --- New: Main Title --- */
-        .main-title {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 5rem;
-            font-weight: 200;
-            letter-spacing: 0.5rem;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 30px rgba(255, 255, 255, 0.3);
-            z-index: 5;
-            pointer-events: none; /* Make it non-interactive */
-            text-align: center;
-        }
-
-        /* --- New: Parallax Scene Container --- */
-        #scene {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            transition: transform 0.1s linear;
-        }
-        
-        /* --- Cursor Glow Effect --- */
+        /* --- New Cursor Glow Effect --- */
         #cursor-glow {
             position: fixed;
             top: 0;
@@ -66,7 +40,7 @@
             pointer-events: none;
             z-index: 1;
             transform: translate(-50%, -50%);
-            transition: background 0.2s;
+            transition: background 0.2s; /* Smooth color transition */
         }
 
         #particles-js {
@@ -78,7 +52,6 @@
             z-index: 2; /* Raised to be above the cursor glow */
         }
 
-        /* --- Updated Controls Panel --- */
         .controls-panel {
             position: absolute;
             bottom: 10px;
@@ -87,137 +60,115 @@
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             border-radius: 10px;
+            padding: 20px;
             z-index: 10;
             box-shadow: 0 4px 30px rgba(0,0,0,0.25);
             border: 1px solid rgba(255, 255, 255, 0.1);
             width: 250px;
-            overflow: hidden; /* New: For collapse animation */
-            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); /* New: Smooth transition */
         }
-        /* New: Collapsed state */
-        .controls-panel.collapsed {
-            width: 44px;
-            height: 44px;
-            padding: 0;
+        .controls-panel div {
+            margin-bottom: 15px;
         }
-
-        .controls-panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px 5px 20px;
-            cursor: pointer;
+        .controls-panel div:last-child {
+            margin-bottom: 0;
         }
-        .controls-panel-header h3 {
-            margin: 0;
+        .controls-panel label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
             font-weight: 500;
         }
-        .toggle-icon {
-            width: 24px;
-            height: 24px;
-            transition: transform 0.4s ease;
+        .controls-panel input[type="color"] {
+            width: 100%;
+            height: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 0;
+            background: none;
+            border-radius: 5px;
+            cursor: pointer;
         }
-        .controls-panel.collapsed .toggle-icon {
-            transform: rotate(-180deg);
+        .controls-panel input[type="range"] {
+            width: 100%;
+            cursor: pointer;
         }
-
-        .controls-content {
-            padding: 0 20px 20px 20px;
-            visibility: visible;
-            opacity: 1;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
+        .controls-panel button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
-        .controls-panel.collapsed .controls-content {
-            visibility: hidden;
-            opacity: 0;
+        .controls-panel button:hover {
+            background-color: rgba(255, 255, 255, 0.4);
         }
-
-        .controls-content div { margin-bottom: 15px; }
-        .controls-content div:last-child { margin-bottom: 0; }
-        .controls-panel label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
-        .controls-panel input[type="color"] { width: 100%; height: 30px; border: 1px solid rgba(255,255,255,0.2); padding: 0; background: none; border-radius: 5px; cursor: pointer; }
-        .controls-panel input[type="range"] { width: 100%; cursor: pointer; }
-        .controls-panel button { width: 100%; padding: 10px; border: none; border-radius: 5px; background-color: rgba(255, 255, 255, 0.2); color: white; cursor: pointer; transition: background-color 0.2s; }
-        .controls-panel button:hover { background-color: rgba(255, 255, 255, 0.4); }
-        .checkbox-wrapper { display: flex; align-items: center; cursor: pointer; }
-        .checkbox-wrapper input[type="checkbox"] { margin-right: 10px; cursor: pointer; }
-        .checkbox-wrapper label { margin-bottom: 0; }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .checkbox-wrapper label {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
-    <h1 class="main-title">Celestial Canvas</h1>
+    <div id="cursor-glow"></div>
+    <div id="particles-js"></div>
 
-    <div id="scene">
-        <div id="cursor-glow"></div>
-        <div id="particles-js"></div>
-    </div>
-
-    <div class="controls-panel" id="controls-panel">
-        <div class="controls-panel-header" id="controls-toggle">
-            <h3>Controls</h3>
-            <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19.14,12.94a4,4,0,0,0-4.48,0L12,15.36,9.34,12.94a4,4,0,0,0-5.68,5.68l.28.28a8,8,0,0,0,11.31,0l.28-.28a4,4,0,0,0,0-5.68Z"/>
-                <circle cx="12" cy="12" r="4"/>
-            </svg>
+    <div class="controls-panel">
+        <div>
+            <label for="particle-color">Particle Color</label>
+            <input type="color" id="particle-color" value="#ffffff">
         </div>
-        <div class="controls-content">
-            <div>
-                <label for="particle-color">Particle Color</label>
-                <input type="color" id="particle-color" value="#ffffff">
-            </div>
-            <div>
-                <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
-                <input type="range" id="particle-count" min="10" max="500" value="80">
-            </div>
-            <div>
-                <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
-                <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
-            </div>
-            <div>
-                <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
-                <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
-            </div>
-            <div class="checkbox-wrapper">
-                <input type="checkbox" id="link-particles" checked>
-                <label for="link-particles">Link Particles</label>
-            </div>
-            <div>
-                <button id="randomize-gradient">New Background</button>
-            </div>
+        <div>
+            <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
+            <input type="range" id="particle-count" min="10" max="500" value="80">
+        </div>
+        <!-- New Controls -->
+        <div>
+            <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
+            <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
+        </div>
+        <div>
+            <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
+            <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
+        </div>
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="link-particles" checked>
+            <label for="link-particles">Link Particles</label>
+        </div>
+        <!-- End New Controls -->
+        <div>
+            <button id="randomize-gradient">New Background</button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        // --- Updated particles.js configuration ---
+        // Global variable to hold the particles.js configuration
         const particlesConfig = {
             "particles": {
                 "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
                 "color": { "value": "#ffffff" },
                 "shape": { "type": "circle" },
-                "opacity": { 
-                    "value": 0.6, 
-                    "random": true, // New: Twinkling effect
-                    "anim": { "enable": true, "speed": 0.5, "opacity_min": 0.1, "sync": false }
-                },
-                "size": { 
-                    "value": 2.5, 
-                    "random": true, // New: Twinkling effect
-                    "anim": { "enable": true, "speed": 2, "size_min": 0.5, "sync": false }
-                },
+                "opacity": { "value": 0.5, "random": false },
+                "size": { "value": 3, "random": true },
                 "line_linked": { "enable": true, "distance": 150, "color": "#ffffff", "opacity": 0.4, "width": 1 },
-                "move": { "enable": true, "speed": 2, "direction": "none", "out_mode": "out" }
+                "move": { "enable": true, "speed": 6, "direction": "none", "out_mode": "out" }
             },
             "interactivity": {
                 "detect_on": "canvas",
-                "events": { 
-                    "onhover": { "enable": true, "mode": "bubble" }, 
-                    "onclick": { "enable": true, "mode": "repulse" }, // Updated: Repulse on click
-                    "resize": true 
-                },
+                "events": { "onhover": { "enable": true, "mode": "bubble" }, "onclick": { "enable": true, "mode": "push" }, "resize": true },
                 "modes": {
-                    "bubble": { "distance": 250, "size": 8, "duration": 2, "opacity": 1 },
-                    "repulse": { "distance": 200, "duration": 0.4 } // Updated: Repulse config
+                    "bubble": { "distance": 250, "size": 10, "duration": 2, "opacity": 1 },
+                    "push": { "particles_nb": 4 }
                 }
             },
             "retina_detect": true
@@ -231,6 +182,7 @@
             return `hsl(${h}, ${s}%, ${l}%)`;
         }
         
+        // Function to convert HSL values to a HEX string for the color input
         function hslToHex(h, s, l) {
             l /= 100;
             const a = s * Math.min(l, 1 - l) / 100;
@@ -242,6 +194,7 @@
             return `#${f(0)}${f(8)}${f(4)}`;
         }
 
+        // Updated function to set the random animated gradient background
         function setRandomGradient() {
             const color1 = getRandomColor();
             const color2 = getRandomColor();
@@ -253,6 +206,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Get all control elements
             const particleColorInput = document.getElementById('particle-color');
             const particleCountInput = document.getElementById('particle-count');
             const particleCountValue = document.getElementById('particle-count-value');
@@ -263,16 +217,14 @@
             const linkParticlesInput = document.getElementById('link-particles');
             const randomizeGradientBtn = document.getElementById('randomize-gradient');
             const cursorGlow = document.getElementById('cursor-glow');
-            const scene = document.getElementById('scene'); // New: For parallax
-            const controlsPanel = document.getElementById('controls-panel'); // New: For collapse
-            const controlsToggle = document.getElementById('controls-toggle'); // New: For collapse
             
-            // Randomize particle color on load
+            // Randomize particle color on load for contrast
             const randomHue = Math.floor(Math.random() * 360);
             const randomSaturation = Math.floor(Math.random() * 30) + 70;
-            const randomLightness = Math.floor(Math.random() * 30) + 60;
+            const randomLightness = Math.floor(Math.random() * 30) + 60; // Brighter particles
             const randomParticleColor = hslToHex(randomHue, randomSaturation, randomLightness);
             
+            // Update config before initializing
             particlesConfig.particles.color.value = randomParticleColor;
             particlesConfig.particles.line_linked.color = randomParticleColor;
             particleColorInput.value = randomParticleColor;
@@ -282,28 +234,18 @@
             particlesJS('particles-js', particlesConfig);
             const pJS = window.pJSDom[0].pJS;
 
+            // Initialize display values for new sliders
             particleSizeValue.textContent = particleSizeInput.value;
             particleSpeedValue.textContent = particleSpeedInput.value;
 
             // --- Event Listeners ---
 
-            // New: Parallax effect listener
+            // Cursor glow follows mouse
             window.addEventListener('mousemove', e => {
-                // Cursor glow follows mouse directly
                 cursorGlow.style.left = `${e.clientX}px`;
                 cursorGlow.style.top = `${e.clientY}px`;
-                
-                // Parallax effect for the scene
-                const x = (window.innerWidth / 2 - e.clientX) / 25;
-                const y = (window.innerHeight / 2 - e.clientY) / 25;
-                scene.style.transform = `rotateY(${x / 2}deg) rotateX(${-y / 2}deg)`;
             });
             
-            // New: Controls panel toggle
-            controlsToggle.addEventListener('click', () => {
-                controlsPanel.classList.toggle('collapsed');
-            });
-
             // Particle color
             particleColorInput.addEventListener('input', (e) => {
                 pJS.particles.color.value = e.target.value;
@@ -319,7 +261,7 @@
                 pJS.fn.particlesRefresh();
             });
 
-            // Particle size
+            // New: Particle size
             particleSizeInput.addEventListener('input', (e) => {
                 const size = parseFloat(e.target.value);
                 pJS.particles.size.value = size;
@@ -327,7 +269,7 @@
                 pJS.fn.particlesRefresh();
             });
 
-            // Particle speed
+            // New: Particle speed
             particleSpeedInput.addEventListener('input', (e) => {
                 const speed = parseFloat(e.target.value);
                 pJS.particles.move.speed = speed;
@@ -335,7 +277,7 @@
                 pJS.fn.particlesRefresh();
             });
 
-            // Link particles toggle
+            // New: Link particles toggle
             linkParticlesInput.addEventListener('change', (e) => {
                 pJS.particles.line_linked.enable = e.target.checked;
                 pJS.fn.particlesRefresh();

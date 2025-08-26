@@ -65,6 +65,14 @@
             box-shadow: 0 4px 30px rgba(0,0,0,0.25);
             border: 1px solid rgba(255, 255, 255, 0.1);
             width: 250px;
+            /* New: Added transition for smooth hide/show */
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        /* New: Class to hide the panel when the iframe is off-screen */
+        .controls-panel.hidden {
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
         }
         .controls-panel div {
             margin-bottom: 15px;
@@ -218,6 +226,27 @@
             const randomizeGradientBtn = document.getElementById('randomize-gradient');
             const cursorGlow = document.getElementById('cursor-glow');
             
+            // --- New: Intersection Observer to hide controls when iframe is off-screen ---
+            if (window.self !== window.top) { // Only run if in an iframe
+                const controlsPanel = document.querySelector('.controls-panel');
+                
+                const observer = new IntersectionObserver((entries) => {
+                    const entry = entries[0];
+                    if (entry.isIntersecting) {
+                        controlsPanel.classList.remove('hidden');
+                    } else {
+                        controlsPanel.classList.add('hidden');
+                    }
+                }, {
+                    threshold: 0 // Fires as soon as 1px is visible/hidden
+                });
+
+                // Observing the body of this document tells us when the iframe
+                // it lives in becomes visible or hidden in the parent window.
+                observer.observe(document.body);
+            }
+            // --- End of new logic ---
+
             // Randomize particle color on load for contrast
             const randomHue = Math.floor(Math.random() * 360);
             const randomSaturation = Math.floor(Math.random() * 30) + 70;

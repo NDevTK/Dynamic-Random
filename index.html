@@ -20,127 +20,27 @@
             --dust-color: rgba(255, 255, 255, 0.05);
         }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #000; }
-        
-        /* --- NEW: Parallax & Background Layers --- */
-        .parallax-layer {
-            position: absolute; top: -5%; left: -5%; width: 110%; height: 110%;
-            pointer-events: none;
-            will-change: transform; /* Performance hint for the browser */
-        }
-
-        .starfield {
-            background-repeat: repeat;
-        }
-        #stars1 { /* Distant, small */
-            z-index: -5;
-            background-image: 
-                radial-gradient(1px 1px at 50px 200px, var(--star-color), transparent),
-                radial-gradient(1px 1px at 100px 350px, var(--star-color), transparent),
-                radial-gradient(0.5px 0.5px at 250px 100px, var(--star-color), transparent),
-                radial-gradient(0.5px 0.5px at 320px 400px, var(--star-color), transparent);
-            background-size: 400px 400px;
-        }
-        #stars2 { /* Mid-distance, medium */
-            z-index: -4;
-            background-image: 
-                radial-gradient(1.5px 1.5px at 150px 100px, var(--star-color), transparent),
-                radial-gradient(1px 1px at 300px 300px, var(--star-color), transparent),
-                radial-gradient(1.5px 1.5px at 450px 450px, var(--star-color), transparent);
-            background-size: 500px 500px;
-        }
-        #stars3 { /* Close, large */
-            z-index: -2;
-            background-image: 
-                radial-gradient(2px 2px at 250px 150px, var(--star-color), transparent),
-                radial-gradient(2.5px 2.5px at 50px 400px, var(--star-color), transparent);
-            background-size: 600px 600px;
-        }
-
-        /* --- NEW: Cosmic Dust Layer --- */
-        #cosmic-dust {
-            z-index: -3;
-            background-image: radial-gradient(ellipse at 40% 60%, var(--dust-color) 0%, transparent 70%);
-            animation: slow-rotate 200s linear infinite reverse;
-        }
-        
-        /* --- MODIFIED: Nebula Layer --- */
-        #galaxy-background {
-            background: #000510; /* This color is replaced by JS */
-            overflow: hidden; z-index: -3; /* Sits between star layers */
-        }
-        #galaxy-background::before,
-        #galaxy-background::after {
-            content: ''; position: absolute; top: 50%; left: 50%;
-            width: 250vmax; height: 250vmax;
-            background-repeat: no-repeat;
-            animation-timing-function: linear; animation-iteration-count: infinite;
-        }
-        #galaxy-background::before {
-            margin-top: -125vmax; margin-left: -125vmax;
-            background-image:
-                radial-gradient(ellipse at center, var(--bg-color-1) 0%, transparent 40%),
-                radial-gradient(ellipse at center, var(--bg-color-2) 0%, transparent 40%);
-            background-position: 10% 90%, 80% 20%;
-            background-size: 100vmax 100vmax, 120vmax 120vmax;
-            animation-name: galaxy-swirl, pulse-nebula; /* MODIFIED: Added pulse */
-            animation-duration: 50s, 12s;
-            opacity: 0.5; filter: blur(30px);
-        }
-        #galaxy-background::after {
-            margin-top: -125vmax; margin-left: -125vmax;
-            background-image:
-                radial-gradient(ellipse at center, var(--bg-color-3) 0%, transparent 40%),
-                radial-gradient(ellipse at center, var(--bg-color-4) 0%, transparent 40%);
-            background-position: 40% 10%, 60% 80%;
-            background-size: 140vmax 140vmax, 90vmax 90vmax;
-            animation-name: galaxy-swirl, pulse-nebula; /* MODIFIED: Added pulse */
-            animation-duration: 65s, 15s;
-            animation-direction: reverse, alternate; /* MODIFIED */
-            opacity: 0.4; filter: blur(60px);
-        }
-        @keyframes galaxy-swirl {
-            from { transform: rotate(0deg) scale(1.2); }
-            to { transform: rotate(360deg) scale(1.2); }
-        }
-        /* NEW: Pulsing animation */
-        @keyframes pulse-nebula {
-            0% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-            100% { opacity: 0.3; }
-        }
-        @keyframes slow-rotate {
-            from { transform: rotate(0deg) scale(1.5); }
-            to { transform: rotate(360deg) scale(1.5); }
-        }
-
-        /* --- NEW: Shooting Stars --- */
-        #shooting-stars-container {
-            position: absolute; top:0; left: 0; width: 100%; height: 100%;
-            overflow: hidden; z-index: -1;
-        }
-        .shooting-star {
-            position: absolute;
-            height: 2px;
-            background: linear-gradient(-45deg, var(--star-color), rgba(0, 0, 0, 0));
-            border-radius: 999px;
-            filter: drop-shadow(0 0 6px var(--star-color));
-            animation: shooting-star-fall 3s linear forwards;
-        }
-        @keyframes shooting-star-fall {
-            0% { transform: translateX(0); opacity: 1; }
-            100% { transform: translateX(800px); opacity: 0; }
-        }
-
+        .parallax-layer { position: absolute; top: -5%; left: -5%; width: 110%; height: 110%; pointer-events: none; will-change: transform; }
+        .starfield { background-repeat: repeat; }
+        #stars1 { z-index: -5; background-image: radial-gradient(1px 1px at 50px 200px, var(--star-color), transparent), radial-gradient(1px 1px at 100px 350px, var(--star-color), transparent), radial-gradient(0.5px 0.5px at 250px 100px, var(--star-color), transparent), radial-gradient(0.5px 0.5px at 320px 400px, var(--star-color), transparent); background-size: 400px 400px; }
+        #stars2 { z-index: -4; background-image: radial-gradient(1.5px 1.5px at 150px 100px, var(--star-color), transparent), radial-gradient(1px 1px at 300px 300px, var(--star-color), transparent), radial-gradient(1.5px 1.5px at 450px 450px, var(--star-color), transparent); background-size: 500px 500px; }
+        #stars3 { z-index: -2; background-image: radial-gradient(2px 2px at 250px 150px, var(--star-color), transparent), radial-gradient(2.5px 2.5px at 50px 400px, var(--star-color), transparent); background-size: 600px 600px; }
+        #cosmic-dust { z-index: -3; background-image: radial-gradient(ellipse at 40% 60%, var(--dust-color) 0%, transparent 70%); animation: slow-rotate 200s linear infinite reverse; }
+        #galaxy-background { background: #000510; overflow: hidden; z-index: -3; }
+        #galaxy-background::before, #galaxy-background::after { content: ''; position: absolute; top: 50%; left: 50%; width: 250vmax; height: 250vmax; background-repeat: no-repeat; animation-timing-function: linear; animation-iteration-count: infinite; }
+        #galaxy-background::before { margin-top: -125vmax; margin-left: -125vmax; background-image: radial-gradient(ellipse at center, var(--bg-color-1) 0%, transparent 40%), radial-gradient(ellipse at center, var(--bg-color-2) 0%, transparent 40%); background-position: 10% 90%, 80% 20%; background-size: 100vmax 100vmax, 120vmax 120vmax; animation-name: galaxy-swirl, pulse-nebula; animation-duration: 50s, 12s; opacity: 0.5; filter: blur(30px); }
+        #galaxy-background::after { margin-top: -125vmax; margin-left: -125vmax; background-image: radial-gradient(ellipse at center, var(--bg-color-3) 0%, transparent 40%), radial-gradient(ellipse at center, var(--bg-color-4) 0%, transparent 40%); background-position: 40% 10%, 60% 80%; background-size: 140vmax 140vmax, 90vmax 90vmax; animation-name: galaxy-swirl, pulse-nebula; animation-duration: 65s, 15s; animation-direction: reverse, alternate; opacity: 0.4; filter: blur(60px); }
+        @keyframes galaxy-swirl { from { transform: rotate(0deg) scale(1.2); } to { transform: rotate(360deg) scale(1.2); } }
+        @keyframes pulse-nebula { 0% { opacity: 0.3; } 50% { opacity: 0.6; } 100% { opacity: 0.3; } }
+        @keyframes slow-rotate { from { transform: rotate(0deg) scale(1.5); } to { transform: rotate(360deg) scale(1.5); } }
+        #shooting-stars-container { position: absolute; top:0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: -1; }
+        .shooting-star { position: absolute; height: 2px; background: linear-gradient(-45deg, var(--star-color), rgba(0, 0, 0, 0)); border-radius: 999px; filter: drop-shadow(0 0 6px var(--star-color)); animation: shooting-star-fall 3s linear forwards; }
+        @keyframes shooting-star-fall { 0% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(800px); opacity: 0; } }
         #tsparticles { position: absolute; width: 100%; height: 100%; z-index: 1; cursor: default; }
         #tsparticles.tool-active { cursor: crosshair; }
         .info-overlay { position: fixed; top: 10px; left: 10px; z-index: 100; font-family: monospace; }
         .info-overlay .label { padding: 5px 10px; background: rgba(0,0,0,0.5); color: #0f0; border-radius: 5px; }
-        .controls-panel {
-            position: absolute; bottom: 20px; right: 20px; background-color: var(--panel-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-            border-radius: 15px; padding: 10px; z-index: 10; color: var(--panel-text); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-color); width: 340px; max-height: calc(100vh - 40px); overflow-y: auto;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); display: flex; flex-direction: column;
-        }
+        .controls-panel { position: absolute; bottom: 20px; right: 20px; background-color: var(--panel-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-radius: 15px; padding: 10px; z-index: 10; color: var(--panel-text); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); width: 340px; max-height: calc(100vh - 40px); overflow-y: auto; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); display: flex; flex-direction: column; }
         .controls-panel.hidden { transform: translateX(calc(100% + 40px)); opacity: 0; }
         .controls-panel.dark-mode { --panel-bg: rgba(25, 25, 25, 0.6); --panel-text: #ecf0f1; --control-bg: rgba(50, 50, 50, 0.8); --summary-hover: rgba(255,255,255,0.1); --border-color: rgba(255,255,255,0.2); --button-text: #fff; --accent-color: #f39c12; }
         .toolbar { display: flex; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; }
@@ -161,12 +61,11 @@
         .controls-panel input[type="checkbox"] { width: auto; }
         .control-group .button-row { display: flex; gap: 10px; }
         .control-group .button-row button { flex: 1; }
-        .toggle-button { position: fixed; bottom: 20px; right: -30px; width: 30px; height: 100px; z-index: 9; }
+        .toggle-button { position: fixed; bottom: 20px; right: -30px; width: 30px; height: 100px; z-index: 9; writing-mode: vertical-lr; text-align: center; background: var(--accent-color); color: var(--button-text); border-radius: 10px 0 0 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; letter-spacing: 2px;}
         .controls-panel.hidden + .toggle-button { right: 0; }
     </style>
 </head>
 <body>
-    <!-- NEW/MODIFIED Background Layers -->
     <div id="stars1" class="parallax-layer starfield"></div>
     <div id="stars2" class="parallax-layer starfield"></div>
     <div id="cosmic-dust" class="parallax-layer"></div>
@@ -233,12 +132,13 @@
     <script src="https://cdn.jsdelivr.net/npm/tsparticles-all@2.12.0/tsparticles.all.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            let particlesContainer, audioContext, analyser;
+            let particlesContainer, audioContext, analyser, activeMicStream = null;
             let isMouseDown = false, mousePos = { x: 0, y: 0 };
             
             const state = {
                 activeTool: 'select', activeGroup: 0,
                 particleGroups: [], initialGroups: [],
+                activePresetConfig: null
             };
 
             const ui = {
@@ -256,18 +156,13 @@
                 constellationToggle: document.getElementById('constellation-toggle'),
                 resetSimBtn: document.getElementById('reset-sim-btn'),
                 toggleControlsBtn: document.getElementById('toggle-controls'),
-                // NEW: Background elements
                 parallaxLayers: document.querySelectorAll('.parallax-layer'),
                 shootingStarsContainer: document.getElementById('shooting-stars-container')
             };
 
-            // --- FIX START: Helper function to convert HSL color strings to HEX format ---
             const hslStringToHex = (hsl) => {
-                if (typeof hsl !== 'string' || !hsl.startsWith('hsl')) {
-                    return hsl; // Return if already hex, not a string, or invalid
-                }
+                if (typeof hsl !== 'string' || !hsl.startsWith('hsl')) return hsl;
                 try {
-                    // Extracts numbers: e.g., "hsl(200, 50%, 50%)" -> [200, 50, 50]
                     const [h, s, l] = hsl.match(/\d+(\.\d+)?/g).map(Number);
                     const l_norm = l / 100;
                     const a = (s / 100) * Math.min(l_norm, 1 - l_norm);
@@ -279,10 +174,9 @@
                     return `#${f(0)}${f(8)}${f(4)}`;
                 } catch (e) {
                     console.error("Could not parse HSL string:", hsl);
-                    return "#ffffff"; // Fallback color
+                    return "#ffffff";
                 }
             };
-            // --- FIX END ---
 
             const defaultGroupOptions = (groupName) => ({
                 group: groupName, number: { value: 0 }, color: { value: "#ffffff" }, shape: { type: "circle" },
@@ -305,34 +199,16 @@
                 },
             };
             
-            // --- MODIFIED: Advanced Random Theme Generation ---
             const generateAndApplyRandomTheme = () => {
                 const root = document.documentElement;
                 const baseHue = Math.random() * 360;
-
-                const accentColor = `hsl(${baseHue}, 85%, 58%)`;
-                const accentColorDark = `hsl(${baseHue}, 80%, 48%)`;
-                root.style.setProperty('--accent-color', accentColor);
-                root.style.setProperty('--accent-color-dark', accentColorDark);
-
-                const starColor = `hsl(${baseHue}, 40%, 95%)`;
-                const deepSpaceColor = `hsl(${(baseHue + 200) % 360}, 50%, 5%)`;
-                root.style.setProperty('--star-color', starColor);
-                document.getElementById('galaxy-background').style.background = deepSpaceColor;
-
-                const bgColor1 = `hsl(${(baseHue + 20) % 360}, 70%, 50%)`;
-                const bgColor2 = `hsl(${(baseHue - 20) % 360}, 75%, 55%)`;
-                const bgColor3 = `hsl(${(baseHue + 180) % 360}, 60%, 45%)`; 
-                const bgColor4 = `hsl(${(baseHue + 160) % 360}, 65%, 40%)`;
-                root.style.setProperty('--bg-color-1', bgColor1);
-                root.style.setProperty('--bg-color-2', bgColor2);
-                root.style.setProperty('--bg-color-3', bgColor3);
-                root.style.setProperty('--bg-color-4', bgColor4);
-                
-                // NEW: Color for cosmic dust
-                const dustColor = `hsla(${(baseHue + 220) % 360}, 40%, 50%, 0.07)`;
-                root.style.setProperty('--dust-color', dustColor);
-                
+                const accentColor = `hsl(${baseHue}, 85%, 58%)`, accentColorDark = `hsl(${baseHue}, 80%, 48%)`;
+                root.style.setProperty('--accent-color', accentColor); root.style.setProperty('--accent-color-dark', accentColorDark);
+                const starColor = `hsl(${baseHue}, 40%, 95%)`, deepSpaceColor = `hsl(${(baseHue + 200) % 360}, 50%, 5%)`;
+                root.style.setProperty('--star-color', starColor); document.getElementById('galaxy-background').style.background = deepSpaceColor;
+                const bgColor1 = `hsl(${(baseHue + 20) % 360}, 70%, 50%)`, bgColor2 = `hsl(${(baseHue - 20) % 360}, 75%, 55%)`, bgColor3 = `hsl(${(baseHue + 180) % 360}, 60%, 45%)`, bgColor4 = `hsl(${(baseHue + 160) % 360}, 65%, 40%)`;
+                root.style.setProperty('--bg-color-1', bgColor1); root.style.setProperty('--bg-color-2', bgColor2); root.style.setProperty('--bg-color-3', bgColor3); root.style.setProperty('--bg-color-4', bgColor4);
+                const dustColor = `hsla(${(baseHue + 220) % 360}, 40%, 50%, 0.07)`; root.style.setProperty('--dust-color', dustColor);
                 basePresets.default.groups[0].color.value = `hsl(${Math.random() * 360}, 100%, 85%)`;
                 basePresets.symphony.groups[0].color.value = `hsl(${baseHue}, 90%, 60%)`;
                 basePresets.symphony.groups[1].color.value = `hsl(${(baseHue + 180) % 360}, 90%, 65%)`;
@@ -356,54 +232,27 @@
                 requestAnimationFrame(engineLoop);
             };
 
-            // --- NEW: Background Animation Loop (Parallax + Panning) ---
             const animateBackground = () => {
                 const now = performance.now();
-                const mouseX = (mousePos.x / window.innerWidth - 0.5) * 2; // -1 to 1
-                const mouseY = (mousePos.y / window.innerHeight - 0.5) * 2; // -1 to 1
-
-                const panX = (now * 0.004);
-                const panY = (now * 0.002);
-
-                // Apply transforms to each layer with different strengths
-                // Layer z-index: stars1(-5), stars2(-4), dust(-3), galaxy(-3), stars3(-2)
-                const strengths = {
-                    stars1: 0.01,
-                    stars2: 0.02,
-                    'cosmic-dust': 0.03,
-                    'galaxy-background': 0.04,
-                    stars3: 0.06
-                };
-
+                const mouseX = (mousePos.x / window.innerWidth - 0.5) * 2, mouseY = (mousePos.y / window.innerHeight - 0.5) * 2;
+                const panX = (now * 0.004), panY = (now * 0.002);
+                const strengths = { stars1: 0.01, stars2: 0.02, 'cosmic-dust': 0.03, 'galaxy-background': 0.04, stars3: 0.06 };
                 ui.parallaxLayers.forEach(layer => {
                     const strength = strengths[layer.id] || 0;
                     const totalX = panX + mouseX * strength * 100;
                     const totalY = panY + mouseY * strength * 100;
                     layer.style.transform = `translate(${totalX}px, ${totalY}px)`;
                 });
-                
                 requestAnimationFrame(animateBackground);
             };
 
-            // --- NEW: Shooting Star Generator ---
             const createShootingStar = () => {
-                const star = document.createElement('div');
-                star.className = 'shooting-star';
-
-                const x = Math.random() * window.innerWidth;
-                const y = Math.random() * window.innerHeight;
-                const duration = Math.random() * 2 + 1; // 1 to 3 seconds
-                const delay = Math.random() * 5; // 0 to 5 seconds delay
-                const angle = -10 + Math.random() * 50; // Angle between -10 and 40 deg
-                const length = Math.random() * 200 + 100; // 100px to 300px long
-
-                star.style.top = `${y}px`;
-                star.style.left = `${x}px`;
-                star.style.width = `${length}px`;
-                star.style.transform = `rotate(${angle}deg)`;
-                star.style.animationDuration = `${duration}s`;
-                star.style.animationDelay = `${delay}s`;
-
+                const star = document.createElement('div'); star.className = 'shooting-star';
+                const x = Math.random() * window.innerWidth, y = Math.random() * window.innerHeight;
+                const duration = Math.random() * 2 + 1, delay = Math.random() * 5;
+                const angle = -10 + Math.random() * 50, length = Math.random() * 200 + 100;
+                star.style.top = `${y}px`; star.style.left = `${x}px`; star.style.width = `${length}px`;
+                star.style.transform = `rotate(${angle}deg)`; star.style.animationDuration = `${duration}s`; star.style.animationDelay = `${delay}s`;
                 ui.shootingStarsContainer.appendChild(star);
                 setTimeout(() => star.remove(), (duration + delay) * 1000);
             };
@@ -421,7 +270,6 @@
                 ui.particleCount.slider.value = group.number.value; ui.particleCount.value.textContent = group.number.value;
                 ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value.toFixed(1);
                 ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed.toFixed(1);
-                // --- FIX: Use the HSL to HEX converter for the color input ---
                 ui.particleColor.value = hslStringToHex(group.color.value);
                 document.querySelector('.audio-map[data-target="bass"]').value = group.audioMap.bass;
                 document.querySelector('.audio-map[data-target="mids"]').value = group.audioMap.mids;
@@ -429,6 +277,7 @@
             };
 
             const applyPreset = (presetConfig) => {
+                state.activePresetConfig = JSON.parse(JSON.stringify(presetConfig));
                 state.particleGroups = JSON.parse(JSON.stringify(presetConfig.groups));
                 state.initialGroups = JSON.parse(JSON.stringify(presetConfig.groups));
                 syncUiToState();
@@ -442,7 +291,6 @@
                     const bass = dataArray.slice(0, 5).reduce((a,b)=>a+b,0)/(5*255);
                     const mids = dataArray.slice(20, 50).reduce((a,b)=>a+b,0)/(30*255);
                     const treble = dataArray.slice(60, 100).reduce((a,b)=>a+b,0)/(40*255);
-                    
                     let needsUpdate = false;
                     state.particleGroups.forEach(group => {
                         const initialGroup = state.initialGroups.find(ig => ig.group === group.group);
@@ -464,53 +312,22 @@
                 ui.toolbar.addEventListener('click', (e) => { if (e.target.classList.contains('tool-button')) { state.activeTool = e.target.dataset.tool; ui.toolbar.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.particlesCanvas.classList.toggle('tool-active', state.activeTool !== 'select'); } });
                 ui.tabNav.addEventListener('click', (e) => { if (e.target.classList.contains('tab-button')) { ui.tabNav.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.controlsPanel.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); document.getElementById(e.target.dataset.tab).classList.add('active'); } });
                 ui.groupSelector.addEventListener('click', (e) => { if (e.target.classList.contains('group-button')) { state.activeGroup = parseInt(e.target.dataset.group, 10); ui.groupSelector.querySelectorAll('.group-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); syncUiToState(); } });
-                
                 ui.groupEnabled.addEventListener('change', (e) => { const countSlider = ui.particleCount.slider; state.particleGroups[state.activeGroup].number.value = e.target.checked ? (countSlider.value > 0 ? Number(countSlider.value) : 100) : 0; state.initialGroups[state.activeGroup].number.value = state.particleGroups[state.activeGroup].number.value; syncUiToState(); updateEngine(true); });
                 const addSliderListener = (uiElement, updater) => { uiElement.slider.addEventListener('input', (e) => { const value = parseFloat(e.target.value); if (parseFloat(e.target.step) >= 1) { uiElement.value.textContent = Math.round(value); } else { uiElement.value.textContent = value.toFixed(1); } updater(value); updateEngine(); }); };
                 addSliderListener(ui.particleCount, v => { const val = Math.round(v); state.particleGroups[state.activeGroup].number.value = val; state.initialGroups[state.activeGroup].number.value = val; });
                 addSliderListener(ui.particleSize, v => { state.particleGroups[state.activeGroup].size.value = v; state.initialGroups[state.activeGroup].size.value = v; });
                 addSliderListener(ui.particleSpeed, v => { state.particleGroups[state.activeGroup].move.speed = v; state.initialGroups[state.activeGroup].move.speed = v; });
                 ui.particleColor.addEventListener('input', (e) => { state.particleGroups[state.activeGroup].color.value = e.target.value; updateEngine(); });
-                
                 ui.audioMaps.forEach(sel => sel.addEventListener('change', (e) => { state.particleGroups[state.activeGroup].audioMap[e.target.dataset.target] = e.target.value; }));
-                ui.micInputBtn.addEventListener('click', async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); setupAudio(stream); } catch (err) { alert("Mic access denied."); } });
-                ui.audioFileInput.addEventListener('change', (e) => { const player = document.getElementById('audio-player'); player.src = URL.createObjectURL(e.target.files[0]); player.play(); setupAudio(player); });
-                
+                ui.micInputBtn.addEventListener('click', async () => { try { document.getElementById('audio-player').pause(); if (activeMicStream) { activeMicStream.getTracks().forEach(track => track.stop()); } const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); activeMicStream = stream; setupAudio(stream); } catch (err) { alert("Mic access denied."); } });
+                ui.audioFileInput.addEventListener('change', (e) => { if (activeMicStream) { activeMicStream.getTracks().forEach(track => track.stop()); activeMicStream = null; } const player = document.getElementById('audio-player'); player.src = URL.createObjectURL(e.target.files[0]); player.play(); setupAudio(player); });
                 ui.constellationToggle.addEventListener('change', (e) => { particlesContainer.options.particles.links.enable = e.target.checked; particlesContainer.refresh(); });
-                ui.resetSimBtn.addEventListener('click', () => applyPreset({ groups: JSON.parse(JSON.stringify(state.initialGroups)) }));
+                ui.resetSimBtn.addEventListener('click', () => { if (state.activePresetConfig) { applyPreset(state.activePresetConfig); } });
                 ui.presetSelect.addEventListener('change', (e) => applyPreset(basePresets[e.target.value]));
                 ui.darkModeToggle.addEventListener('change', (e) => ui.controlsPanel.classList.toggle('dark-mode', e.target.checked));
                 ui.toggleControlsBtn.addEventListener('click', () => ui.controlsPanel.classList.toggle('hidden'));
-
-                ui.exportPresetBtn.addEventListener('click', () => {
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ groups: state.particleGroups }, null, 2));
-                    const downloadAnchorNode = document.createElement('a');
-                    downloadAnchorNode.setAttribute("href", dataStr);
-                    downloadAnchorNode.setAttribute("download", "aether_canvas_state.json");
-                    document.body.appendChild(downloadAnchorNode);
-                    downloadAnchorNode.click();
-                    downloadAnchorNode.remove();
-                });
-
-                ui.importPresetInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        try {
-                            const newState = JSON.parse(event.target.result);
-                            if (newState && Array.isArray(newState.groups)) {
-                                applyPreset(newState);
-                            } else {
-                                alert("Invalid state file: Missing 'groups' array.");
-                            }
-                        } catch (err) {
-                            alert("Error parsing state file. Make sure it's a valid JSON.");
-                        }
-                    };
-                    reader.readAsText(file);
-                    e.target.value = ''; // Reset input
-                });
+                ui.exportPresetBtn.addEventListener('click', () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ groups: state.particleGroups }, null, 2)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "aether_canvas_state.json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); });
+                ui.importPresetInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const newState = JSON.parse(event.target.result); if (newState && Array.isArray(newState.groups)) { applyPreset(newState); } else { alert("Invalid state file: Missing 'groups' array."); } } catch (err) { alert("Error parsing state file. Make sure it's a valid JSON."); } }; reader.readAsText(file); e.target.value = ''; });
             };
 
             const setupAudio = (streamOrElement) => {
@@ -525,19 +342,9 @@
             };
 
             const setupCanvasListeners = (canvas) => {
-                const updateMousePos = (e) => {
-                    if (e.touches) {
-                        mousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    } else {
-                        mousePos = { x: e.clientX, y: e.clientY };
-                    }
-                };
-
-                // Listen on the whole document for smoother parallax
+                const updateMousePos = (e) => { mousePos = e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }; };
                 document.addEventListener('mousemove', updateMousePos);
                 document.addEventListener('touchmove', updateMousePos, { passive: true });
-                
-                // Keep tool interactions on the canvas itself
                 canvas.addEventListener('mousedown', (e) => { isMouseDown = true; mousePos = { x: e.offsetX, y: e.offsetY }; });
                 canvas.addEventListener('mouseup', () => { isMouseDown = false; });
                 canvas.addEventListener('mouseleave', () => { isMouseDown = false; });
@@ -548,22 +355,29 @@
 
             // --- INITIALIZATION ---
             generateAndApplyRandomTheme();
-            for(let i=0; i<4; i++) state.particleGroups.push(defaultGroupOptions(`group${i+1}`));
             Object.keys(basePresets).forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; ui.presetSelect.appendChild(opt); });
             
             setupFpsCounter();
             bindUI();
             
-            tsParticles.load("tsparticles", { particles: { groups: [] } }).then(container => {
+            const initialOptions = {
+                background: {
+                    color: { value: "transparent" }
+                },
+                particles: {
+                    groups: basePresets.default.groups
+                }
+            };
+            
+            tsParticles.load("tsparticles", initialOptions).then(container => {
                 particlesContainer = container;
                 setupCanvasListeners(container.canvas.element);
                 applyPreset(basePresets.default);
                 engineLoop();
             });
 
-            // Start new background effects
             animateBackground();
-            setInterval(createShootingStar, 3000); // Create a new star trail every 3 seconds
+            setInterval(createShootingStar, 3000);
         });
     </script>
 </body>

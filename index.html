@@ -3,241 +3,293 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Enforce Trusted Types for enhanced security -->
     <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
-    <title>Singularity Canvas</title>
+    <title>Aether Canvas - The Interactive Cosmos</title>
     <style>
         :root {
             --panel-bg: rgba(255, 255, 255, 0.3); --panel-text: #2c3e50; --control-bg: rgba(255, 255, 255, 0.7);
-            --summary-hover: rgba(0,0,0,0.05); --border-color: rgba(0,0,0,0.1); --button-text: #fff;
+            --summary-hover: rgba(0,0,0,0.05); --border-color: rgba(0,0,0,0.1); --button-text: #fff; --accent-color: #e67e22;
         }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-        .background-base { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; transition: background 0.8s ease; }
-        .gradient-bg .background-base { background-size: 400% 400%; animation: gradient-animation 15s ease infinite; }
-        .dark-bg .background-base { background-color: #1a1a1a; }
-        @keyframes gradient-animation { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .background-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background-color: #000; }
+        .nebula-bg::before, .nebula-bg::after { content: ''; position: absolute; width: 100%; height: 100%; animation: nebula-flow 50s linear infinite; background-repeat: no-repeat; will-change: transform; }
+        .nebula-bg::before { background-image: radial-gradient(circle at 20% 20%, #6c5ce7, transparent 40%), radial-gradient(circle at 80% 70%, #fd79a8, transparent 40%); background-position: 0% 0%; }
+        .nebula-bg::after { background-image: radial-gradient(circle at 50% 80%, #00cec9, transparent 40%), radial-gradient(circle at 10% 90%, #ffeaa7, transparent 40%); animation-direction: reverse; filter: blur(30px); }
+        @keyframes nebula-flow { from { transform: rotate(0deg) scale(1.5); } to { transform: rotate(360deg) scale(1.5); } }
         #tsparticles { position: absolute; width: 100%; height: 100%; z-index: 1; cursor: default; }
-        #tsparticles.drawing-mode { cursor: crosshair; }
+        #tsparticles.tool-active { cursor: crosshair; }
         .info-overlay { position: fixed; top: 10px; left: 10px; z-index: 100; font-family: monospace; }
         .info-overlay .label { padding: 5px 10px; background: rgba(0,0,0,0.5); color: #0f0; border-radius: 5px; }
         .controls-panel {
-            position: absolute; bottom: 20px; right: 20px; background-color: var(--panel-bg); backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px); border-radius: 15px; padding: 20px; z-index: 10; color: var(--panel-text);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); width: 320px; max-height: calc(100vh - 40px);
-            overflow-y: auto; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            position: absolute; bottom: 20px; right: 20px; background-color: var(--panel-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+            border-radius: 15px; padding: 10px; z-index: 10; color: var(--panel-text); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color); width: 340px; max-height: calc(100vh - 40px); overflow-y: auto;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); display: flex; flex-direction: column;
         }
         .controls-panel.hidden { transform: translateX(calc(100% + 40px)); opacity: 0; }
-        .controls-panel.dark-mode { --panel-bg: rgba(25, 25, 25, 0.6); --panel-text: #ecf0f1; --control-bg: rgba(50, 50, 50, 0.8); --summary-hover: rgba(255,255,255,0.1); --border-color: rgba(255,255,255,0.2); --button-text: #fff; }
-        details { margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
-        details > summary { font-weight: 600; cursor: pointer; padding: 8px; border-radius: 5px; transition: background-color 0.2s; }
+        .controls-panel.dark-mode { --panel-bg: rgba(25, 25, 25, 0.6); --panel-text: #ecf0f1; --control-bg: rgba(50, 50, 50, 0.8); --summary-hover: rgba(255,255,255,0.1); --border-color: rgba(255,255,255,0.2); --button-text: #fff; --accent-color: #f39c12; }
+        .toolbar { display: flex; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; margin-bottom: 5px; }
+        .tool-button { flex-grow: 1; background: var(--control-bg); border: 1px solid var(--border-color); padding: 8px; font-weight: bold; cursor: pointer; transition: background-color 0.2s, color 0.2s; }
+        .tool-button.active { background: var(--accent-color); color: var(--button-text); }
+        .tab-nav { display: flex; border-bottom: 1px solid var(--border-color); }
+        .tab-button { flex-grow: 1; background: none; border: none; padding: 10px; font-weight: 600; cursor: pointer; color: var(--panel-text); border-bottom: 3px solid transparent; }
+        .tab-button.active { border-bottom-color: var(--accent-color); }
+        .tab-content { display: none; padding: 10px; flex-grow: 1; }
+        .tab-content.active { display: block; }
+        .group-selector { display: flex; justify-content: space-around; margin-bottom: 10px; gap: 5px; }
+        .group-button { flex-grow: 1; background: var(--control-bg); border: 1px solid var(--border-color); padding: 8px; font-weight: bold; cursor: pointer; }
+        .group-button.active { background: var(--accent-color); color: var(--button-text); }
         .control-group { padding: 10px 5px 0 5px; }
         .control-group label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
         .controls-panel input, .controls-panel select, .controls-panel button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--control-bg); box-sizing: border-box; cursor: pointer; font-size: 14px; color: var(--panel-text); margin-top: 5px; }
-        .controls-panel input[type="range"] { padding: 0; height: 20px; }
-        .controls-panel input[type="color"] { padding: 2px; height: 35px; }
+        .controls-panel button { background: linear-gradient(45deg, #d35400, var(--accent-color)); color: var(--button-text); font-weight: bold; border: none; }
         .controls-panel input[type="checkbox"] { width: auto; }
-        .controls-panel button { background: linear-gradient(45deg, #8e44ad, #3498db); color: var(--button-text); font-weight: bold; border: none; }
-        .toggle-button {
-            position: fixed; bottom: 20px; right: -30px; width: 30px; height: 100px; background-color: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 10px 0 0 10px; cursor: pointer; writing-mode: vertical-rl;
-            display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #333;
-            z-index: 9; transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-        }
+        .toggle-button { position: fixed; bottom: 20px; right: -30px; width: 30px; height: 100px; /* ... other styles */ z-index: 9; }
         .controls-panel.hidden + .toggle-button { right: 0; }
     </style>
 </head>
 <body>
-    <div class="background-base"></div>
+    <div class="background-container nebula-bg"></div>
     <div id="tsparticles"></div>
     <div class="info-overlay"><span class="label" id="fps">FPS: --</span></div>
+    <audio id="audio-player" style="display:none;"></audio>
 
     <div class="controls-panel" id="controls">
-        <h3>Singularity Canvas</h3>
-        <div class="control-group"><label>UI Theme<input type="checkbox" id="dark-mode-toggle"></label></div>
+        <div class="toolbar">
+            <button class="tool-button active" data-tool="select">Select</button>
+            <button class="tool-button" data-tool="push">Push</button>
+            <button class="tool-button" data-tool="pull">Pull</button>
+            <button class="tool-button" data-tool="erase">Erase</button>
+        </div>
+        <div class="tab-nav">
+            <button class="tab-button active" data-tab="tab-groups">Groups</button>
+            <button class="tab-button" data-tab="tab-audio">Audio</button>
+            <button class="tab-button" data-tab="tab-system">System</button>
+        </div>
 
-        <details>
-            <summary>Presets</summary>
-            <div class="control-group"><label for="preset-select">Built-in Presets</label><select id="preset-select"></select></div>
-            <div class="control-group"><label for="import-preset-input">Import/Export</label><button id="export-preset-btn">Export JSON</button><input type="file" id="import-preset-input" accept=".json" style="display:none;"><button onclick="document.getElementById('import-preset-input').click();">Import JSON</button></div>
-        </details>
+        <div id="tab-groups" class="tab-content active">
+            <div class="group-selector">
+                <button class="group-button active" data-group="0">1</button><button class="group-button" data-group="1">2</button>
+                <button class="group-button" data-group="2">3</button><button class="group-button" data-group="3">4</button>
+            </div>
+            <details open><summary>Core</summary>
+                <div class="control-group"><label>Enabled<input type="checkbox" id="group-enabled"></label></div>
+                <div class="control-group"><label for="particle-count">Count <span id="particle-count-value"></span></label><input type="range" id="particle-count" min="0" max="2000" step="1" value="0"></div>
+                <div class="control-group"><label for="particle-size">Size <span id="particle-size-value"></span></label><input type="range" id="particle-size" min="0.1" max="50" step="0.1" value="3"></div>
+                <div class="control-group"><label for="particle-speed">Speed <span id="particle-speed-value"></span></label><input type="range" id="particle-speed" min="0" max="50" step="0.1" value="1"></div>
+                <div class="control-group"><label for="particle-color">Color</label><input type="color" id="particle-color" value="#ffffff"></div>
+            </details>
+            <details><summary>Audio Reactivity</summary>
+                <div class="control-group"><label for="audio-bass-map">Bass maps to</label><select class="audio-map" data-target="bass"><option>None</option><option>Size</option><option>Speed</option></select></div>
+                <div class="control-group"><label for="audio-mids-map">Mids map to</label><select class="audio-map" data-target="mids"><option>None</option><option>Size</option><option>Speed</option></select></div>
+                <div class="control-group"><label for="audio-treble-map">Treble maps to</label><select class="audio-map" data-target="treble"><option>None</option><option>Size</option><option>Speed</option></select></div>
+            </details>
+        </div>
 
-        <details open>
-            <summary>Appearance</summary>
-            <div class="control-group"><label for="particle-count">Count <span id="particle-count-value"></span></label><input type="range" id="particle-count" min="10" max="2000" value="150"></div>
-            <div class="control-group"><label for="particle-size">Size <span id="particle-size-value"></span></label><input type="range" id="particle-size" min="0.1" max="50" step="0.1" value="2"></div>
-            <div class="control-group"><label for="particle-color">Particle Color</label><input type="color" id="particle-color" value="#ffffff"></div>
-            <div class="control-group"><label for="link-color">Link Color</label><input type="color" id="link-color" value="#ffffff"></div>
-        </details>
+        <div id="tab-audio" class="tab-content">
+            <div class="control-group"><label>Source</label><input type="file" id="audio-file-input" accept="audio/*" style="font-size:12px;"><button id="mic-input-btn">Use Mic</button></div>
+        </div>
 
-        <details>
-            <summary>Movement & Physics</summary>
-            <div class="control-group"><label for="particle-speed">Speed <span id="particle-speed-value"></span></label><input type="range" id="particle-speed" min="0" max="50" step="0.1" value="1.5"></div>
-            <div class="control-group"><label for="link-distance">Link Distance <span id="link-distance-value"></span></label><input type="range" id="link-distance" min="0" max="500" value="150"></div>
-             <div class="control-group"><label for="fps-limit">FPS Limit <span id="fps-limit-value"></span></label><input type="range" id="fps-limit" min="15" max="144" value="60"></div>
-        </details>
-        
-        <details>
-            <summary>Text & Paths</summary>
-            <div class="control-group"><label for="text-input">Display Text</label><input type="text" id="text-input" placeholder="Type words here..."><button id="apply-text-btn">Morph Particles</button></div>
-            <div class="control-group"><label>Custom Path</label><button id="draw-path-btn">Start Drawing</button><button id="clear-path-btn">Clear Path</button></div>
-        </details>
+         <div id="tab-system" class="tab-content">
+             <div class="control-group"><label>UI Dark Mode<input type="checkbox" id="dark-mode-toggle"></label></div>
+             <div class="control-group"><label>Constellations<input type="checkbox" id="constellation-toggle"></label></div>
+             <div class="control-group"><label for="preset-select">Preset</label><select id="preset-select"></select></div>
+             <div class="control-group"><button id="export-preset-btn">Export State</button><input type="file" id="import-preset-input" accept=".json" style="display:none;"><button onclick="document.getElementById('import-preset-input').click();">Import State</button></div>
+             <div class="control-group"><button id="reset-sim-btn" style="background: #c0392b;">Reset Simulation</button></div>
+         </div>
     </div>
     <div class="toggle-button" id="toggle-controls">CONTROLS</div>
 
     <script src="https://cdn.jsdelivr.net/npm/tsparticles-all@2.12.0/tsparticles.all.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            let particlesContainer;
+            let particlesContainer, audioContext, analyser;
+            let isMouseDown = false, mousePos = { x: 0, y: 0 };
             
+            const state = {
+                activeTool: 'select', activeGroup: 0,
+                particleGroups: [], initialGroups: [],
+            };
+
             const ui = {
-                body: document.body,
-                controlsPanel: document.getElementById('controls'),
-                backgroundBase: document.querySelector('.background-base'),
-                fps: document.getElementById('fps'),
-                particlesCanvas: document.getElementById('tsparticles'),
-                darkModeToggle: document.getElementById('dark-mode-toggle'),
-                presetSelect: document.getElementById('preset-select'),
-                exportPresetBtn: document.getElementById('export-preset-btn'),
-                importPresetInput: document.getElementById('import-preset-input'),
+                body: document.body, controlsPanel: document.getElementById('controls'), backgroundBase: document.querySelector('.background-container'),
+                fps: document.getElementById('fps'), particlesCanvas: document.getElementById('tsparticles'), darkModeToggle: document.getElementById('dark-mode-toggle'),
+                presetSelect: document.getElementById('preset-select'), exportPresetBtn: document.getElementById('export-preset-btn'), importPresetInput: document.getElementById('import-preset-input'),
+                toolbar: document.querySelector('.toolbar'), tabNav: document.querySelector('.tab-nav'), groupSelector: document.querySelector('.group-selector'),
+                groupEnabled: document.getElementById('group-enabled'),
                 particleCount: { slider: document.getElementById('particle-count'), value: document.getElementById('particle-count-value') },
                 particleSize: { slider: document.getElementById('particle-size'), value: document.getElementById('particle-size-value') },
                 particleSpeed: { slider: document.getElementById('particle-speed'), value: document.getElementById('particle-speed-value') },
-                linkColor: document.getElementById('link-color'),
                 particleColor: document.getElementById('particle-color'),
-                linkDistance: { slider: document.getElementById('link-distance'), value: document.getElementById('link-distance-value') },
-                fpsLimit: { slider: document.getElementById('fps-limit'), value: document.getElementById('fps-limit-value') },
-                textInput: document.getElementById('text-input'),
-                applyTextBtn: document.getElementById('apply-text-btn'),
-                drawPathBtn: document.getElementById('draw-path-btn'),
-                clearPathBtn: document.getElementById('clear-path-btn'),
+                audioFileInput: document.getElementById('audio-file-input'), micInputBtn: document.getElementById('mic-input-btn'),
+                audioMaps: document.querySelectorAll('.audio-map'),
+                audioMapBass: document.querySelector('.audio-map[data-target="bass"]'),
+                audioMapMids: document.querySelector('.audio-map[data-target="mids"]'),
+                audioMapTreble: document.querySelector('.audio-map[data-target="treble"]'),
+                constellationToggle: document.getElementById('constellation-toggle'),
+                resetSimBtn: document.getElementById('reset-sim-btn'),
                 toggleControlsBtn: document.getElementById('toggle-controls')
             };
 
-            const basePresets = {
-                default: { options: { fpsLimit: 60, particles: { number: { value: 150 }, color: { value: "#ffffff" }, shape: { type: "circle" }, opacity: { value: 0.5 }, size: { value: 2 }, links: { enable: true, color: {value: "#ffffff"}, distance: 150, width: 1 }, move: { enable: true, speed: 1.5 } }, interactivity: { events: { onhover: { enable: true, mode: "grab" }, onclick: { enable: true, mode: "push" } } } }, backgroundClass: 'gradient-bg' },
-                starfield: { options: { fpsLimit: 60, particles: { number: { value: 800 }, color: { value: "#ffffff" }, shape: { type: "circle" }, opacity: { value: { min: 0.1, max: 0.7 } }, size: { value: { min: 0.5, max: 2.5 } }, links: {enable: false}, move: { enable: true, speed: 0.4, direction: "none", straight: true } }, interactivity: { events: { onhover: { enable: true, mode: "bubble" } } } }, backgroundClass: 'dark-bg' },
-                textMorph: { options: { fpsLimit: 60, particles: { number: { value: 1000, density: { enable: true } }, color: { value: "#ffffff" }, opacity: { value: 0.8 }, size: { value: 1.5 }, links: {enable: false}, move: { enable: true, speed: 2, attract: { enable: true } } }, interactivity: { events: { onhover: { enable: true, mode: "repulse" } } } }, backgroundClass: 'dark-bg' },
-            };
-
-            const updateParticles = (options) => { if (particlesContainer) particlesContainer.options.load(options); };
-
-            const loadPresets = () => {
-                while (ui.presetSelect.firstChild) ui.presetSelect.removeChild(ui.presetSelect.firstChild);
-                Object.keys(basePresets).forEach(name => {
-                    const option = document.createElement('option');
-                    option.value = name; option.textContent = name;
-                    ui.presetSelect.appendChild(option);
-                });
-                return basePresets;
-            };
+            const defaultGroupOptions = (groupName) => ({
+                group: groupName, number: { value: 0 }, color: { value: "#ffffff" }, shape: { type: "circle" },
+                opacity: { value: 0.8 }, size: { value: 3 }, links: { enable: false },
+                move: { enable: true, speed: 1, direction: "none", random: true, straight: false, outModes: "out" },
+                collisions: { enable: true, mode: "bounce" },
+                audioMap: { bass: 'None', mids: 'None', treble: 'None' }
+            });
             
-            const exportPreset = () => {
-                if (!particlesContainer) return;
-                const config = { options: particlesContainer.options.exportJSON(), backgroundClass: ui.body.className };
-                const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${ui.presetSelect.value || 'custom'}_preset.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+            const basePresets = {
+                default: {
+                    groups: [ { ...defaultGroupOptions("group1"), number: { value: 300 }, color: { value: "#ffffff" }, size: { value: 2 } }, { ...defaultGroupOptions("group2") }, { ...defaultGroupOptions("group3") }, { ...defaultGroupOptions("group4") } ]
+                },
+                symphony: {
+                    groups: [
+                        { ...defaultGroupOptions("group1"), number: { value: 150 }, color: { value: "#e74c3c" }, size: {value: 5}, audioMap: { bass: 'Size', mids: 'None', treble: 'None' } },
+                        { ...defaultGroupOptions("group2"), number: { value: 400 }, color: { value: "#3498db" }, move: {speed: 2}, audioMap: { bass: 'None', mids: 'None', treble: 'Speed' } },
+                        { ...defaultGroupOptions("group3") }, { ...defaultGroupOptions("group4") }
+                    ]
+                },
             };
 
-            const importPreset = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    try {
-                        const config = JSON.parse(e.target.result);
-                        if (config.options) {
-                            if (particlesContainer) particlesContainer.destroy();
-                            particlesContainer = await tsParticles.load("tsparticles", config.options);
-                            ui.body.className = config.backgroundClass || 'dark-bg';
-                            syncUiToState();
+            const engineLoop = () => {
+                if (isMouseDown && state.activeTool !== 'select' && particlesContainer) {
+                    const brushRadius = 100;
+                    const particles = particlesContainer.particles.quadTree.queryCircle(mousePos, brushRadius);
+                    
+                    for (const particle of particles) {
+                        const dx = particle.position.x - mousePos.x;
+                        const dy = particle.position.y - mousePos.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const force = Math.max(0, (brushRadius - dist) / brushRadius);
+
+                        switch(state.activeTool) {
+                            case 'push':
+                                particle.velocity.x += (dx / dist) * force * 0.5;
+                                particle.velocity.y += (dy / dist) * force * 0.5;
+                                break;
+                            case 'pull':
+                                particle.velocity.x -= (dx / dist) * force * 0.5;
+                                particle.velocity.y -= (dy / dist) * force * 0.5;
+                                break;
+                            case 'erase':
+                                particle.destroy();
+                                break;
                         }
-                    } catch (error) { alert('Invalid preset file.'); }
-                };
-                reader.readAsText(file);
-                ui.importPresetInput.value = "";
+                    }
+                }
+                requestAnimationFrame(engineLoop);
             };
 
-            const applyPreset = async (name) => {
-                const presets = loadPresets();
-                const preset = presets[name] || presets.default;
-                if (particlesContainer) particlesContainer.destroy();
-                particlesContainer = await tsParticles.load("tsparticles", preset.options);
-                ui.body.className = preset.backgroundClass;
-                if (preset.backgroundClass === 'gradient-bg') setRandomGradient();
-                syncUiToState();
+            const updateEngine = (fullRefresh = false) => {
+                const activeGroups = state.particleGroups.filter(g => g.number.value > 0);
+                const options = { particles: activeGroups };
+                if (!particlesContainer) {
+                    tsParticles.load("tsparticles", { particles: activeGroups }).then(c => particlesContainer = c);
+                } else {
+                    particlesContainer.options.particles = activeGroups;
+                    if (fullRefresh) particlesContainer.refresh(); else particlesContainer.play();
+                }
             };
 
             const syncUiToState = () => {
-                if (!particlesContainer) return;
-                const opts = particlesContainer.options;
-                const updateSlider = (uiElement, value) => { uiElement.slider.value = value; uiElement.value.textContent = value; };
-                updateSlider(ui.particleCount, opts.particles.number.value);
-                updateSlider(ui.particleSize, opts.particles.size.value);
-                updateSlider(ui.particleSpeed, opts.particles.move.speed);
-                updateSlider(ui.linkDistance, opts.particles.links.distance);
-                updateSlider(ui.fpsLimit, opts.fpsLimit);
-                ui.particleColor.value = opts.particles.color.value;
-                const linkColor = opts.particles.links.color?.value;
-                if(typeof linkColor === 'string') ui.linkColor.value = linkColor;
+                const group = state.particleGroups[state.activeGroup];
+                ui.groupEnabled.checked = group.number.value > 0;
+                ui.particleCount.slider.value = group.number.value; ui.particleCount.value.textContent = group.number.value;
+                ui.particleSize.slider.value = group.size.value; ui.particleSize.value.textContent = group.size.value;
+                ui.particleSpeed.slider.value = group.move.speed; ui.particleSpeed.value.textContent = group.move.speed;
+                ui.particleColor.value = group.color.value;
+                ui.audioMapBass.value = group.audioMap.bass;
+                ui.audioMapMids.value = group.audioMap.mids;
+                ui.audioMapTreble.value = group.audioMap.treble;
+            };
+
+            const applyPreset = (presetConfig) => {
+                state.particleGroups = JSON.parse(JSON.stringify(presetConfig.groups));
+                state.initialGroups = JSON.parse(JSON.stringify(presetConfig.groups));
+                syncUiToState();
+                updateEngine(true);
+            };
+
+            const setupAudio = (streamOrElement) => {
+                if (audioContext && audioContext.state === 'running') audioContext.close();
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser(); analyser.fftSize = 256;
+                const source = streamOrElement instanceof MediaStream ? audioContext.createMediaStreamSource(streamOrElement) : audioContext.createMediaElementSource(streamOrElement);
+                source.connect(analyser);
+                if (!(streamOrElement instanceof MediaStream)) analyser.connect(audioContext.destination);
+                if (window.audioVisualizerLoop) cancelAnimationFrame(window.audioVisualizerLoop);
+                window.audioVisualizerLoop = requestAnimationFrame(visualizerLoop);
+            };
+
+            const visualizerLoop = () => {
+                if (analyser) {
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(dataArray);
+                    const bass = dataArray.slice(0, 5).reduce((a,b)=>a+b,0)/(5*255);
+                    const mids = dataArray.slice(20, 50).reduce((a,b)=>a+b,0)/(30*255);
+                    const treble = dataArray.slice(60, 100).reduce((a,b)=>a+b,0)/(40*255);
+                    
+                    let needsUpdate = false;
+                    state.particleGroups.forEach(group => {
+                        const initialGroup = state.initialGroups.find(ig => ig.group === group.group);
+                        if (!initialGroup) return;
+
+                        const mappings = {
+                            Size: v => group.size.value = Math.max(0.1, initialGroup.size.value * (1 + v * 5)),
+                            Speed: v => group.move.speed = Math.max(0, initialGroup.move.speed * (1 + v * 5))
+                        };
+                        
+                        if (group.audioMap.bass !== 'None') { mappings[group.audioMap.bass](bass); needsUpdate = true; }
+                        if (group.audioMap.mids !== 'None') { mappings[group.audioMap.mids](mids); needsUpdate = true; }
+                        if (group.audioMap.treble !== 'None') { mappings[group.audioMap.treble](treble); needsUpdate = true; }
+                    });
+                    if (needsUpdate) updateEngine();
+                }
+                window.audioVisualizerLoop = requestAnimationFrame(visualizerLoop);
             };
 
             const bindUI = () => {
+                ui.toolbar.addEventListener('click', (e) => { if (e.target.classList.contains('tool-button')) { state.activeTool = e.target.dataset.tool; ui.toolbar.querySelectorAll('.tool-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.particlesCanvas.classList.toggle('tool-active', state.activeTool !== 'select'); } });
+                ui.tabNav.addEventListener('click', (e) => { if (e.target.classList.contains('tab-button')) { ui.tabNav.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); ui.controlsPanel.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active')); document.getElementById(e.target.dataset.tab).classList.add('active'); } });
+                ui.groupSelector.addEventListener('click', (e) => { if (e.target.classList.contains('group-button')) { state.activeGroup = parseInt(e.target.dataset.group, 10); ui.groupSelector.querySelectorAll('.group-button').forEach(btn => btn.classList.remove('active')); e.target.classList.add('active'); syncUiToState(); } });
+                
+                ui.groupEnabled.addEventListener('change', (e) => { const countSlider = ui.particleCount.slider; state.particleGroups[state.activeGroup].number.value = e.target.checked ? (countSlider.value > 0 ? Number(countSlider.value) : 100) : 0; state.initialGroups[state.activeGroup].number.value = state.particleGroups[state.activeGroup].number.value; syncUiToState(); updateEngine(true); });
+                const addSliderListener = (uiElement, updater) => { uiElement.slider.addEventListener('input', (e) => { const value = parseFloat(e.target.value); uiElement.value.textContent = Math.round(value); updater(value); updateEngine(); }); };
+                addSliderListener(ui.particleCount, v => { state.particleGroups[state.activeGroup].number.value = v; state.initialGroups[state.activeGroup].number.value = v; });
+                addSliderListener(ui.particleSize, v => { state.particleGroups[state.activeGroup].size.value = v; state.initialGroups[state.activeGroup].size.value = v; });
+                addSliderListener(ui.particleSpeed, v => { state.particleGroups[state.activeGroup].move.speed = v; state.initialGroups[state.activeGroup].move.speed = v; });
+                ui.particleColor.addEventListener('input', (e) => { state.particleGroups[state.activeGroup].color.value = e.target.value; updateEngine(); });
+                
+                ui.audioMaps.forEach(sel => sel.addEventListener('change', (e) => { state.particleGroups[state.activeGroup].audioMap[e.target.dataset.target] = e.target.value; }));
+                ui.micInputBtn.addEventListener('click', async () => { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); setupAudio(stream); } catch (err) { alert("Mic access denied."); } });
+                ui.audioFileInput.addEventListener('change', (e) => { const player = document.getElementById('audio-player'); player.src = URL.createObjectURL(e.target.files[0]); player.play(); setupAudio(player); });
+                
+                ui.constellationToggle.addEventListener('change', (e) => { particlesContainer.options.load({ interactivity: { modes: { triangles: { enable: e.target.checked, frequency: 0.1, opacity: 0.1 } } } }); });
+                ui.resetSimBtn.addEventListener('click', () => applyPreset({ groups: JSON.parse(JSON.stringify(state.initialGroups)) }));
+                ui.presetSelect.addEventListener('change', (e) => applyPreset(basePresets[e.target.value]));
                 ui.darkModeToggle.addEventListener('change', (e) => ui.controlsPanel.classList.toggle('dark-mode', e.target.checked));
                 ui.toggleControlsBtn.addEventListener('click', () => ui.controlsPanel.classList.toggle('hidden'));
-                ui.presetSelect.addEventListener('change', (e) => applyPreset(e.target.value));
-                ui.exportPresetBtn.addEventListener('click', exportPreset);
-                ui.importPresetInput.addEventListener('change', importPreset);
-
-                const addSliderListener = (uiElement, updater) => {
-                    uiElement.slider.addEventListener('input', (e) => {
-                        const value = parseFloat(e.target.value);
-                        uiElement.value.textContent = value;
-                        updater(value);
-                    });
-                };
-                addSliderListener(ui.particleCount, (v) => updateParticles({ particles: { number: { value: v } } }));
-                addSliderListener(ui.particleSize, (v) => updateParticles({ particles: { size: { value: v } } }));
-                addSliderListener(ui.particleSpeed, (v) => updateParticles({ particles: { move: { speed: v } } }));
-                addSliderListener(ui.linkDistance, (v) => updateParticles({ particles: { links: { distance: v } } }));
-                addSliderListener(ui.fpsLimit, (v) => updateParticles({ fpsLimit: v }));
-                
-                ui.particleColor.addEventListener('input', (e) => updateParticles({ particles: { color: { value: e.target.value } } }));
-                ui.linkColor.addEventListener('input', (e) => updateParticles({ particles: { links: { color: { value: e.target.value } } } }));
-
-                ui.applyTextBtn.addEventListener('click', async () => {
-                    if (ui.presetSelect.value !== 'textMorph') { await applyPreset('textMorph'); ui.presetSelect.value = 'textMorph'; }
-                    particlesContainer.plugins.get("text")?.draw({ value: ui.textInput.value || "Singularity", font: "bold 36px 'Segoe UI', sans-serif" });
-                });
-
-                ui.drawPathBtn.addEventListener('click', () => { isDrawing = true; ui.particlesCanvas.classList.add('drawing-mode'); });
-                ui.clearPathBtn.addEventListener('click', () => { pathPoints = []; updateParticles({ particles: { move: { path: { enable: false } } } }); });
             };
-            
-            const setRandomGradient = () => ui.backgroundBase.style.backgroundImage = `linear-gradient(${Math.random() * 360}deg, hsl(${Math.random() * 360}, 90%, 65%), hsl(${Math.random() * 360}, 90%, 65%))`;
+
+            const setupCanvasListeners = () => {
+                const canvas = ui.particlesCanvas;
+                canvas.addEventListener('mousedown', (e) => { isMouseDown = true; mousePos = { x: e.offsetX, y: e.offsetY }; });
+                canvas.addEventListener('mouseup', () => { isMouseDown = false; });
+                canvas.addEventListener('mouseleave', () => { isMouseDown = false; });
+                canvas.addEventListener('mousemove', (e) => { mousePos = { x: e.offsetX, y: e.offsetY }; });
+            };
+
             const setupFpsCounter = () => { const times = []; requestAnimationFrame(function loop() { const now = performance.now(); while (times.length > 0 && times[0] <= now - 1000) { times.shift(); } times.push(now); ui.fps.textContent = `FPS: ${times.length}`; requestAnimationFrame(loop); }); };
 
-            let isDrawing = false, pathPoints = [];
-            const setupPathDrawing = () => {
-                const canvas = ui.particlesCanvas;
-                const start = (e) => { if (!isDrawing) return; pathPoints = [{ x: e.offsetX, y: e.offsetY }]; canvas.addEventListener('mousemove', move); };
-                const move = (e) => { pathPoints.push({ x: e.offsetX, y: e.offsetY }); };
-                const stop = () => { if (!isDrawing) return; canvas.removeEventListener('mousemove', move); if (pathPoints.length > 1) { updateParticles({ particles: { move: { path: { enable: true, path: pathPoints } } } }); } isDrawing = false; ui.particlesCanvas.classList.remove('drawing-mode'); };
-                canvas.addEventListener('mousedown', start);
-                canvas.addEventListener('mouseup', stop);
-                canvas.addEventListener('mouseleave', stop);
-            };
-
+            // INITIALIZATION
+            for(let i=0; i<4; i++) state.particleGroups.push(defaultGroupOptions(`group${i+1}`));
+            Object.keys(basePresets).forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; ui.presetSelect.appendChild(opt); });
             setupFpsCounter();
             bindUI();
-            setupPathDrawing();
-            await applyPreset('default');
+            setupCanvasListeners();
+            applyPreset(basePresets.default);
+            engineLoop();
         });
     </script>
 </body>

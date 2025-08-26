@@ -6,6 +6,14 @@
     <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
     <title>Celestial Canvas</title>
     <style>
+        :root {
+            /* Define CSS variables for the gradient colors for easy JS access */
+            --gradient-color-1: #0d0d2b;
+            --gradient-color-2: #2c1a4c;
+            --gradient-color-3: #522b5b;
+            --gradient-color-4: #23a6d5;
+        }
+
         body, html {
             margin: 0;
             padding: 0;
@@ -18,14 +26,30 @@
 
         /* --- New Animated Gradient Background --- */
         body {
-            background-size: 400% 400%;
+            /* 
+             * COOL BACKGROUND UPDATE:
+             * We are now layering an animated gradient ON TOP of a static nebula image.
+             * The 'overlay' blend mode makes the colors from the gradient dynamically
+             * light up the image below, creating a beautiful, deep-space effect.
+            */
+            background-image: 
+                linear-gradient(-45deg, 
+                    var(--gradient-color-1), 
+                    var(--gradient-color-2), 
+                    var(--gradient-color-3), 
+                    var(--gradient-color-4)),
+                url('https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=1740&q=80');
+            
+            background-size: 400% 400%, cover; /* Size for gradient, size for image */
+            background-position: center;
+            background-blend-mode: overlay; /* This is the magic! */
             animation: gradientAnimation 20s ease infinite;
         }
 
         @keyframes gradientAnimation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+            0% { background-position: 0% 50%, center; }
+            50% { background-position: 100% 50%, center; }
+            100% { background-position: 0% 50%, center; }
         }
 
         /* --- New Cursor Glow Effect --- */
@@ -204,13 +228,14 @@
 
         // Updated function to set the random animated gradient background
         function setRandomGradient() {
-            const color1 = getRandomColor();
-            const color2 = getRandomColor();
-            const color3 = getRandomColor();
-            const color4 = getRandomColor();
-            const gradient = `linear-gradient(-45deg, ${color1}, ${color2}, ${color3}, ${color4})`;
-            document.body.style.background = gradient;
-            document.body.style.backgroundSize = '400% 400%';
+            // COOL BACKGROUND UPDATE:
+            // Instead of directly setting the body's background style (which would
+            // overwrite our new image layer), we now update the CSS variables.
+            // The CSS automatically uses these new variables in the gradient.
+            document.documentElement.style.setProperty('--gradient-color-1', getRandomColor());
+            document.documentElement.style.setProperty('--gradient-color-2', getRandomColor());
+            document.documentElement.style.setProperty('--gradient-color-3', getRandomColor());
+            document.documentElement.style.setProperty('--gradient-color-4', getRandomColor());
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -244,7 +269,7 @@
             particleColorInput.value = randomParticleColor;
 
             // Initial setup
-            setRandomGradient();
+            setRandomGradient(); // Set the initial random gradient colors
             particlesJS('particles-js', particlesConfig);
             const pJS = window.pJSDom[0].pJS;
 

@@ -16,90 +16,89 @@
             --bg-color-2: #fd79a8;
             --bg-color-3: #00cec9;
             --bg-color-4: #ffeaa7;
+            --star-color: #ffffff;
         }
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #000;
-            /* --- NEW: Procedural Starfield Background --- */
-            background-image:
-                /* Layer 1: Tiny, dense stars */
-                radial-gradient(circle at center, #fff 0.5px, transparent 0.5px),
-                /* Layer 2: Small, less dense stars */
-                radial-gradient(circle at center, #fff 1px, transparent 1px),
-                /* Layer 3: Faint, sparse 'galaxies' */
-                radial-gradient(circle at center, rgba(255,255,255,0.4) 1px, transparent 1px);
-            background-size:
-                40px 40px,   /* More dense */
-                120px 120px,
-                250px 250px;
-            background-position:
-                0 0,
-                20px 20px,
-                60px 60px;
-            animation: stars-twinkle 15s linear infinite alternate;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #000; }
+        
+        /* --- NEW: Parallax Starfield Background --- */
+        .starfield {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-repeat: repeat;
+            pointer-events: none;
+            animation-name: pan-stars;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
         }
-
-        @keyframes stars-twinkle {
-            from { opacity: 0.7; }
-            to { opacity: 1; }
+        #stars1 { /* Distant, small, slow */
+            z-index: -4;
+            background-image: 
+                radial-gradient(1px 1px at 50px 200px, var(--star-color), transparent),
+                radial-gradient(1px 1px at 100px 350px, var(--star-color), transparent),
+                radial-gradient(0.5px 0.5px at 250px 100px, var(--star-color), transparent),
+                radial-gradient(0.5px 0.5px at 320px 400px, var(--star-color), transparent);
+            background-size: 400px 400px;
+            animation-duration: 250s;
         }
-
+        #stars2 { /* Mid-distance, medium */
+            z-index: -3;
+            background-image: 
+                radial-gradient(1.5px 1.5px at 150px 100px, var(--star-color), transparent),
+                radial-gradient(1px 1px at 300px 300px, var(--star-color), transparent),
+                radial-gradient(1.5px 1.5px at 450px 450px, var(--star-color), transparent);
+            background-size: 500px 500px;
+            animation-duration: 180s;
+        }
+        #stars3 { /* Close, large, fast */
+            z-index: -1;
+            background-image: 
+                radial-gradient(2px 2px at 250px 150px, var(--star-color), transparent),
+                radial-gradient(2.5px 2.5px at 50px 400px, var(--star-color), transparent);
+            background-size: 600px 600px;
+            animation-duration: 100s;
+        }
+        @keyframes pan-stars {
+            from { transform: translate(0, 0); }
+            to { transform: translate(-1000px, 500px); }
+        }
+        
+        /* --- MODIFIED: Nebula Layer --- */
         #galaxy-background {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: transparent; /* Changed from solid color */
-            overflow: hidden; z-index: -2;
+            background: #000510; /* This color is replaced by JS */
+            overflow: hidden; z-index: -2; /* Sits between star layers */
         }
-
-        /* --- NEW: Enhanced Nebula Effect --- */
         #galaxy-background::before,
         #galaxy-background::after {
             content: ''; position: absolute; top: 50%; left: 50%;
-            width: 300vmax; height: 300vmax;
-            margin-top: -150vmax; margin-left: -150vmax;
+            width: 250vmax; height: 250vmax;
             background-repeat: no-repeat;
-            animation-timing-function: linear; animation-iteration-count: infinite;
+            animation-name: galaxy-swirl; animation-timing-function: linear; animation-iteration-count: infinite;
         }
-
-        /* Distant, slow-moving background nebula cloud */
         #galaxy-background::before {
+            margin-top: -125vmax; margin-left: -125vmax;
             background-image:
-                radial-gradient(ellipse at 40% 60%, var(--bg-color-1) 0%, transparent 50%),
-                radial-gradient(ellipse at 60% 30%, var(--bg-color-2) 0%, transparent 55%);
-            background-position: 0% 0%, 100% 100%;
-            background-size: 150vmax 150vmax, 180vmax 180vmax;
-            animation-name: galaxy-swirl-far;
-            animation-duration: 180s;
-            opacity: 0.4;
-            filter: blur(80px) brightness(1.2);
+                radial-gradient(ellipse at center, var(--bg-color-1) 0%, transparent 40%),
+                radial-gradient(ellipse at center, var(--bg-color-2) 0%, transparent 40%);
+            background-position: 10% 90%, 80% 20%;
+            background-size: 100vmax 100vmax, 120vmax 120vmax;
+            animation-duration: 50s;
+            opacity: 0.5; filter: blur(30px);
         }
-
-        /* Nearer, faster, more detailed foreground nebula cloud */
         #galaxy-background::after {
-            width: 200vmax; height: 200vmax;
-            margin-top: -100vmax; margin-left: -100vmax;
+            margin-top: -125vmax; margin-left: -125vmax;
             background-image:
-                radial-gradient(ellipse at 20% 20%, var(--bg-color-3) 0%, transparent 40%),
-                radial-gradient(ellipse at 80% 75%, var(--bg-color-4) 0%, transparent 45%),
-                radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.15) 0%, transparent 30%); /* Bright core */
-            background-position: 10% 90%, 80% 20%, 50% 50%;
-            background-size: 100vmax 100vmax, 120vmax 120vmax, 80vmax 80vmax;
-            animation-name: galaxy-swirl-near;
-            animation-duration: 110s;
-            opacity: 0.6;
-            filter: blur(60px) brightness(1.5);
+                radial-gradient(ellipse at center, var(--bg-color-3) 0%, transparent 40%),
+                radial-gradient(ellipse at center, var(--bg-color-4) 0%, transparent 40%);
+            background-position: 40% 10%, 60% 80%;
+            background-size: 140vmax 140vmax, 90vmax 90vmax;
+            animation-duration: 65s; animation-direction: reverse;
+            opacity: 0.4; filter: blur(60px);
+        }
+        @keyframes galaxy-swirl {
+            from { transform: rotate(0deg) scale(1.2); }
+            to { transform: rotate(360deg) scale(1.2); }
         }
 
-        /* --- NEW: Parallax Animation Keyframes --- */
-        @keyframes galaxy-swirl-far {
-            from { transform: rotate(0deg) scale(1.1); }
-            to { transform: rotate(360deg) scale(1.1); }
-        }
-        @keyframes galaxy-swirl-near {
-            from { transform: rotate(0deg) scale(1); }
-            to { transform: rotate(-360deg) scale(1); } /* Reverse direction for parallax */
-        }
-        
         #tsparticles { position: absolute; width: 100%; height: 100%; z-index: 1; cursor: default; }
         #tsparticles.tool-active { cursor: crosshair; }
         .info-overlay { position: fixed; top: 10px; left: 10px; z-index: 100; font-family: monospace; }
@@ -135,7 +134,11 @@
     </style>
 </head>
 <body>
+    <div id="stars1" class="starfield"></div>
+    <div id="stars2" class="starfield"></div>
     <div id="galaxy-background"></div>
+    <div id="stars3" class="starfield"></div>
+
     <div id="tsparticles"></div>
     <div class="info-overlay"><span class="label" id="fps">FPS: --</span></div>
     <audio id="audio-player" style="display:none;"></audio>
@@ -241,27 +244,37 @@
                 },
             };
             
+            // --- NEW: Advanced Random Theme Generation ---
             const generateAndApplyRandomTheme = () => {
                 const root = document.documentElement;
-                const accentHue = Math.random() * 360;
-                const accentColor = `hsl(${accentHue}, 85%, 58%)`;
-                const accentColorDark = `hsl(${accentHue}, 80%, 48%)`;
+                const baseHue = Math.random() * 360;
+
+                // UI Accent Colors
+                const accentColor = `hsl(${baseHue}, 85%, 58%)`;
+                const accentColorDark = `hsl(${baseHue}, 80%, 48%)`;
                 root.style.setProperty('--accent-color', accentColor);
                 root.style.setProperty('--accent-color-dark', accentColorDark);
-                
-                // --- UPDATED: Generate more vibrant nebula colors ---
-                const bgColors = Array.from({length: 4}, (_, i) => {
-                    const hue = (accentHue + (i * 90) + (Math.random() * 60 - 30)) % 360;
-                    const saturation = 70 + Math.random() * 30; // 70-100%
-                    const lightness = 50 + Math.random() * 20; // 50-70% (brighter base)
-                    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-                });
-                root.style.setProperty('--bg-color-1', bgColors[0]); root.style.setProperty('--bg-color-2', bgColors[1]);
-                root.style.setProperty('--bg-color-3', bgColors[2]); root.style.setProperty('--bg-color-4', bgColors[3]);
 
+                // Star and Space Colors
+                const starColor = `hsl(${baseHue}, 40%, 95%)`;
+                const deepSpaceColor = `hsl(${(baseHue + 200) % 360}, 50%, 5%)`;
+                root.style.setProperty('--star-color', starColor);
+                document.getElementById('galaxy-background').style.background = deepSpaceColor;
+
+                // Nebula/Galaxy Gradient Colors (Analogous and Complementary)
+                const bgColor1 = `hsl(${(baseHue + 20) % 360}, 70%, 50%)`;
+                const bgColor2 = `hsl(${(baseHue - 20) % 360}, 75%, 55%)`;
+                const bgColor3 = `hsl(${(baseHue + 180) % 360}, 60%, 45%)`; // Complementary
+                const bgColor4 = `hsl(${(baseHue + 160) % 360}, 65%, 40%)`; // Near-complementary
+                root.style.setProperty('--bg-color-1', bgColor1);
+                root.style.setProperty('--bg-color-2', bgColor2);
+                root.style.setProperty('--bg-color-3', bgColor3);
+                root.style.setProperty('--bg-color-4', bgColor4);
+                
+                // Update presets with random colors for variety
                 basePresets.default.groups[0].color.value = `hsl(${Math.random() * 360}, 100%, 85%)`;
-                basePresets.symphony.groups[0].color.value = `hsl(${Math.random() * 60}, 90%, 60%)`;
-                basePresets.symphony.groups[1].color.value = `hsl(${200 + Math.random() * 100}, 90%, 65%)`;
+                basePresets.symphony.groups[0].color.value = `hsl(${baseHue}, 90%, 60%)`; // Tie to theme
+                basePresets.symphony.groups[1].color.value = `hsl(${(baseHue + 180) % 360}, 90%, 65%)`; // Tie to theme
             };
 
             const engineLoop = () => {

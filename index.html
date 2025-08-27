@@ -14,7 +14,7 @@
             overflow: hidden;
             font-family: 'Segoe UI', 'Roboto', sans-serif;
             color: white;
-            cursor: none;
+            cursor: none; /* Hide the default cursor */
         }
 
         body {
@@ -41,7 +41,7 @@
             transform: translate(-50%, -50%);
             transition: all 0.2s ease-out;
         }
-
+        
         #cursor-glow.active {
             width: 800px;
             height: 800px;
@@ -81,101 +81,99 @@
     </style>
 </head>
 <body>
-    <div id="instruction-text">Click and hold to create a comet</div>
+    <div id="instruction-text">Click and hold to form a comet</div>
     <div id="cursor-glow"></div>
     <div id="particles-js"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        const particlesConfig = { "particles": { "number": { "value": 200, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle" }, "opacity": { "value": 0.8, "random": true }, "size": { "value": 2.5, "random": true }, "line_linked": { "enable": false }, "move": { "enable": true, "speed": 1, "direction": "none", "out_mode": "out" } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": false }, "onclick": { "enable": false }, "resize": true } }, "retina_detect": true };
+        const particlesConfig = { "particles": { "number": { "value": 150, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "polygon": { "nb_sides": 5 }, "star": { "nb_sides": 5 } }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 2, "random": true }, "line_linked": { "enable": false, "color": "#ffffff" }, "move": { "enable": true, "speed": 4, "direction": "none", "out_mode": "out" } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "grab": { "distance": 200, "line_linked": { "opacity": 1 } }, "bubble": { "distance": 200, "size": 8, "duration": 2, "opacity": 1 }, "repulse": { "distance": 150, "duration": 0.4 } } }, "retina_detect": true };
 
         function getRandomColor() { const h = Math.floor(Math.random() * 360); const s = Math.floor(Math.random() * 20) + 75; const l = Math.floor(Math.random() * 20) + 50; return `hsl(${h}, ${s}%, ${l}%)`; }
+        function hslToHex(h, s, l) { l /= 100; const a = s * Math.min(l, 1 - l) / 100; const f = n => { const k = (n + h / 30) % 12; const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
         function setRandomGradient() { const angle = Math.floor(Math.random() * 360); document.body.style.background = `linear-gradient(${angle}deg, ${getRandomColor()}, ${getRandomColor()}, ${getRandomColor()}, ${getRandomColor()})`; document.body.style.backgroundSize = '400% 400%'; }
 
         document.addEventListener('DOMContentLoaded', () => {
             const cursorGlow = document.getElementById('cursor-glow');
             let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
             let isCometActive = false;
-
-            // --- New: Assign Depth to Each Particle ---
-            const assignParallaxDepth = (pJS) => {
-                for(const particle of pJS.particles.array) {
-                    // Assign a depth between 0.1 (far) and 1.0 (close)
-                    particle.depth = Math.random() * 0.9 + 0.1;
-                    // Store original values
-                    particle.originalSize = particle.radius;
-                    particle.originalOpacity = particle.opacity_bubble;
-                    // Scale size and opacity based on depth
-                    particle.radius = particle.originalSize * particle.depth;
-                    particle.opacity_bubble = particle.originalOpacity * particle.depth;
-                }
-            };
+            let initialSpeed = 4; // To store the randomized speed
 
             const randomizeScene = (pJS) => {
                 setRandomGradient();
-                pJS.particles.color.value = `#${((1<<24)*Math.random()|0).toString(16).padStart(6,'0')}`;
-                pJS.particles.number.value = Math.floor(Math.random() * 150) + 150; // 150-300 particles
-                pJS.particles.move.speed = Number(((Math.random() * 2) + 0.5).toFixed(1)); // Slow base speed
+
+                const particleColor = hslToHex(Math.random() * 360, 70 + Math.random() * 30, 60 + Math.random() * 30);
+                pJS.particles.color.value = particleColor;
+                pJS.particles.line_linked.color = particleColor;
+
+                pJS.particles.number.value = Math.floor(Math.random() * 200) + 75;
+                pJS.particles.size.value = Number(((Math.random() * 4) + 1).toFixed(1));
+                pJS.particles.opacity.value = Number((Math.random() * 0.6 + 0.2).toFixed(2));
                 
+                initialSpeed = Number(((Math.random() * 5) + 1).toFixed(1));
+                pJS.particles.move.speed = initialSpeed;
+
+                const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
+                pJS.particles.shape.type = shapes[Math.floor(Math.random() * shapes.length)];
+                
+                if (['polygon', 'star'].includes(pJS.particles.shape.type)) {
+                    const sides = Math.floor(Math.random() * 6) + 5;
+                    pJS.particles.shape.polygon.nb_sides = sides;
+                    if(pJS.particles.shape.star) pJS.particles.shape.star.nb_sides = sides;
+                }
+
+                pJS.particles.line_linked.enable = Math.random() < 0.4;
+                
+                const hoverModes = ['bubble', 'repulse', 'grab'];
+                pJS.interactivity.events.onhover.enable = true;
+                pJS.interactivity.events.onhover.mode = hoverModes[Math.floor(Math.random() * hoverModes.length)];
+
                 pJS.fn.particlesRefresh();
-                assignParallaxDepth(pJS); // Assign depth after settings are refreshed
             };
 
-            // --- INITIALIZE ---
             particlesJS('particles-js', particlesConfig);
             const pJS = window.pJSDom[0].pJS;
             randomizeScene(pJS);
 
-            // --- Main Animation Loop ---
             const update = () => {
                 if (isCometActive) {
                     for(const particle of pJS.particles.array) {
                         const dx = mouse.x - particle.x;
                         const dy = mouse.y - particle.y;
-                        
-                        // --- New: Parallax-aware attraction ---
-                        // The pull strength is now proportional to the particle's depth
-                        const force = (particle.depth * 4) + 1; // Base force + depth multiplier
-                        particle.vx += dx / (1000 / force);
-                        particle.vy += dy / (1000 / force);
+                        particle.vx = dx / 20; // A smoother, less aggressive pull
+                        particle.vy = dy / 20;
                     }
                 }
-                
                 pJS.fn.particlesDraw();
                 requestAnimationFrame(update);
             };
             requestAnimationFrame(update);
 
-
-            // --- Event Listeners ---
             window.addEventListener('mousemove', e => {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
+                mouse.x = e.clientX; mouse.y = e.clientY;
                 cursorGlow.style.left = `${e.clientX}px`;
                 cursorGlow.style.top = `${e.clientY}px`;
             });
 
             window.addEventListener('mousedown', () => {
                 isCometActive = true;
-                pJS.particles.move.enable = false; // Disable default movement for full control
+                pJS.particles.move.speed = 0;
+                pJS.interactivity.events.onhover.enable = false;
                 cursorGlow.classList.add('active');
             });
 
             window.addEventListener('mouseup', () => {
                 isCometActive = false;
-                pJS.particles.move.enable = true; // Re-enable default movement
                 cursorGlow.classList.remove('active');
                 
-                // --- New: Parallax-aware supernova ---
                 for(const particle of pJS.particles.array) {
                     const angle = Math.random() * 2 * Math.PI;
-                    // Closer particles get a much stronger push
-                    const speed = (Math.random() * 15 + 5) * particle.depth;
+                    const speed = Math.random() * 25 + 5;
                     particle.vx = Math.cos(angle) * speed;
                     particle.vy = Math.sin(angle) * speed;
                 }
                 
-                setTimeout(() => randomizeScene(pJS), 2000);
+                setTimeout(() => randomizeScene(pJS), 1800);
             });
         });
     </script>

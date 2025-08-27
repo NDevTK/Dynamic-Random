@@ -16,10 +16,10 @@
             color: white;
         }
 
-        /* --- New Animated Gradient Background --- */
+        /* --- Updated Animated Gradient Background --- */
         body {
             background-size: 400% 400%;
-            animation: gradientAnimation 20s ease infinite;
+            animation: gradientAnimation 25s ease infinite;
         }
 
         @keyframes gradientAnimation {
@@ -28,7 +28,26 @@
             100% { background-position: 0% 50%; }
         }
 
-        /* --- New Cursor Glow Effect --- */
+        /* --- New Glowing Title --- */
+        .main-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3);
+            animation: glowAnimation 4s ease-in-out infinite;
+            z-index: 10;
+        }
+
+        @keyframes glowAnimation {
+            0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3); }
+            50% { text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(255,255,255,0.5); }
+        }
+
+
         #cursor-glow {
             position: fixed;
             top: 0;
@@ -40,7 +59,7 @@
             pointer-events: none;
             z-index: 1;
             transform: translate(-50%, -50%);
-            transition: background 0.2s; /* Smooth color transition */
+            transition: background 0.2s;
         }
 
         #particles-js {
@@ -49,7 +68,7 @@
             height: 100%;
             top: 0;
             left: 0;
-            z-index: 2; /* Raised to be above the cursor glow */
+            z-index: 2;
         }
 
         .controls-panel {
@@ -65,10 +84,8 @@
             box-shadow: 0 4px 30px rgba(0,0,0,0.25);
             border: 1px solid rgba(255, 255, 255, 0.1);
             width: 250px;
-            /* New: Added transition for smooth hide/show */
             transition: opacity 0.4s ease, transform 0.4s ease;
         }
-        /* New: Class to hide the panel when the iframe is off-screen */
         .controls-panel.hidden {
             opacity: 0;
             transform: translateY(20px);
@@ -108,11 +125,11 @@
             color: white;
             cursor: pointer;
             transition: background-color 0.2s;
+            margin-top: 5px;
         }
         .controls-panel button:hover {
             background-color: rgba(255, 255, 255, 0.4);
         }
-        /* --- New Styling for Select Dropdowns --- */
         .controls-panel select {
             width: 100%;
             padding: 8px;
@@ -147,6 +164,7 @@
     </style>
 </head>
 <body>
+    <h1 class="main-title">Celestial Canvas</h1>
     <div id="cursor-glow"></div>
     <div id="particles-js"></div>
 
@@ -163,11 +181,15 @@
             <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
             <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
         </div>
+        <!-- --- New Fun Control: Opacity --- -->
+        <div>
+            <label for="particle-opacity">Particle Opacity: <span id="particle-opacity-value">0.5</span></label>
+            <input type="range" id="particle-opacity" min="0.1" max="1" value="0.5" step="0.05">
+        </div>
         <div>
             <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
             <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
         </div>
-        <!-- --- New Fun Controls --- -->
         <div>
             <label for="particle-shape">Particle Shape</label>
             <select id="particle-shape">
@@ -182,6 +204,7 @@
             <input type="checkbox" id="link-particles" checked>
             <label for="link-particles">Link Particles</label>
         </div>
+        <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
         <div>
             <label for="interactive-mode">Hover Effect</label>
             <select id="interactive-mode">
@@ -190,25 +213,36 @@
                 <option value="repulse">Repulse</option>
             </select>
         </div>
-        <hr style="border-color: rgba(255,255,255,0.1); border-top: 0;">
+        <!-- --- New Fun Control: Click Effect --- -->
+        <div>
+            <label for="onclick-mode">Click Effect</label>
+            <select id="onclick-mode">
+                <option value="push">Push</option>
+                <option value="remove">Remove</option>
+            </select>
+        </div>
+        <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
         <div>
             <button id="randomize-all">Randomize All</button>
-        </div>
-        <!-- --- End New Fun Controls --- -->
-        <div>
             <button id="randomize-gradient">New Background</button>
+            <button id="reset-settings">Reset to Default</button> <!-- New Button -->
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
+        const defaultConfig = {
+            "particles": { "number": { "value": 80 }, "color": { "value": "#ffffff" }, "shape": { "type": "circle" }, "opacity": { "value": 0.5 }, "size": { "value": 3 }, "line_linked": { "enable": true, "color": "#ffffff" }, "move": { "speed": 6 } },
+            "interactivity": { "events": { "onhover": { "mode": "bubble" }, "onclick": { "mode": "push" } } }
+        };
+
         // Global variable to hold the particles.js configuration
         const particlesConfig = {
             "particles": {
                 "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
                 "color": { "value": "#ffffff" },
                 "shape": { "type": "circle" },
-                "opacity": { "value": 0.5, "random": false },
+                "opacity": { "value": 0.5, "random": true },
                 "size": { "value": 3, "random": true },
                 "line_linked": { "enable": true, "distance": 150, "color": "#ffffff", "opacity": 0.4, "width": 1 },
                 "move": { "enable": true, "speed": 6, "direction": "none", "out_mode": "out" }
@@ -220,21 +254,20 @@
                     "grab": { "distance": 200, "line_linked": { "opacity": 1 } },
                     "bubble": { "distance": 250, "size": 10, "duration": 2, "opacity": 1 },
                     "repulse": { "distance": 100, "duration": 0.4 },
-                    "push": { "particles_nb": 4 }
+                    "push": { "particles_nb": 4 },
+                    "remove": { "particles_nb": 2 }
                 }
             },
             "retina_detect": true
         };
 
-        // Function to generate a random HSL color for the background
         function getRandomColor() {
             const h = Math.floor(Math.random() * 360);
-            const s = Math.floor(Math.random() * 20) + 75; // Saturated colors
-            const l = Math.floor(Math.random() * 20) + 50; // Darker, rich colors
+            const s = Math.floor(Math.random() * 20) + 75;
+            const l = Math.floor(Math.random() * 20) + 50;
             return `hsl(${h}, ${s}%, ${l}%)`;
         }
         
-        // Function to convert HSL values to a HEX string for the color input
         function hslToHex(h, s, l) {
             l /= 100;
             const a = s * Math.min(l, 1 - l) / 100;
@@ -246,175 +279,195 @@
             return `#${f(0)}${f(8)}${f(4)}`;
         }
 
-        // Updated function to set the random animated gradient background
         function setRandomGradient() {
             const color1 = getRandomColor();
             const color2 = getRandomColor();
             const color3 = getRandomColor();
             const color4 = getRandomColor();
-            const gradient = `linear-gradient(-45deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+            const angle = Math.floor(Math.random() * 360);
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
             document.body.style.background = gradient;
             document.body.style.backgroundSize = '400% 400%';
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             // Get all control elements
-            const particleColorInput = document.getElementById('particle-color');
-            const particleCountInput = document.getElementById('particle-count');
-            const particleCountValue = document.getElementById('particle-count-value');
-            const particleSizeInput = document.getElementById('particle-size');
-            const particleSizeValue = document.getElementById('particle-size-value');
-            const particleSpeedInput = document.getElementById('particle-speed');
-            const particleSpeedValue = document.getElementById('particle-speed-value');
-            const linkParticlesInput = document.getElementById('link-particles');
-            const randomizeGradientBtn = document.getElementById('randomize-gradient');
-            const cursorGlow = document.getElementById('cursor-glow');
-            // New controls
-            const particleShapeInput = document.getElementById('particle-shape');
-            const interactiveModeInput = document.getElementById('interactive-mode');
-            const randomizeAllBtn = document.getElementById('randomize-all');
+            const allControls = {
+                color: document.getElementById('particle-color'),
+                count: document.getElementById('particle-count'),
+                countValue: document.getElementById('particle-count-value'),
+                size: document.getElementById('particle-size'),
+                sizeValue: document.getElementById('particle-size-value'),
+                opacity: document.getElementById('particle-opacity'),
+                opacityValue: document.getElementById('particle-opacity-value'),
+                speed: document.getElementById('particle-speed'),
+                speedValue: document.getElementById('particle-speed-value'),
+                shape: document.getElementById('particle-shape'),
+                link: document.getElementById('link-particles'),
+                hoverMode: document.getElementById('interactive-mode'),
+                clickMode: document.getElementById('onclick-mode'),
+                randomizeGradientBtn: document.getElementById('randomize-gradient'),
+                randomizeAllBtn: document.getElementById('randomize-all'),
+                resetBtn: document.getElementById('reset-settings'),
+                cursorGlow: document.getElementById('cursor-glow')
+            };
             
-            if (window.self !== window.top) { // Only run if in an iframe
-                if (window.innerHeight < 1000) {
-                    document.getElementsByClassName('controls-panel')[0].hidden = ':)';
-                }
+            if (window.self !== window.top && window.innerHeight < 1000) {
+                document.getElementsByClassName('controls-panel')[0].classList.add('hidden');
             }
 
-            // Randomize particle color on load for contrast
-            const randomHue = Math.floor(Math.random() * 360);
-            const randomSaturation = Math.floor(Math.random() * 30) + 70;
-            const randomLightness = Math.floor(Math.random() * 30) + 60; // Brighter particles
-            const randomParticleColor = hslToHex(randomHue, randomSaturation, randomLightness);
-            
-            // Update config before initializing
-            particlesConfig.particles.color.value = randomParticleColor;
-            particlesConfig.particles.line_linked.color = randomParticleColor;
-            particleColorInput.value = randomParticleColor;
-
             // Initial setup
-            setRandomGradient();
             particlesJS('particles-js', particlesConfig);
             const pJS = window.pJSDom[0].pJS;
 
-            // Initialize display values for new sliders
-            particleSizeValue.textContent = particleSizeInput.value;
-            particleSpeedValue.textContent = particleSpeedInput.value;
+            // --- Main Functions ---
+
+            const randomizeAll = () => {
+                setRandomGradient();
+
+                const rHue = Math.floor(Math.random() * 360), rSat = Math.floor(Math.random() * 30) + 70, rLight = Math.floor(Math.random() * 30) + 60;
+                const rColor = hslToHex(rHue, rSat, rLight);
+                allControls.color.value = rColor;
+                pJS.particles.color.value = rColor;
+                pJS.particles.line_linked.color = rColor;
+
+                const rCount = Math.floor(Math.random() * 490) + 10;
+                allControls.count.value = rCount;
+                allControls.countValue.textContent = rCount;
+                pJS.particles.number.value = rCount;
+
+                const rSize = ((Math.random() * 14) + 1).toFixed(1);
+                allControls.size.value = rSize;
+                allControls.sizeValue.textContent = rSize;
+                pJS.particles.size.value = rSize;
+
+                const rOpacity = (Math.random() * 0.9 + 0.1).toFixed(2);
+                allControls.opacity.value = rOpacity;
+                allControls.opacityValue.textContent = rOpacity;
+                pJS.particles.opacity.value = rOpacity;
+
+                const rSpeed = ((Math.random() * 19.9) + 0.1).toFixed(1);
+                allControls.speed.value = rSpeed;
+                allControls.speedValue.textContent = rSpeed;
+                pJS.particles.move.speed = rSpeed;
+
+                const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
+                const rShape = shapes[Math.floor(Math.random() * shapes.length)];
+                allControls.shape.value = rShape;
+                pJS.particles.shape.type = rShape;
+
+                const rLink = Math.random() < 0.75;
+                allControls.link.checked = rLink;
+                pJS.particles.line_linked.enable = rLink;
+
+                const hoverModes = ['bubble', 'grab', 'repulse'];
+                const rHoverMode = hoverModes[Math.floor(Math.random() * hoverModes.length)];
+                allControls.hoverMode.value = rHoverMode;
+                pJS.interactivity.events.onhover.mode = rHoverMode;
+                
+                const clickModes = ['push', 'remove'];
+                const rClickMode = clickModes[Math.floor(Math.random() * clickModes.length)];
+                allControls.clickMode.value = rClickMode;
+                pJS.interactivity.events.onclick.mode = rClickMode;
+                
+                pJS.fn.particlesRefresh();
+            };
+            
+            const resetSettings = () => {
+                setRandomGradient(); // Give a fresh background on reset too
+                const defaults = defaultConfig.particles;
+                const defaultInteraction = defaultConfig.interactivity.events;
+
+                allControls.color.value = defaults.color.value;
+                pJS.particles.color.value = defaults.color.value;
+                pJS.particles.line_linked.color = defaults.line_linked.color;
+
+                allControls.count.value = defaults.number.value;
+                allControls.countValue.textContent = defaults.number.value;
+                pJS.particles.number.value = defaults.number.value;
+
+                allControls.size.value = defaults.size.value;
+                allControls.sizeValue.textContent = defaults.size.value;
+                pJS.particles.size.value = defaults.size.value;
+
+                allControls.opacity.value = defaults.opacity.value;
+                allControls.opacityValue.textContent = defaults.opacity.value;
+                pJS.particles.opacity.value = defaults.opacity.value;
+                
+                allControls.speed.value = defaults.move.speed;
+                allControls.speedValue.textContent = defaults.move.speed;
+                pJS.particles.move.speed = defaults.move.speed;
+
+                allControls.shape.value = defaults.shape.type;
+                pJS.particles.shape.type = defaults.shape.type;
+
+                allControls.link.checked = defaults.line_linked.enable;
+                pJS.particles.line_linked.enable = defaults.line_linked.enable;
+
+                allControls.hoverMode.value = defaultInteraction.onhover.mode;
+                pJS.interactivity.events.onhover.mode = defaultInteraction.onhover.mode;
+
+                allControls.clickMode.value = defaultInteraction.onclick.mode;
+                pJS.interactivity.events.onclick.mode = defaultInteraction.onclick.mode;
+                
+                pJS.fn.particlesRefresh();
+            };
 
             // --- Event Listeners ---
-
-            // Cursor glow follows mouse
             window.addEventListener('mousemove', e => {
-                cursorGlow.style.left = `${e.clientX}px`;
-                cursorGlow.style.top = `${e.clientY}px`;
+                allControls.cursorGlow.style.left = `${e.clientX}px`;
+                allControls.cursorGlow.style.top = `${e.clientY}px`;
             });
-            
-            // Particle color
-            particleColorInput.addEventListener('input', (e) => {
+            allControls.color.addEventListener('input', e => {
                 pJS.particles.color.value = e.target.value;
                 pJS.particles.line_linked.color = e.target.value;
                 pJS.fn.particlesRefresh();
             });
-
-            // Particle count
-            particleCountInput.addEventListener('input', (e) => {
-                const count = parseInt(e.target.value, 10);
-                pJS.particles.number.value = count;
-                particleCountValue.textContent = count;
+            allControls.count.addEventListener('input', e => {
+                pJS.particles.number.value = e.target.value;
+                allControls.countValue.textContent = e.target.value;
                 pJS.fn.particlesRefresh();
             });
-
-            // Particle size
-            particleSizeInput.addEventListener('input', (e) => {
-                const size = parseFloat(e.target.value);
-                pJS.particles.size.value = size;
-                particleSizeValue.textContent = size;
+            allControls.size.addEventListener('input', e => {
+                pJS.particles.size.value = e.target.value;
+                allControls.sizeValue.textContent = e.target.value;
                 pJS.fn.particlesRefresh();
             });
-
-            // Particle speed
-            particleSpeedInput.addEventListener('input', (e) => {
-                const speed = parseFloat(e.target.value);
-                pJS.particles.move.speed = speed;
-                particleSpeedValue.textContent = speed;
+            allControls.opacity.addEventListener('input', e => {
+                pJS.particles.opacity.value = e.target.value;
+                allControls.opacityValue.textContent = e.target.value;
                 pJS.fn.particlesRefresh();
             });
-            
-            // --- New Event Listeners ---
-            
-            // Particle Shape
-            particleShapeInput.addEventListener('change', (e) => {
+            allControls.speed.addEventListener('input', e => {
+                pJS.particles.move.speed = e.target.value;
+                allControls.speedValue.textContent = e.target.value;
+                pJS.fn.particlesRefresh();
+            });
+            allControls.shape.addEventListener('change', e => {
                 pJS.particles.shape.type = e.target.value;
                 pJS.fn.particlesRefresh();
             });
-
-            // Link particles toggle
-            linkParticlesInput.addEventListener('change', (e) => {
+            allControls.link.addEventListener('change', e => {
                 pJS.particles.line_linked.enable = e.target.checked;
                 pJS.fn.particlesRefresh();
             });
-            
-            // Interactive Mode
-            interactiveModeInput.addEventListener('change', (e) => {
+            allControls.hoverMode.addEventListener('change', e => {
                 pJS.interactivity.events.onhover.mode = e.target.value;
                 pJS.fn.particlesRefresh();
             });
-            
-            // Randomize All Button
-            const randomizeAll = () => {
-                // Randomize background
-                setRandomGradient();
-
-                // Randomize particle color
-                const rHue = Math.floor(Math.random() * 360);
-                const rSat = Math.floor(Math.random() * 30) + 70;
-                const rLight = Math.floor(Math.random() * 30) + 60;
-                const rColor = hslToHex(rHue, rSat, rLight);
-                particleColorInput.value = rColor;
-                pJS.particles.color.value = rColor;
-                pJS.particles.line_linked.color = rColor;
-
-                // Randomize particle count
-                const rCount = Math.floor(Math.random() * (490)) + 10;
-                particleCountInput.value = rCount;
-                particleCountValue.textContent = rCount;
-                pJS.particles.number.value = rCount;
-
-                // Randomize particle size
-                const rSize = ((Math.random() * 14) + 1).toFixed(1);
-                particleSizeInput.value = rSize;
-                particleSizeValue.textContent = rSize;
-                pJS.particles.size.value = rSize;
-
-                // Randomize particle speed
-                const rSpeed = ((Math.random() * 19.9) + 0.1).toFixed(1);
-                particleSpeedInput.value = rSpeed;
-                particleSpeedValue.textContent = rSpeed;
-                pJS.particles.move.speed = rSpeed;
-
-                // Randomize particle shape
-                const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
-                const rShape = shapes[Math.floor(Math.random() * shapes.length)];
-                particleShapeInput.value = rShape;
-                pJS.particles.shape.type = rShape;
-
-                // Randomize link particles
-                const rLink = Math.random() < 0.5;
-                linkParticlesInput.checked = rLink;
-                pJS.particles.line_linked.enable = rLink;
-
-                // Randomize hover effect
-                const modes = ['bubble', 'grab', 'repulse'];
-                const rMode = modes[Math.floor(Math.random() * modes.length)];
-                interactiveModeInput.value = rMode;
-                pJS.interactivity.events.onhover.mode = rMode;
-                
+            allControls.clickMode.addEventListener('change', e => {
+                pJS.interactivity.events.onclick.mode = e.target.value;
                 pJS.fn.particlesRefresh();
-            }
-            randomizeAllBtn.addEventListener('click', randomizeAll);
+            });
 
-            // Randomize gradient button
-            randomizeGradientBtn.addEventListener('click', setRandomGradient);
+            // Button listeners
+            allControls.randomizeAllBtn.addEventListener('click', randomizeAll);
+            allControls.randomizeGradientBtn.addEventListener('click', setRandomGradient);
+            allControls.resetBtn.addEventListener('click', resetSettings);
+
+            // --- INITIALIZE ---
+            randomizeAll(); // Randomize everything on page load!
         });
     </script>
 </body>
-</html>
+</html>```

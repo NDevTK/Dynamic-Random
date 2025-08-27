@@ -6,139 +6,30 @@
     <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
     <title>Celestial Canvas</title>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Segoe UI', 'Roboto', sans-serif;
-            color: white;
-            background-color: #000;
-        }
-
-        /* --- Updated "Spacewarp" Animated Gradient Background --- */
-        #background-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            animation: gradientAnimation 25s ease infinite;
-        }
-
-        @keyframes gradientAnimation {
-            0% { background-position: 0% 50%; transform: rotate(0deg); }
-            50% { background-position: 100% 50%; transform: rotate(15deg); }
-            100% { background-position: 0% 50%; transform: rotate(0deg); }
-        }
-
-        .main-title {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 2.5em;
-            font-weight: 300;
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3);
-            animation: glowAnimation 4s ease-in-out infinite;
-            z-index: 10;
-        }
-
-        @keyframes glowAnimation {
-            0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3); }
-            50% { text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 40px rgba(255,255,255,0.5); }
-        }
-
-        #cursor-glow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 60%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1;
-            transform: translate(-50%, -50%);
-        }
-
-        #particles-js {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: 2;
-        }
-
-        /* --- Updated Collapsible Controls --- */
-        #controls-container {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            z-index: 20;
-        }
-
-        #toggle-controls-btn {
-            width: 50px;
-            height: 50px;
-            background-color: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.3s ease;
-        }
-        #toggle-controls-btn:hover {
-            transform: rotate(45deg);
-        }
-        #toggle-controls-btn svg {
-            width: 24px;
-            height: 24px;
-            fill: white;
-        }
-
-        .controls-panel {
-            position: absolute;
-            bottom: 0;
-            right: 65px; /* Position next to the button */
-            background-color: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(8px);
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 30px rgba(0,0,0,0.25);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 250px;
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            transform: translateX(120%); /* Hidden by default */
-            opacity: 0;
-            pointer-events: none;
-        }
-        .controls-panel.visible {
-            transform: translateX(0);
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        /* --- General Control Styles --- */
-        .controls-panel div { margin-bottom: 15px; }
-        .controls-panel div:last-child { margin-bottom: 0; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', 'Roboto', sans-serif; color: white; background-color: #000; }
+        #background-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; animation: gradientAnimation 30s ease infinite; background-size: 400% 400%; }
+        @keyframes gradientAnimation { 0% { background-position: 0% 50%; transform: rotate(0deg) scale(1.2); } 50% { background-position: 100% 50%; transform: rotate(10deg) scale(1.2); } 100% { background-position: 0% 50%; transform: rotate(0deg) scale(1.2); } }
+        .main-title { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 2.5em; font-weight: 300; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3); animation: glowAnimation 4s ease-in-out infinite; z-index: 10; }
+        @keyframes glowAnimation { 0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0.5); } 50% { text-shadow: 0 0 20px rgba(255,255,255,0.8); } }
+        #cursor-glow { position: fixed; top: 0; left: 0; width: 500px; height: 500px; background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 60%); border-radius: 50%; pointer-events: none; z-index: 1; transform: translate(-50%, -50%); }
+        #particles-js { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 2; }
+        #controls-container { position: absolute; bottom: 10px; right: 10px; z-index: 20; }
+        #toggle-controls-btn { width: 50px; height: 50px; background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: transform 0.3s ease; }
+        #toggle-controls-btn:hover { transform: rotate(45deg); }
+        #toggle-controls-btn svg { width: 24px; height: 24px; fill: white; }
+        .controls-panel { position: absolute; bottom: 0; right: 65px; background-color: rgba(0, 0, 0, 0.2); backdrop-filter: blur(8px); border-radius: 10px; padding: 20px; box-shadow: 0 4px 30px rgba(0,0,0,0.25); border: 1px solid rgba(255, 255, 255, 0.1); width: 250px; transition: opacity 0.4s ease, transform 0.4s ease; transform: translateX(120%); opacity: 0; pointer-events: none; }
+        .controls-panel.visible { transform: translateX(0); opacity: 1; pointer-events: all; }
+        .controls-panel div { margin-bottom: 15px; } .controls-panel div:last-child { margin-bottom: 0; }
         .controls-panel label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
         .controls-panel input[type="color"] { width: 100%; height: 30px; border: 1px solid rgba(255,255,255,0.2); padding: 0; background: none; border-radius: 5px; cursor: pointer; }
         .controls-panel input[type="range"] { width: 100%; cursor: pointer; }
-        .controls-panel button { width: 100%; padding: 10px; border: none; border-radius: 5px; background-color: rgba(255, 255, 255, 0.2); color: white; cursor: pointer; transition: background-color 0.2s; margin-top: 5px; }
+        .controls-panel button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px; border: none; border-radius: 5px; background-color: rgba(255, 255, 255, 0.2); color: white; cursor: pointer; transition: background-color 0.2s; margin-top: 5px; }
         .controls-panel button:hover { background-color: rgba(255, 255, 255, 0.4); }
         .controls-panel select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background-color: rgba(0, 0, 0, 0.3); color: white; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 10px top 50%; background-size: 10px auto; }
         .checkbox-wrapper { display: flex; align-items: center; cursor: pointer; }
         .checkbox-wrapper input[type="checkbox"] { margin-right: 10px; cursor: pointer; }
         .checkbox-wrapper label { margin-bottom: 0; }
-        #polygon-sides-container { display: none; }
+        #polygon-sides-container, #stroke-color-container, #gravity-toggle-container { display: none; }
     </style>
 </head>
 <body>
@@ -150,8 +41,20 @@
     <div id="controls-container">
         <div class="controls-panel">
             <div>
-                <label for="particle-color">Particle Color</label>
+                <label for="particle-style">Particle Style</label>
+                <select id="particle-style">
+                    <option value="fill">Fill</option>
+                    <option value="stroke">Stroke</option>
+                    <option value="both">Both</option>
+                </select>
+            </div>
+            <div>
+                <label for="particle-color">Fill Color</label>
                 <input type="color" id="particle-color" value="#ffffff">
+            </div>
+            <div id="stroke-color-container">
+                <label for="stroke-color">Stroke Color</label>
+                <input type="color" id="stroke-color" value="#ffffff">
             </div>
             <div>
                 <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
@@ -162,202 +65,153 @@
                 <input type="range" id="particle-size" min="1" max="20" value="3" step="0.5">
             </div>
             <div>
-                <label for="particle-opacity">Particle Opacity: <span id="particle-opacity-value">0.5</span></label>
-                <input type="range" id="particle-opacity" min="0.1" max="1" value="0.5" step="0.05">
-            </div>
-            <div>
                 <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
                 <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
             </div>
             <div>
                 <label for="particle-shape">Particle Shape</label>
                 <select id="particle-shape">
-                    <option value="circle">Circle</option>
-                    <option value="edge">Square</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="polygon">Polygon</option>
-                    <option value="star">Star</option>
+                    <option value="circle">Circle</option><option value="edge">Square</option><option value="triangle">Triangle</option><option value="polygon">Polygon</option><option value="star">Star</option>
                 </select>
             </div>
-             <!-- New Contextual Control for Polygons -->
             <div id="polygon-sides-container">
                 <label for="polygon-sides">Polygon Sides: <span id="polygon-sides-value">5</span></label>
                 <input type="range" id="polygon-sides" min="3" max="12" value="5" step="1">
             </div>
             <div class="checkbox-wrapper">
-                <input type="checkbox" id="link-particles" checked>
-                <label for="link-particles">Link Particles</label>
+                <input type="checkbox" id="link-particles" checked> <label for="link-particles">Link Particles</label>
             </div>
-            <!-- New Line Width Control -->
-            <div id="line-width-container">
-                <label for="line-width">Line Width: <span id="line-width-value">1</span></label>
-                <input type="range" id="line-width" min="0.5" max="10" value="1" step="0.5">
+            <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin: 20px 0;">
+            <div id="gravity-toggle-container">
+                <button id="gravity-toggle-btn">Toggle Gravity</button>
             </div>
-            <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
-            <div>
-                <label for="interactive-mode">Hover Effect</label>
-                <select id="interactive-mode">
-                    <option value="bubble">Bubble</option>
-                    <option value="grab">Grab</option>
-                    <option value="repulse">Repulse</option>
-                </select>
-            </div>
-            <div>
-                <label for="onclick-mode">Click Effect</label>
-                <select id="onclick-mode">
-                    <option value="push">Push</option>
-                    <option value="remove">Remove</option>
-                </select>
-            </div>
-            <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
-            <div>
-                <button id="randomize-all">Randomize All</button>
-                <button id="reset-settings">Reset to Default</button>
-            </div>
+            <button id="randomize-all"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>Randomize All</button>
+            <button id="reset-settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>Reset to Default</button>
         </div>
-        <button id="toggle-controls-btn">
-            <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.2,5.25C8.61,5.5,8.08,5.82,7.58,6.2L5.19,5.24C4.97,5.17,4.72,5.24,4.6,5.46L2.68,8.78 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.78,11.36,4.76,11.68,4.76,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.44 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.36-2.44c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.01,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
-        </button>
+        <button id="toggle-controls-btn"><svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.2,5.25C8.61,5.5,8.08,5.82,7.58,6.2L5.19,5.24C4.97,5.17,4.72,5.24,4.6,5.46L2.68,8.78 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.78,11.36,4.76,11.68,4.76,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.44 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.36-2.44c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.01,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></button>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        const defaultConfig = {
-            particles: { number: { value: 80 }, color: { value: "#ffffff" }, shape: { type: "circle", polygon: { nb_sides: 5 } }, opacity: { value: 0.5 }, size: { value: 3 }, line_linked: { enable: true, color: "#ffffff", width: 1 }, move: { speed: 6 } },
-            interactivity: { events: { onhover: { mode: "bubble" }, onclick: { mode: "push" } } }
-        };
-
-        const particlesConfig = {
-            particles: {
-                number: { value: 80, density: { enable: true, value_area: 800 } },
-                color: { value: "#ffffff" },
-                shape: { type: "circle", polygon: { nb_sides: 5 } },
-                opacity: { value: 0.5, random: true },
-                size: { value: 3, random: true },
-                line_linked: { enable: true, distance: 150, color: "#ffffff", opacity: 0.4, width: 1 },
-                move: { enable: true, speed: 6, direction: "none", out_mode: "out" }
-            },
-            interactivity: {
-                detect_on: "canvas",
-                events: { onhover: { enable: true, mode: "bubble" }, onclick: { enable: true, mode: "push" }, resize: true },
-                modes: {
-                    grab: { distance: 200, line_linked: { opacity: 1 } },
-                    bubble: { distance: 250, size: 10, duration: 2, opacity: 1 },
-                    repulse: { distance: 100, duration: 0.4 },
-                    push: { particles_nb: 4 },
-                    remove: { particles_nb: 2 }
-                }
-            },
-            retina_detect: true
-        };
-
-        function getRandomColor() {
-            const h = Math.floor(Math.random() * 360);
-            const s = Math.floor(Math.random() * 20) + 75;
-            const l = Math.floor(Math.random() * 20) + 50;
-            return `hsl(${h}, ${s}%, ${l}%)`;
-        }
-        
-        function hslToHex(h, s, l) {
-            l /= 100; const a = s * Math.min(l, 1 - l) / 100;
-            const f = n => { const k = (n + h / 30) % 12; const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); };
-            return `#${f(0)}${f(8)}${f(4)}`;
-        }
-
-        function setRandomGradient() {
-            const bg = document.getElementById('background-canvas');
-            const color1 = getRandomColor(), color2 = getRandomColor(), color3 = getRandomColor(), color4 = getRandomColor();
-            const angle = Math.floor(Math.random() * 360);
-            bg.style.background = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
-            bg.style.backgroundSize = '400% 400%';
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             const allControls = {
+                style: document.getElementById('particle-style'),
                 color: document.getElementById('particle-color'),
+                strokeColorContainer: document.getElementById('stroke-color-container'),
+                strokeColor: document.getElementById('stroke-color'),
                 count: document.getElementById('particle-count'), countValue: document.getElementById('particle-count-value'),
                 size: document.getElementById('particle-size'), sizeValue: document.getElementById('particle-size-value'),
-                opacity: document.getElementById('particle-opacity'), opacityValue: document.getElementById('particle-opacity-value'),
                 speed: document.getElementById('particle-speed'), speedValue: document.getElementById('particle-speed-value'),
                 shape: document.getElementById('particle-shape'),
                 polygonSidesContainer: document.getElementById('polygon-sides-container'),
                 polygonSides: document.getElementById('polygon-sides'), polygonSidesValue: document.getElementById('polygon-sides-value'),
                 link: document.getElementById('link-particles'),
-                lineWidthContainer: document.getElementById('line-width-container'),
-                lineWidth: document.getElementById('line-width'), lineWidthValue: document.getElementById('line-width-value'),
-                hoverMode: document.getElementById('interactive-mode'),
-                clickMode: document.getElementById('onclick-mode'),
+                gravityToggleContainer: document.getElementById('gravity-toggle-container'),
+                gravityToggleBtn: document.getElementById('gravity-toggle-btn'),
                 randomizeAllBtn: document.getElementById('randomize-all'),
                 resetBtn: document.getElementById('reset-settings'),
-                cursorGlow: document.getElementById('cursor-glow'),
                 toggleBtn: document.getElementById('toggle-controls-btn'),
                 panel: document.querySelector('.controls-panel')
             };
-            
-            particlesJS('particles-js', particlesConfig);
-            const pJS = window.pJSDom[0].pJS;
+
+            const backgroundImages = [
+                'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2071&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1532372576444-6e7f68a8d416?q=80&w=2070&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?q=80&w=2070&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1582433549721-692790954634?q=80&w=1964&auto=format&fit=crop'
+            ];
+
+            particlesJS('particles-js', {});
+            let pJS = window.pJSDom[0].pJS;
 
             const updateUI = (setting, value) => {
                 if(allControls[setting]) allControls[setting].value = value;
                 if(allControls[`${setting}Value`]) allControls[`${setting}Value`].textContent = value;
             };
 
-            const randomizeAll = () => {
-                setRandomGradient();
-                const rColor = hslToHex(Math.floor(Math.random() * 360), Math.floor(Math.random() * 30) + 70, Math.floor(Math.random() * 30) + 60);
-                updateUI('color', rColor);
-                pJS.particles.color.value = rColor; pJS.particles.line_linked.color = rColor;
-                const rCount = Math.floor(Math.random() * 490) + 10; updateUI('count', rCount); pJS.particles.number.value = rCount;
-                const rSize = ((Math.random() * 19) + 1).toFixed(1); updateUI('size', rSize); pJS.particles.size.value = rSize;
-                const rOpacity = (Math.random() * 0.9 + 0.1).toFixed(2); updateUI('opacity', rOpacity); pJS.particles.opacity.value = rOpacity;
-                const rSpeed = ((Math.random() * 19.9) + 0.1).toFixed(1); updateUI('speed', rSpeed); pJS.particles.move.speed = rSpeed;
-                const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star']; const rShape = shapes[Math.floor(Math.random() * shapes.length)]; updateUI('shape', rShape); pJS.particles.shape.type = rShape;
-                const rPolySides = Math.floor(Math.random() * 10) + 3; updateUI('polygonSides', rPolySides); pJS.particles.shape.polygon.nb_sides = rPolySides;
-                const rLink = Math.random() < 0.8; allControls.link.checked = rLink; pJS.particles.line_linked.enable = rLink;
-                const rLineWidth = ((Math.random() * 9.5) + 0.5).toFixed(1); updateUI('lineWidth', rLineWidth); pJS.particles.line_linked.width = rLineWidth;
-                const hoverModes = ['bubble', 'grab', 'repulse']; const rHoverMode = hoverModes[Math.floor(Math.random() * hoverModes.length)]; updateUI('hoverMode', rHoverMode); pJS.interactivity.events.onhover.mode = rHoverMode;
-                const clickModes = ['push', 'remove']; const rClickMode = clickModes[Math.floor(Math.random() * clickModes.length)]; updateUI('clickMode', rClickMode); pJS.interactivity.events.onclick.mode = rClickMode;
+            const applyParticleStyle = () => {
+                const style = allControls.style.value;
+                const fillColor = allControls.color.value;
+                const strokeColor = allControls.strokeColor.value;
+
+                const shapeConfig = { type: pJS.particles.shape.type, stroke: { width: 10, color: strokeColor }, polygon: { nb_sides: pJS.particles.shape.polygon.nb_sides } };
+
+                pJS.particles.color.value = (style === 'stroke') ? 'rgba(0,0,0,0)' : fillColor;
+                shapeConfig.stroke.width = (style === 'fill') ? 0 : 10;
                 
+                pJS.particles.shape = shapeConfig;
+                pJS.fn.particlesRefresh();
+            };
+
+            const randomizeAll = () => {
+                // Randomize Background
+                const bg = document.getElementById('background-canvas');
+                if (Math.random() < 0.5) {
+                    const color1 = `hsl(${Math.random()*360}, 80%, 60%)`, color2 = `hsl(${Math.random()*360}, 80%, 60%)`, color3 = `hsl(${Math.random()*360}, 80%, 60%)`;
+                    bg.style.backgroundImage = `linear-gradient(${Math.random()*360}deg, ${color1}, ${color2}, ${color3})`;
+                } else {
+                    bg.style.backgroundImage = `url('${backgroundImages[Math.floor(Math.random() * backgroundImages.length)]}')`;
+                }
+
+                // Randomize Physics
+                const physicsModes = ['float', 'bounce', 'gravity'];
+                const mode = physicsModes[Math.floor(Math.random() * physicsModes.length)];
+
+                // Re-initialize particlesJS with new physics config
+                let config = { particles: { move: {} }, interactivity: { events: { onhover: { enable: true, mode: "bubble" }, onclick: { enable: true, mode: "push" } } } };
+                allControls.gravityToggleContainer.style.display = 'none';
+
+                if (mode === 'gravity') {
+                    config.particles.move = { enable: true, speed: 6, direction: "bottom", straight: true, out_mode: "out" };
+                    config.particles.size = { value: 4, random: true };
+                    config.particles.opacity = { value: 0.8, random: true };
+                    allControls.gravityToggleContainer.style.display = 'block';
+                } else if (mode === 'bounce') {
+                    config.particles.move = { enable: true, speed: 4, direction: "none", out_mode: "bounce" };
+                } else { // float
+                    config.particles.move = { enable: true, speed: 2, direction: "none", out_mode: "out" };
+                }
+
+                // Destroy old instance and create a new one
+                if (pJS) pJS.fn.vendors.destroypJS();
+                particlesJS('particles-js', config);
+                pJS = window.pJSDom[0].pJS;
+
+                // Randomize other settings
+                const rStyle = ['fill', 'stroke', 'both'][Math.floor(Math.random()*3)]; updateUI('style', rStyle);
+                const rColor = `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`; updateUI('color', rColor);
+                const rStrokeColor = `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`; updateUI('strokeColor', rStrokeColor);
+                allControls.strokeColorContainer.style.display = (rStyle !== 'fill') ? 'block' : 'none';
+                
+                const rCount = Math.floor(Math.random() * 250) + 50; updateUI('count', rCount); pJS.particles.number.value = rCount;
+                const rSize = ((Math.random() * 10) + 2).toFixed(1); updateUI('size', rSize); pJS.particles.size.value = rSize;
+                const rSpeed = ((Math.random() * 8) + 1).toFixed(1); updateUI('speed', rSpeed); pJS.particles.move.speed = rSpeed;
+                const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star']; const rShape = shapes[Math.floor(Math.random() * shapes.length)]; updateUI('shape', rShape); pJS.particles.shape.type = rShape;
                 allControls.polygonSidesContainer.style.display = (rShape === 'polygon') ? 'block' : 'none';
-                allControls.lineWidthContainer.style.display = rLink ? 'block' : 'none';
+                
+                const rLink = Math.random() < 0.5; allControls.link.checked = rLink; pJS.particles.line_linked.enable = rLink;
+
+                applyParticleStyle(); // applies colors and stroke
                 pJS.fn.particlesRefresh();
             };
             
-            const resetSettings = () => {
-                setRandomGradient();
-                const defaults = defaultConfig.particles; const defaultInteraction = defaultConfig.interactivity.events;
-                updateUI('color', defaults.color.value); pJS.particles.color.value = defaults.color.value; pJS.particles.line_linked.color = defaults.line_linked.color;
-                updateUI('count', defaults.number.value); pJS.particles.number.value = defaults.number.value;
-                updateUI('size', defaults.size.value); pJS.particles.size.value = defaults.size.value;
-                updateUI('opacity', defaults.opacity.value); pJS.particles.opacity.value = defaults.opacity.value;
-                updateUI('speed', defaults.move.speed); pJS.particles.move.speed = defaults.move.speed;
-                updateUI('shape', defaults.shape.type); pJS.particles.shape.type = defaults.shape.type;
-                updateUI('polygonSides', defaults.shape.polygon.nb_sides); pJS.particles.shape.polygon.nb_sides = defaults.shape.polygon.nb_sides;
-                allControls.link.checked = defaults.line_linked.enable; pJS.particles.line_linked.enable = defaults.line_linked.enable;
-                updateUI('lineWidth', defaults.line_linked.width); pJS.particles.line_linked.width = defaults.line_linked.width;
-                updateUI('hoverMode', defaultInteraction.onhover.mode); pJS.interactivity.events.onhover.mode = defaultInteraction.onhover.mode;
-                updateUI('clickMode', defaultInteraction.onclick.mode); pJS.interactivity.events.onclick.mode = defaultInteraction.onclick.mode;
-
-                allControls.polygonSidesContainer.style.display = 'none';
-                allControls.lineWidthContainer.style.display = 'block';
-                pJS.fn.particlesRefresh();
-            };
-
             // --- Event Listeners ---
-            window.addEventListener('mousemove', e => { allControls.cursorGlow.style.left = `${e.clientX}px`; allControls.cursorGlow.style.top = `${e.clientY}px`; });
-            allControls.color.addEventListener('input', e => { pJS.particles.color.value = e.target.value; pJS.particles.line_linked.color = e.target.value; pJS.fn.particlesRefresh(); });
+            allControls.style.addEventListener('change', () => {
+                allControls.strokeColorContainer.style.display = (allControls.style.value !== 'fill') ? 'block' : 'none';
+                applyParticleStyle();
+            });
+            allControls.color.addEventListener('input', applyParticleStyle);
+            allControls.strokeColor.addEventListener('input', applyParticleStyle);
             allControls.count.addEventListener('input', e => { pJS.particles.number.value = e.target.value; updateUI('count', e.target.value); pJS.fn.particlesRefresh(); });
             allControls.size.addEventListener('input', e => { pJS.particles.size.value = e.target.value; updateUI('size', e.target.value); pJS.fn.particlesRefresh(); });
-            allControls.opacity.addEventListener('input', e => { pJS.particles.opacity.value = e.target.value; updateUI('opacity', e.target.value); pJS.fn.particlesRefresh(); });
-            allControls.speed.addEventListener('input', e => { pJS.particles.move.speed = e.target.value; updateUI('speed', e.target.value); pJS.fn.particlesRefresh(); });
-            allControls.shape.addEventListener('change', e => { pJS.particles.shape.type = e.target.value; allControls.polygonSidesContainer.style.display = (e.target.value === 'polygon') ? 'block' : 'none'; pJS.fn.particlesRefresh(); });
+            allControls.speed.addEventListener('input', e => { pJS.particles.move.speed = e.target.value; updateUI('speed', e.target.value); });
+            allControls.shape.addEventListener('change', e => { pJS.particles.shape.type = e.target.value; allControls.polygonSidesContainer.style.display = (e.target.value === 'polygon') ? 'block' : 'none'; applyParticleStyle(); });
             allControls.polygonSides.addEventListener('input', e => { pJS.particles.shape.polygon.nb_sides = e.target.value; updateUI('polygonSides', e.target.value); pJS.fn.particlesRefresh(); });
-            allControls.link.addEventListener('change', e => { pJS.particles.line_linked.enable = e.target.checked; allControls.lineWidthContainer.style.display = e.target.checked ? 'block' : 'none'; pJS.fn.particlesRefresh(); });
-            allControls.lineWidth.addEventListener('input', e => { pJS.particles.line_linked.width = e.target.value; updateUI('lineWidth', e.target.value); pJS.fn.particlesRefresh(); });
-            allControls.hoverMode.addEventListener('change', e => { pJS.interactivity.events.onhover.mode = e.target.value; pJS.fn.particlesRefresh(); });
-            allControls.clickMode.addEventListener('change', e => { pJS.interactivity.events.onclick.mode = e.target.value; pJS.fn.particlesRefresh(); });
+            allControls.link.addEventListener('change', e => { pJS.particles.line_linked.enable = e.target.checked; pJS.fn.particlesRefresh(); });
+            allControls.gravityToggleBtn.addEventListener('click', () => { pJS.particles.move.gravity.enable = !pJS.particles.move.gravity.enable; pJS.fn.particlesRefresh(); });
+
             allControls.randomizeAllBtn.addEventListener('click', randomizeAll);
-            allControls.resetBtn.addEventListener('click', resetSettings);
+            allControls.resetBtn.addEventListener('click', randomizeAll); // Reset now acts as another randomize
             allControls.toggleBtn.addEventListener('click', () => allControls.panel.classList.toggle('visible'));
 
             // --- INITIALIZE ---

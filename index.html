@@ -38,6 +38,7 @@
             text-shadow: 0 0 10px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3);
             animation: glowAnimation 4s ease-in-out infinite;
             z-index: 10;
+            pointer-events: none;
         }
 
         @keyframes glowAnimation {
@@ -82,90 +83,55 @@
             box-shadow: 0 4px 30px rgba(0,0,0,0.25);
             border: 1px solid rgba(255, 255, 255, 0.1);
             width: 250px;
-            transition: opacity 0.4s ease, transform 0.4s ease;
+            transition: all 0.4s ease;
+            overflow: hidden;
         }
-        .controls-panel.hidden {
-            opacity: 0;
-            transform: translateY(20px);
-            pointer-events: none;
+        /* --- New: Collapsible Panel Styles --- */
+        .panel-content {
+            transition: opacity 0.4s ease;
         }
-        .controls-panel div {
-            margin-bottom: 15px;
-        }
-        .controls-panel div:last-child {
-            margin-bottom: 0;
-        }
-        .controls-panel label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .controls-panel input[type="color"] {
-            width: 100%;
-            height: 30px;
-            border: 1px solid rgba(255,255,255,0.2);
-            padding: 0;
-            background: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .controls-panel input[type="range"] {
-            width: 100%;
-            cursor: pointer;
-        }
-        .controls-panel button {
-            width: 100%;
+        .controls-panel.collapsed {
+            height: 25px;
             padding: 10px;
+        }
+        .controls-panel.collapsed .panel-content {
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        #panel-toggle {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
             border: none;
-            border-radius: 5px;
-            background-color: rgba(255, 255, 255, 0.2);
             color: white;
+            font-size: 14px;
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s;
-            margin-top: 5px;
+            padding: 5px;
         }
-        .controls-panel button:hover {
-            background-color: rgba(255, 255, 255, 0.4);
-        }
-        .controls-panel button.btn-secondary {
-            background-color: rgba(0, 0, 0, 0.2);
-        }
-        .controls-panel button.btn-secondary:hover {
-            background-color: rgba(0, 0, 0, 0.4);
-        }
+        
+        .controls-panel div { margin-bottom: 15px; }
+        .controls-panel div:last-child { margin-bottom: 0; }
+        .controls-panel label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
+        .controls-panel input[type="color"] { width: 100%; height: 30px; border: 1px solid rgba(255,255,255,0.2); padding: 0; background: none; border-radius: 5px; cursor: pointer; }
+        .controls-panel input[type="range"] { width: 100%; cursor: pointer; }
+        .controls-panel button { width: 100%; padding: 10px; border: none; border-radius: 5px; background-color: rgba(255, 255, 255, 0.2); color: white; cursor: pointer; transition: background-color 0.2s; margin-top: 5px; }
+        .controls-panel button:hover { background-color: rgba(255, 255, 255, 0.4); }
+        .controls-panel button.btn-secondary { background-color: rgba(0, 0, 0, 0.2); }
+        .controls-panel button.btn-secondary:hover { background-color: rgba(0, 0, 0, 0.4); }
+        .controls-panel button.btn-action { background-color: #4CAF50; } /* Style for Gravity button */
+        .controls-panel button.btn-action:hover { background-color: #66BB6A; }
+        .controls-panel button.btn-deactivate { background-color: #F44336; } /* Style for deactivating */
+        .controls-panel button.btn-deactivate:hover { background-color: #EF5350; }
 
-        .controls-panel select {
-            width: 100%;
-            padding: 8px;
-            border-radius: 5px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background-color: rgba(0, 0, 0, 0.3);
-            color: white;
-            cursor: pointer;
-            -webkit-appearance: none;
-            appearance: none;
-            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E');
-            background-repeat: no-repeat;
-            background-position: right 10px top 50%;
-            background-size: 10px auto;
-        }
-        .controls-panel select:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.5);
-        }
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        .checkbox-wrapper input[type="checkbox"] {
-            margin-right: 10px;
-            cursor: pointer;
-        }
-        .checkbox-wrapper label {
-            margin-bottom: 0;
-        }
+
+        .controls-panel select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.2); background-color: rgba(0, 0, 0, 0.3); color: white; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 10px top 50%; background-size: 10px auto; }
+        .controls-panel select:focus { outline: none; border-color: rgba(255, 255, 255, 0.5); }
+        .checkbox-wrapper { display: flex; align-items: center; cursor: pointer; }
+        .checkbox-wrapper input[type="checkbox"] { margin-right: 10px; cursor: pointer; }
+        .checkbox-wrapper label { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -173,191 +139,120 @@
     <div id="cursor-glow"></div>
     <div id="particles-js"></div>
 
-    <div class="controls-panel">
-        <div>
-            <label for="particle-color">Particle Color</label>
-            <input type="color" id="particle-color" value="#ffffff">
-        </div>
-        <div>
-            <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
-            <input type="range" id="particle-count" min="10" max="500" value="80">
-        </div>
-        <div>
-            <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
-            <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
-        </div>
-        <div>
-            <label for="particle-opacity">Particle Opacity: <span id="particle-opacity-value">0.5</span></label>
-            <input type="range" id="particle-opacity" min="0.1" max="1" value="0.5" step="0.05">
-        </div>
-        <div>
-            <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
-            <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
-        </div>
-        <div>
-            <label for="particle-shape">Particle Shape</label>
-            <select id="particle-shape">
-                <option value="circle">Circle</option>
-                <option value="edge">Square</option>
-                <option value="triangle">Triangle</option>
-                <option value="polygon">Polygon</option>
-                <option value="star">Star</option>
-            </select>
-        </div>
-        <div class="checkbox-wrapper">
-            <input type="checkbox" id="link-particles" checked>
-            <label for="link-particles">Link Particles</label>
-        </div>
-        <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
-        <div>
-            <label for="interactive-mode">Hover Effect</label>
-            <select id="interactive-mode">
-                <option value="bubble">Bubble</option>
-                <option value="grab">Grab</option>
-                <option value="repulse">Repulse</option>
-            </select>
-        </div>
-        <div>
-            <label for="onclick-mode">Click Effect</label>
-            <select id="onclick-mode">
-                <option value="push">Push</option>
-                <option value="remove">Remove</option>
-            </select>
-        </div>
-        <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
-        <div>
-            <button id="randomize-all">Randomize All</button>
-            <button id="randomize-gradient">New Background</button>
-            <button id="reset-settings" class="btn-secondary">Reset to Default</button>
+    <div class="controls-panel" id="controls-panel">
+        <button id="panel-toggle">Hide</button>
+        <div class="panel-content">
+            <h3 style="margin-top: 10px; margin-bottom: 20px; text-align: center; font-weight: 400;">Controls</h3>
+            <div>
+                <label for="particle-color">Particle Color</label>
+                <input type="color" id="particle-color" value="#ffffff">
+            </div>
+            <div>
+                <label for="particle-count">Particle Count: <span id="particle-count-value">80</span></label>
+                <input type="range" id="particle-count" min="10" max="500" value="80">
+            </div>
+            <div>
+                <label for="particle-size">Particle Size: <span id="particle-size-value">3</span></label>
+                <input type="range" id="particle-size" min="1" max="15" value="3" step="0.5">
+            </div>
+            <div>
+                <label for="particle-opacity">Particle Opacity: <span id="particle-opacity-value">0.5</span></label>
+                <input type="range" id="particle-opacity" min="0.1" max="1" value="0.5" step="0.05">
+            </div>
+            <div>
+                <label for="particle-speed">Particle Speed: <span id="particle-speed-value">6</span></label>
+                <input type="range" id="particle-speed" min="0.1" max="20" value="6" step="0.1">
+            </div>
+            <div>
+                <label for="particle-shape">Particle Shape</label>
+                <select id="particle-shape">
+                    <option value="circle">Circle</option> <option value="edge">Square</option> <option value="triangle">Triangle</option> <option value="polygon">Polygon</option> <option value="star">Star</option>
+                </select>
+            </div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="link-particles" checked>
+                <label for="link-particles">Link Particles</label>
+            </div>
+            <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
+            <div>
+                <label for="interactive-mode">Hover Effect</label>
+                <select id="interactive-mode">
+                    <option value="bubble">Bubble</option> <option value="grab">Grab</option> <option value="repulse">Repulse</option>
+                </select>
+            </div>
+            <div>
+                <label for="onclick-mode">Click Effect</label>
+                <select id="onclick-mode">
+                    <option value="push">Push</option> <option value="remove">Remove</option>
+                </select>
+            </div>
+            <hr style="border-color: rgba(255,255,255,0.1); border-top: 0; margin-top: 20px;">
+            <div>
+                <button id="gravity-toggle" class="btn-action">Activate Gravity</button>
+                <button id="randomize-all">Randomize All</button>
+                <button id="randomize-gradient">New Background</button>
+                <button id="reset-settings" class="btn-secondary">Reset to Default</button>
+            </div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        const originalParticlesConfig = {
-            "particles": {
-                "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
-                "color": { "value": "#ffffff" },
-                "shape": { "type": "circle", "polygon": { "nb_sides": 5 }, "star": { "nb_sides": 5 } },
-                "opacity": { "value": 0.5, "random": true },
-                "size": { "value": 3, "random": true },
-                "line_linked": { "enable": true, "distance": 150, "color": "#ffffff", "opacity": 0.4, "width": 1 },
-                "move": { "enable": true, "speed": 6, "direction": "none", "out_mode": "out" }
-            },
-            "interactivity": {
-                "detect_on": "canvas",
-                "events": { "onhover": { "enable": true, "mode": "bubble" }, "onclick": { "enable": true, "mode": "push" }, "resize": true },
-                "modes": {
-                    "grab": { "distance": 200, "line_linked": { "opacity": 1 } },
-                    "bubble": { "distance": 250, "size": 10, "duration": 2, "opacity": 1 },
-                    "repulse": { "distance": 100, "duration": 0.4 },
-                    "push": { "particles_nb": 4 },
-                    "remove": { "particles_nb": 2 }
-                }
-            },
-            "retina_detect": true
-        };
+        const originalParticlesConfig = { "particles": { "number": { "value": 80, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "polygon": { "nb_sides": 5 }, "star": { "nb_sides": 5 } }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 3, "random": true }, "line_linked": { "enable": true, "distance": 150, "color": "#ffffff", "opacity": 0.4, "width": 1 }, "move": { "enable": true, "speed": 6, "direction": "none", "out_mode": "out", "bounce": false } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "onclick": { "enable": true, "mode": "push" }, "resize": true }, "modes": { "grab": { "distance": 200, "line_linked": { "opacity": 1 } }, "bubble": { "distance": 250, "size": 10, "duration": 2, "opacity": 1 }, "repulse": { "distance": 100, "duration": 0.4 }, "push": { "particles_nb": 4 }, "remove": { "particles_nb": 2 } } }, "retina_detect": true };
 
-        function getRandomColor() {
-            const h = Math.floor(Math.random() * 360);
-            const s = Math.floor(Math.random() * 20) + 75;
-            const l = Math.floor(Math.random() * 20) + 50;
-            return `hsl(${h}, ${s}%, ${l}%)`;
-        }
-        
-        function hslToHex(h, s, l) {
-            l /= 100;
-            const a = s * Math.min(l, 1 - l) / 100;
-            const f = n => {
-                const k = (n + h / 30) % 12;
-                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                return Math.round(255 * color).toString(16).padStart(2, '0');
-            };
-            return `#${f(0)}${f(8)}${f(4)}`;
-        }
-
-        function setRandomGradient() {
-            const angle = Math.floor(Math.random() * 360);
-            document.body.style.background = `linear-gradient(${angle}deg, ${getRandomColor()}, ${getRandomColor()}, ${getRandomColor()}, ${getRandomColor()})`;
-            document.body.style.backgroundSize = '400% 400%';
-        }
+        function getRandomColor() { return `hsl(${Math.floor(Math.random() * 360)}, ${Math.floor(Math.random() * 20) + 75}%, ${Math.floor(Math.random() * 20) + 50}%)`; }
+        function hslToHex(h, s, l) { l /= 100; const a = s * Math.min(l, 1 - l) / 100; const f = n => { const k = (n + h / 30) % 12; const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
+        function setRandomGradient() { const angle = Math.floor(Math.random() * 360); document.body.style.background = `linear-gradient(${angle}deg, ${getRandomColor()}, ${getRandomColor()}, ${getRandomColor()}, ${getRandomColor()})`; document.body.style.backgroundSize = '400% 400%'; }
 
         document.addEventListener('DOMContentLoaded', () => {
             let pJS = null;
+            let isGravityActive = false;
 
             const allControls = {
-                color: document.getElementById('particle-color'),
-                count: document.getElementById('particle-count'), countValue: document.getElementById('particle-count-value'),
-                size: document.getElementById('particle-size'), sizeValue: document.getElementById('particle-size-value'),
-                opacity: document.getElementById('particle-opacity'), opacityValue: document.getElementById('particle-opacity-value'),
-                speed: document.getElementById('particle-speed'), speedValue: document.getElementById('particle-speed-value'),
-                shape: document.getElementById('particle-shape'),
-                link: document.getElementById('link-particles'),
-                hoverMode: document.getElementById('interactive-mode'),
-                clickMode: document.getElementById('onclick-mode'),
-                randomizeGradientBtn: document.getElementById('randomize-gradient'),
-                randomizeAllBtn: document.getElementById('randomize-all'),
-                resetBtn: document.getElementById('reset-settings'),
+                panel: document.getElementById('controls-panel'),
+                panelToggle: document.getElementById('panel-toggle'),
+                color: document.getElementById('particle-color'), count: document.getElementById('particle-count'), countValue: document.getElementById('particle-count-value'), size: document.getElementById('particle-size'), sizeValue: document.getElementById('particle-size-value'), opacity: document.getElementById('particle-opacity'), opacityValue: document.getElementById('particle-opacity-value'), speed: document.getElementById('particle-speed'), speedValue: document.getElementById('particle-speed-value'),
+                shape: document.getElementById('particle-shape'), link: document.getElementById('link-particles'), hoverMode: document.getElementById('interactive-mode'), clickMode: document.getElementById('onclick-mode'),
+                gravityToggle: document.getElementById('gravity-toggle'), randomizeAllBtn: document.getElementById('randomize-all'), randomizeGradientBtn: document.getElementById('randomize-gradient'), resetBtn: document.getElementById('reset-settings'),
                 cursorGlow: document.getElementById('cursor-glow')
             };
             
-            if (window.self !== window.top && window.innerHeight < 1000) {
-                document.querySelector('.controls-panel').classList.add('hidden');
-            }
+            if (window.self !== window.top && window.innerHeight < 1000) { allControls.panel.classList.add('hidden'); }
 
             const updateUIFromConfig = (config) => {
-                const cfgP = config.particles;
-                const cfgI = config.interactivity.events;
+                const cfgP = config.particles; const cfgI = config.interactivity.events;
+                allControls.color.value = cfgP.color.value; allControls.count.value = cfgP.number.value; allControls.countValue.textContent = cfgP.number.value; allControls.size.value = cfgP.size.value; allControls.sizeValue.textContent = cfgP.size.value; allControls.opacity.value = cfgP.opacity.value; allControls.opacityValue.textContent = cfgP.opacity.value; allControls.speed.value = cfgP.move.speed; allControls.speedValue.textContent = cfgP.move.speed;
+                allControls.shape.value = cfgP.shape.type; allControls.link.checked = cfgP.line_linked.enable; allControls.hoverMode.value = cfgI.onhover.mode; allControls.clickMode.value = cfgI.onclick.mode; allControls.hoverMode.disabled = !cfgI.onhover.enable;
+            };
 
-                allControls.color.value = cfgP.color.value;
-                allControls.count.value = cfgP.number.value; allControls.countValue.textContent = cfgP.number.value;
-                allControls.size.value = cfgP.size.value; allControls.sizeValue.textContent = cfgP.size.value;
-                allControls.opacity.value = cfgP.opacity.value; allControls.opacityValue.textContent = cfgP.opacity.value;
-                allControls.speed.value = cfgP.move.speed; allControls.speedValue.textContent = cfgP.move.speed;
-                allControls.shape.value = cfgP.shape.type;
-                allControls.link.checked = cfgP.line_linked.enable;
-                allControls.hoverMode.value = cfgI.onhover.mode;
-                allControls.clickMode.value = cfgI.onclick.mode;
-                allControls.hoverMode.disabled = !cfgI.onhover.enable;
+            const deactivateGravity = () => {
+                isGravityActive = false;
+                allControls.gravityToggle.textContent = 'Activate Gravity';
+                allControls.gravityToggle.classList.remove('btn-deactivate');
+                allControls.gravityToggle.classList.add('btn-action');
             };
 
             const randomizeAll = () => {
+                deactivateGravity();
                 setRandomGradient();
-
                 pJS.particles.color.value = hslToHex(Math.random() * 360, 70 + Math.random() * 30, 60 + Math.random() * 30);
                 pJS.particles.line_linked.color = pJS.particles.color.value;
                 pJS.particles.number.value = Math.floor(Math.random() * 490) + 10;
                 pJS.particles.size.value = Number(((Math.random() * 14) + 1).toFixed(1));
                 pJS.particles.opacity.value = Number((Math.random() * 0.9 + 0.1).toFixed(2));
                 pJS.particles.move.speed = Number(((Math.random() * 19.9) + 0.1).toFixed(1));
-
                 const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
                 pJS.particles.shape.type = shapes[Math.floor(Math.random() * shapes.length)];
-                
-                // --- Bonus: Randomize sides for polygon/star ---
-                if (['polygon', 'star'].includes(pJS.particles.shape.type)) {
-                    const sides = Math.floor(Math.random() * 6) + 5; // 5 to 10 sides
-                    pJS.particles.shape.polygon.nb_sides = sides;
-                    if(pJS.particles.shape.star) pJS.particles.shape.star.nb_sides = sides;
-                }
-
+                if (['polygon', 'star'].includes(pJS.particles.shape.type)) { const sides = Math.floor(Math.random() * 6) + 5; pJS.particles.shape.polygon.nb_sides = sides; if(pJS.particles.shape.star) pJS.particles.shape.star.nb_sides = sides; }
                 pJS.particles.line_linked.enable = Math.random() < 0.75;
                 pJS.interactivity.events.onclick.mode = (Math.random() < 0.5) ? 'push' : 'remove';
-                
-                // --- Bug Fix Logic ---
-                if (pJS.interactivity.events.onclick.mode === 'remove') {
-                    pJS.interactivity.events.onhover.enable = false;
-                } else {
-                    pJS.interactivity.events.onhover.enable = true;
-                    const hoverModes = ['bubble', 'grab', 'repulse'];
-                    pJS.interactivity.events.onhover.mode = hoverModes[Math.floor(Math.random() * hoverModes.length)];
-                }
-                
-                pJS.fn.particlesRefresh();
-                updateUIFromConfig(pJS);
+                pJS.interactivity.events.onhover.enable = pJS.interactivity.events.onclick.mode !== 'remove';
+                if (pJS.interactivity.events.onhover.enable) { const hoverModes = ['bubble', 'grab', 'repulse']; pJS.interactivity.events.onhover.mode = hoverModes[Math.floor(Math.random() * hoverModes.length)]; }
+                pJS.fn.particlesRefresh(); updateUIFromConfig(pJS);
             };
             
             const resetSettings = () => {
+                deactivateGravity();
                 setRandomGradient();
                 particlesJS('particles-js', JSON.parse(JSON.stringify(originalParticlesConfig)));
                 pJS = window.pJSDom[0].pJS;
@@ -374,18 +269,26 @@
             allControls.shape.addEventListener('change', e => { pJS.particles.shape.type = e.target.value; pJS.fn.particlesRefresh(); });
             allControls.link.addEventListener('change', e => { pJS.particles.line_linked.enable = e.target.checked; pJS.fn.particlesRefresh(); });
             allControls.hoverMode.addEventListener('change', e => { pJS.interactivity.events.onhover.mode = e.target.value; pJS.fn.particlesRefresh(); });
+            allControls.clickMode.addEventListener('change', e => { pJS.interactivity.events.onclick.mode = e.target.value; if (e.target.value === 'remove') { pJS.interactivity.events.onhover.enable = false; allControls.hoverMode.disabled = true; } else { pJS.interactivity.events.onhover.enable = true; allControls.hoverMode.disabled = false; } pJS.fn.particlesRefresh(); });
             
-            // --- Bug Fix Event Listener ---
-            allControls.clickMode.addEventListener('change', e => {
-                pJS.interactivity.events.onclick.mode = e.target.value;
-                if (e.target.value === 'remove') {
+            allControls.gravityToggle.addEventListener('click', () => {
+                isGravityActive = !isGravityActive;
+                if (isGravityActive) {
+                    allControls.gravityToggle.textContent = 'Deactivate Gravity';
+                    allControls.gravityToggle.classList.remove('btn-action');
+                    allControls.gravityToggle.classList.add('btn-deactivate');
+                    pJS.particles.move.direction = 'bottom';
+                    pJS.particles.move.out_mode = 'bounce';
                     pJS.interactivity.events.onhover.enable = false;
-                    allControls.hoverMode.disabled = true;
                 } else {
-                    pJS.interactivity.events.onhover.enable = true;
-                    allControls.hoverMode.disabled = false;
+                    resetSettings(); // Easiest way to exit gravity is a full reset
                 }
                 pJS.fn.particlesRefresh();
+            });
+
+            allControls.panelToggle.addEventListener('click', () => {
+                allControls.panel.classList.toggle('collapsed');
+                allControls.panelToggle.textContent = allControls.panel.classList.contains('collapsed') ? 'Show' : 'Hide';
             });
 
             allControls.randomizeAllBtn.addEventListener('click', randomizeAll);

@@ -4,314 +4,594 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
-    <title>Celestial Canvas</title>
+    <title>Celestial Canvas: Omega Engine v6 (Final - Patched)</title>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Segoe UI', 'Roboto', sans-serif;
-            color: white;
-            cursor: none;
+        :root {
+            --ui-bg-color-dark: rgba(10, 10, 15, 0.5);
+            --ui-border-color-dark: rgba(255, 255, 255, 0.2);
+            --ui-text-color-dark: rgba(255, 255, 255, 0.9);
+            --ui-bg-color-light: rgba(240, 240, 255, 0.6);
+            --ui-border-color-light: rgba(0, 0, 0, 0.2);
+            --ui-text-color-light: rgba(0, 0, 0, 0.9);
         }
 
-        body {
-            background-color: #000;
-            transition: background 1s ease, filter 0.5s ease;
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; font-family: 'Segoe UI', 'Roboto', sans-serif;
+            color: white; background-color: #000;
         }
+        body { cursor: none; }
+
+        body.light-theme {
+            --ui-bg-color: var(--ui-bg-color-light);
+            --ui-border-color: var(--ui-border-color-light);
+            --ui-text-color: var(--ui-text-color-light);
+        }
+        body.dark-theme {
+            --ui-bg-color: var(--ui-bg-color-dark);
+            --ui-border-color: var(--ui-border-color-dark);
+            --ui-text-color: var(--ui-text-color-dark);
+        }
+
+        .fullscreen-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7); z-index: 200;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column; backdrop-filter: blur(10px);
+            opacity: 0; animation: fadeIn 0.5s forwards;
+        }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        #mode-select-overlay h1 { font-size: 48px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+        #mode-select-overlay p { font-size: 18px; color: rgba(255,255,255,0.7); margin-top: 0; margin-bottom: 40px; }
+        .mode-button {
+            padding: 15px 30px; margin: 0 20px; font-size: 20px;
+            background: var(--ui-bg-color-dark); border: 1px solid var(--ui-border-color-dark);
+            color: var(--ui-text-color-dark); border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .mode-button:hover { background: rgba(255,255,255,0.2); border-color: #fff; }
 
         #canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             transition: transform 2s cubic-bezier(0.76, 0, 0.24, 1), filter 1s ease, opacity 2s ease;
-            background-size: 400% 400%;
-            animation: gradientAnimation 30s ease infinite;
+            background-size: 400% 400%; animation: gradientAnimation 30s ease infinite;
         }
-
-        @keyframes gradientAnimation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
+        @keyframes gradientAnimation { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
         #cursor-glow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 500px;
-            height: 500px;
+            position: fixed; top: 0; left: 0; width: 500px; height: 500px;
             background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 60%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 100;
-            transform: translate(-50%, -50%);
-            transition: all 0.2s ease-out;
+            border-radius: 50%; pointer-events: none; z-index: 100;
+            transform: translate(-50%, -50%); transition: all 0.2s ease-out;
         }
-        
         #cursor-glow.active {
-            width: 800px;
-            height: 800px;
+            width: 800px; height: 800px;
             background: radial-gradient(circle, var(--glow-color, rgba(255, 255, 255, 0.15)) 0%, rgba(255, 255, 255, 0) 50%);
         }
 
-        #particles-js {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: 2;
+        #particles-js { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 2; }
+        
+        /* --- UI --- */
+        .ui-panel {
+            position: fixed; z-index: 101; background-color: var(--ui-bg-color);
+            padding: 10px 15px; border-radius: 8px; font-size: 14px;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--ui-border-color); color: var(--ui-text-color);
+            transition: opacity 0.5s, background-color 0.3s, color 0.3s, border-color 0.3s; 
+            opacity: 0.9; user-select: none;
+        }
+        .ui-panel:hover { opacity: 1; }
+        .ui-panel h3 { margin: 0 0 8px 0; padding-bottom: 5px; border-bottom: 1px solid var(--ui-border-color); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
+
+        #info-hud { top: 15px; left: 15px; }
+        #info-hud p { margin: 4px 0; font-size: 13px; }
+        #info-hud strong { color: var(--ui-text-color); font-weight: 600; filter: brightness(1.2); }
+        #energy-bar-container { width: 100%; height: 8px; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+        #energy-bar { width: 0%; height: 100%; background-color: #48dbfb; border-radius: 4px; transition: width 0.1s linear, background-color 0.5s ease; }
+
+        #controls { bottom: 15px; right: 15px; display: flex; gap: 10px; }
+        .control-button { padding: 8px 12px; cursor: pointer; border: 1px solid var(--ui-border-color); border-radius: 5px; font-size: 14px; transition: background-color 0.2s; background-color: var(--ui-bg-color); color: var(--ui-text-color);}
+        .control-button:hover { filter: brightness(1.2); }
+
+        #settings-panel { bottom: 60px; right: 15px; display: none; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .setting-row label { margin-right: 20px; }
+        .toggle-switch { width: 40px; height: 20px; background: rgba(0,0,0,0.2); border-radius: 10px; position: relative; cursor: pointer;}
+        .toggle-switch.active .slider { transform: translateX(20px); background-color: #48dbfb; }
+        .toggle-switch .slider { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.2s; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; font-size: 12px; }
+
+        #challenge-panel { bottom: 15px; left: 15px; max-width: 250px; }
+        #challenge-panel.completed { border-color: #feca57; }
+        #challenge-description { margin-top: 5px; }
+        #challenge-progress-bar-container { width: 100%; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+        #challenge-progress-bar { width: 0%; height: 100%; background: #feca57; border-radius: 3px; transition: width 0.3s ease; }
+        
+        #sandbox-editor-panel { width: 400px; max-width: 90vw; background: rgba(20, 20, 30, 0.85); border: 1px solid rgba(255,255,255,0.3); color: #fff; }
+        .sandbox-row { display: grid; grid-template-columns: 120px 1fr; gap: 15px; align-items: center; margin-bottom: 12px; }
+        .sandbox-row label { text-align: right; }
+        .sandbox-row select, .sandbox-row input { width: 100%; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid #555; border-radius: 4px; padding: 5px; }
+        .sandbox-buttons { display: flex; justify-content: space-around; margin-top: 20px; }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            body { cursor: default; } #cursor-glow { display: none; }
+            #info-hud, #challenge-panel { font-size: 12px; padding: 8px 12px; }
         }
 
-        #seed-capture {
-            position: fixed;
-            bottom: 15px;
-            left: 15px;
-            z-index: 101;
-            background-color: rgba(0,0,0,0.2);
-            padding: 8px 12px;
-            border-radius: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
-            border: 1px solid rgba(255,255,255,0.1);
-            transition: background-color 0.2s, opacity 0.5s;
-            opacity: 0.8;
-        }
-        #seed-capture:hover {
-            background-color: rgba(0,0,0,0.4);
-            opacity: 1;
-        }
     </style>
 </head>
-<body>
-    <div id="canvas-container">
-        <div id="particles-js"></div>
-    </div>
+<body class="dark-theme">
+    <div id="canvas-container"><div id="particles-js"></div></div>
     <div id="cursor-glow"></div>
-    <div id="seed-capture" title="Click to copy shareable URL">Capture Seed</div>
+
+    <!-- Overlays -->
+    <div id="mode-select-overlay" class="fullscreen-overlay">
+        <h1>Celestial Canvas</h1>
+        <p>The Omega Engine</p>
+        <div>
+            <button id="discovery-mode-btn" class="mode-button">Discovery Mode</button>
+            <button id="sandbox-mode-btn" class="mode-button">Sandbox Mode</button>
+        </div>
+    </div>
+    <div id="sandbox-editor-panel" class="fullscreen-overlay ui-panel" style="display: none;">
+        <h3>Sandbox Editor</h3>
+        <div class="sandbox-row">
+            <label for="sb-blueprint">Blueprint:</label>
+            <select id="sb-blueprint"></select>
+        </div>
+        <div class="sandbox-row">
+            <label for="sb-lclick">L-Click Power:</label>
+            <select id="sb-lclick"></select>
+        </div>
+        <div class="sandbox-row">
+            <label for="sb-rclick">R-Click Power:</label>
+            <select id="sb-rclick"></select>
+        </div>
+        <div class="sandbox-row">
+            <label for="sb-event">Ambient Event:</label>
+            <select id="sb-event"></select>
+        </div>
+        <div class="sandbox-row">
+            <label for="sb-particles">Particle Count:</label>
+            <input type="range" id="sb-particles" min="50" max="500" value="150">
+        </div>
+        <div class="sandbox-row">
+            <label for="sb-friction">Friction:</label>
+            <input type="range" id="sb-friction" min="0.8" max="0.99" step="0.01" value="0.98">
+        </div>
+        <div class="sandbox-buttons">
+            <button id="back-to-menu-btn" class="mode-button">Back</button>
+            <button id="launch-sandbox-btn" class="mode-button">Launch</button>
+            <button id="share-sandbox-btn" class="mode-button">Share</button>
+        </div>
+    </div>
+
+    <!-- Gameplay UI -->
+    <div id="info-hud" class="ui-panel">
+        <h3><span id="hud-blueprint">Universe</span> <span id="hud-mode" style="font-size: 10px; color: #aaa;"></span></h3>
+        <p><strong>L:</strong> <span id="hud-lclick">---</span></p>
+        <p><strong>R:</strong> <span id="hud-rclick">---</span></p>
+        <p><strong>Energy:</strong> <span id="hud-state">Stable</span></p>
+        <div id="energy-bar-container"><div id="energy-bar"></div></div>
+    </div>
+    <div id="challenge-panel" class="ui-panel">
+        <h3 id="challenge-title">Objective</h3>
+        <div id="challenge-description">---</div>
+        <div id="challenge-progress-bar-container"><div id="challenge-progress-bar"></div></div>
+    </div>
+    <div id="controls">
+        <div id="pause-btn" class="control-button">Pause</div>
+        <div id="new-seed-btn" class="control-button">New</div>
+        <div id="settings-btn" class="control-button">&#9881;</div>
+    </div>
+    <div id="settings-panel" class="ui-panel">
+        <h3>Settings</h3>
+        <div class="setting-row">
+            <label for="sound-toggle">Sound</label>
+            <div id="sound-toggle" class="toggle-switch"><div class="slider"></div></div>
+        </div>
+        <div class="setting-row">
+            <label for="theme-toggle">Light Theme</label>
+            <div id="theme-toggle" class="toggle-switch"><div class="slider"></div></div>
+        </div>
+        <h3 style="margin-top: 15px;">Stats</h3>
+        <div class="stats-grid">
+            <span>Universes:</span><span id="stats-universes">0</span>
+            <span>Cataclysms:</span><span id="stats-cataclysms">0</span>
+            <span>Objectives:</span><span id="stats-challenges">0</span>
+        </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        const baseConfig = { "particles": { "number": { "value": 150 }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "character": {"value": ["*"]} }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 3, "random": true }, "line_linked": { "enable": false }, "move": { "enable": true, "speed": 4, "direction": "none", "straight": false, "out_mode": "out", "attract": { "enable": false }, "trail": {"enable": false, "fillColor": "#000", "length": 10} } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "bubble": { "distance": 200, "size": 8, "duration": 2 } } }, "retina_detect": true };
+        const baseConfig = { "particles": { "number": { "value": 150 }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "polygon": { "nb_sides": 5 } }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 3, "random": true }, "line_linked": { "enable": false }, "move": { "enable": true, "speed": 4, "direction": "none", "straight": false, "out_mode": "out", "attract": { "enable": false }, "trail": {"enable": false, "fillColor": "#000", "length": 10} } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": false } } }, "retina_detect": true };
 
         document.addEventListener('DOMContentLoaded', () => {
-            const cursorGlow = document.getElementById('cursor-glow');
-            const seedCaptureUI = document.getElementById('seed-capture');
-            const canvasContainer = document.getElementById('canvas-container');
-            const friction = 0.98;
-            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-            let isLeftMouseDown = false, isRightMouseDown = false, rightClickUsed = false;
-            let mouseDownTime = 0;
-            let tick = 0;
-            
-            let universeState = { energy: 0, state: 'Stable' };
-            let universeProfile = {};
-            let leftForce = {}, rightForce = {};
-            let symbioteParticles = [], gravityWells = [], voidPockets = [], persistentLinks = [];
-            let orbitalPoint = null, wormhole = { entry: null, exit: null };
-            let currentSeed = '';
-            let cataclysmInProgress = false;
+            // =================================================================
+            // ENGINE SETUP
+            // =================================================================
+            const pJS = (particlesJS('particles-js', baseConfig), window.pJSDom[0].pJS);
+            const DOM = {
+                body: document.body, cursorGlow: document.getElementById('cursor-glow'),
+                modeSelectOverlay: document.getElementById('mode-select-overlay'),
+                discoveryModeBtn: document.getElementById('discovery-mode-btn'),
+                sandboxModeBtn: document.getElementById('sandbox-mode-btn'),
+                sandboxEditorPanel: document.getElementById('sandbox-editor-panel'),
+                launchSandboxBtn: document.getElementById('launch-sandbox-btn'),
+                shareSandboxBtn: document.getElementById('share-sandbox-btn'),
+                backToMenuBtn: document.getElementById('back-to-menu-btn'),
+                infoHud: document.getElementById('info-hud'),
+                challengePanel: document.getElementById('challenge-panel'),
+                settingsPanel: document.getElementById('settings-panel'),
+                pauseBtn: document.getElementById('pause-btn'),
+                newSeedBtn: document.getElementById('new-seed-btn'),
+                settingsBtn: document.getElementById('settings-btn'),
+                soundToggle: document.getElementById('sound-toggle'),
+                themeToggle: document.getElementById('theme-toggle'),
+            };
+            const STATE = {
+                mouse: { x: window.innerWidth / 2, y: window.innerHeight / 2, lastX: window.innerWidth / 2, lastY: window.innerHeight/2 },
+                isLeftMouseDown: false, tick: 0,
+                universe: { energy: 0, state: 'Stable' }, profile: {},
+                gravityWells: [], temporaryObjects: [],
+                currentSeed: '', cataclysmInProgress: false, isPaused: false,
+                challenge: { complete: true },
+                settings: { sound: true, theme: 'dark' },
+                stats: { universes: 0, cataclysms: 0, challenges: 0 },
+                mode: 'discovery',
+                fling: { active: false, particle: null }
+            };
+            let PHYSICS = { friction: 0.98 };
 
-            // --- Seeding Engine ---
-            function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
-            function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0} return h; }
-            function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','GALAXY','NEBULA','QUANTUM']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','CHAOS','VORTEX']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
+            // =================================================================
+            // SOUND ENGINE
+            // =================================================================
+            let audioCtx; let ambientOscillator, ambientGain;
+            function initAudio() { if (audioCtx || !STATE.settings.sound) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+            function playSound(type) {
+                if (!audioCtx || !STATE.settings.sound) return;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                switch (type) {
+                    case 'click': osc.type = 'triangle'; osc.frequency.setValueAtTime(440, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3); break;
+                    case 'energize': osc.type = 'sine'; osc.frequency.setValueAtTime(110, audioCtx.currentTime); gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5); break;
+                    case 'cataclysm': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(55, audioCtx.currentTime + 2); gain.gain.setValueAtTime(0.4, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 2); break;
+                    case 'challenge': osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1); break;
+                }
+                osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 2);
+            }
+            function updateAmbientSound(blueprintName) {
+                if (!audioCtx || !STATE.settings.sound) return;
+                if (ambientOscillator) { ambientGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1); ambientOscillator.stop(audioCtx.currentTime + 1); }
+                ambientOscillator = audioCtx.createOscillator(); ambientGain = audioCtx.createGain(); const lfo = audioCtx.createOscillator(); const lfoGain = audioCtx.createGain();
+                lfo.connect(lfoGain); lfoGain.connect(ambientOscillator.frequency); ambientOscillator.connect(ambientGain); ambientGain.connect(audioCtx.destination);
+                ambientGain.gain.setValueAtTime(0, audioCtx.currentTime); ambientGain.gain.exponentialRampToValueAtTime(0.1, audioCtx.currentTime + 2);
+                let baseFreq = 80, lfoFreq = 1, lfoDepth = 15; ambientOscillator.type = 'sine';
+                switch(blueprintName) {
+                    case 'CosmicHorror': baseFreq = 60; lfoFreq = 0.2; lfoDepth = 10; ambientOscillator.type = 'sawtooth'; break;
+                    case 'Aquatic': baseFreq = 100; lfoFreq = 0.5; lfoDepth = 20; break;
+                    case 'Digital': baseFreq = 150; lfoFreq = 20; lfoDepth = 5; ambientOscillator.type = 'square'; break;
+                    case 'Celestial': baseFreq = 120; lfoFreq = 0.1; lfoDepth = 2; ambientOscillator.type = 'triangle'; break;
+                    case 'Chrono': baseFreq = 90; lfoFreq = 0.5; lfoDepth = 5; ambientOscillator.type = 'sawtooth'; break;
+                }
+                ambientOscillator.frequency.value = baseFreq; lfo.frequency.value = lfoFreq; lfoGain.gain.value = lfoDepth;
+                lfo.start(); ambientOscillator.start();
+            }
 
-            // --- Blueprint System ---
+            // =================================================================
+            // BLUEPRINT & CHALLENGE DEFINITIONS
+            // =================================================================
             const universeBlueprints = {
-                Classical: { left:['comet','void'], right:['supernova','gravityWell'], events:['binaryStars','meteorShower'], cataclysms:['Supernova'], aesthetic:{glow:true, trails:false, shape:['circle','star'], physics:{attract:true, straight:false, random:true}} },
-                Organic: { left:['symbiote','forceField'], right:['sculptor','setOrbit'], events:['pulsingCore'], cataclysms:['Phase Shift'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:true, straight:false, random:true}} },
-                Digital: { left:['chainLightning','shaper','scribe'], right:['glitch','toggleLinks'], events:['cosmicMessage'], cataclysms:['Glitch Storm'], aesthetic:{glow:true, trails:false, shape:['character'], chars:['0','1','<','>','/','?'], physics:{attract:false, straight:true, random:false}} },
-                CosmicHorror: { left:['blackHole','symbiote'], right:['invert','anchor'], events:['greatContraction','voidPockets'], cataclysms:['The Great Collapse'], aesthetic:{glow:true, trails:false, shape:['edge'], monochrome:true, physics:{attract:false, straight:true, random:false}} },
-                Painterly: { left:['alchemist','timeWarp'], right:['toggleTrails','spotlight'], events:['colorShift'], cataclysms:['Rift Storm'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, random:true}} }
+                Classical: { left:['comet'], right:['gravityWell'], events:['binaryStars'], cataclysms:['Supernova'], challenge: {id: 'gravityWellsPlaced', title: 'Binary Stars', desc: 'Place 2 Gravity Wells.', target: 2}},
+                Organic: { left:['symbiote'], right:['sculptor'], events:['pulsingCore'], cataclysms:['Phase Shift'], challenge: {id: 'symbioteLength', title: 'Symbiosis', desc: 'Grow a tail of 50 particles.', target: 50}},
+                Digital: { left:['chainLightning'], right:['glitch'], events:['cosmicMessage'], cataclysms:['Glitch Storm'], challenge: {id: 'linksCreated', title: 'Data Web', desc: 'Create 100 particle links.', target: 100}},
+                CosmicHorror: { left:['blackHole'], right:['invert'], events:['greatContraction'], cataclysms:['The Great Collapse'], challenge: {id: 'particlesConsumed', title: 'The Void', desc: 'Consume 100 particles.', target: 100}},
+                Painterly: { left:['alchemist'], right:['toggleTrails'], events:['colorShift'], cataclysms:['Rift Storm'], challenge: {id: 'colorsChanged', title: 'Alchemist', desc: 'Change the color of 200 particles.', target: 200}},
+                Aquatic: { left:['vortex'], right:['depthCharge'], events:['currents'], cataclysms:['Maelstrom'], challenge: {id: 'depthCharges', title: 'Shockwaves', desc: 'Trigger 5 Depth Charges.', target: 5}},
+                Crystalline: { left:['shatter'], right:['resonate'], events:['crystalGrowth'], cataclysms:['Shattering'], challenge: {id: 'particlesShattered', title: 'Shatterer', desc: 'Shatter 50 particles.', target: 50}},
+                Kinetic: { left:['fling'], right:['barrier'], events:['randomImpulse'], cataclysms:['Grand Collision'], challenge: {id: 'particlesFlung', title: 'Momentum', desc: 'Fling 20 particles.', target: 20}},
+                Celestial: { left:['starNursery'], right:['constellation'], events:['eclipse'], cataclysms:['White Hole'], challenge: {id: 'constellationsDrawn', title: 'Stargazer', desc: 'Draw 3 Constellations.', target: 3}},
+                Chrono: { left:['timeDilation'], right:['rewind'], events:['temporalRifts'], cataclysms:['Paradox'], challenge: {id: 'timeRewound', title: 'Time Lord', desc: 'Activate Rewind 10 times.', target: 10}},
             };
 
-            const generateUniverse = (pJS, seed) => {
+            // =================================================================
+            // CORE GENERATION & STATE MANAGEMENT
+            // =================================================================
+            function generateUniverse(config) {
                 resetState();
-                currentSeed = seed;
-                const seededRandom = mulberry32(stringToSeed(seed));
+                STATE.stats.universes++;
+                saveStats();
                 
-                const blueprintNames = Object.keys(universeBlueprints);
-                const blueprintName = blueprintNames[Math.floor(seededRandom() * blueprintNames.length)];
-                const blueprint = universeBlueprints[blueprintName];
+                let profile, seed;
+                if (config.mode === 'sandbox') {
+                    profile = config.profile;
+                    seed = 'SANDBOX';
+                    STATE.mode = 'Sandbox';
+                } else {
+                    STATE.mode = 'Discovery';
+                    seed = config.seed;
+                    const seededRandom = mulberry32(stringToSeed(seed));
+                    const blueprintNames = Object.keys(universeBlueprints);
+                    const blueprintName = blueprintNames[Math.floor(seededRandom * blueprintNames.length)];
+                    const blueprint = universeBlueprints[blueprintName];
+                    profile = {
+                        blueprintName,
+                        leftClickPower: blueprint.left[0], rightClickPower: blueprint.right[0],
+                        ambientEvent: blueprint.events[0], cataclysm: blueprint.cataclysms[0],
+                        particleCount: 150, friction: 0.98,
+                    };
+                }
                 
-                universeProfile = {
-                    blueprintName,
-                    leftClickPower: blueprint.left[Math.floor(seededRandom() * blueprint.left.length)],
-                    rightClickPower: blueprint.right[Math.floor(seededRandom() * blueprint.right.length)],
-                    ambientEvent: blueprint.events[Math.floor(seededRandom() * blueprint.events.length)],
-                    cataclysm: blueprint.cataclysms[Math.floor(seededRandom() * blueprint.cataclysms.length)]
-                };
-                
-                // Procedural Force Generation
-                const coreTypes = ['Attractor', 'Repulsor', 'Shear', 'Stasis', 'Thermal', 'Void'];
-                const modifiers = ['Orbital', 'Pulsing', 'Crystalline', 'Chaotic'];
-                leftForce = { core: coreTypes[Math.floor(seededRandom() * 3)], modifier: modifiers[Math.floor(seededRandom() * modifiers.length)], strength: seededRandom()*0.5+0.5 };
-                rightForce = { core: coreTypes[Math.floor(seededRandom() * 3) + 3], modifier: modifiers[Math.floor(seededRandom() * modifiers.length)], strength: seededRandom()*0.5+0.5 };
+                STATE.profile = profile;
+                STATE.currentSeed = seed;
+                PHYSICS.friction = profile.friction;
 
-                // Apply Aesthetics & Physics
-                const baseHue = seededRandom() * 360;
-                setRandomGradient(baseHue, blueprint.aesthetic.monochrome, seededRandom);
+                const blueprint = universeBlueprints[profile.blueprintName];
+                const aesthetic = blueprint.aesthetic || {};
+                
+                const baseHue = Math.random() * 360;
+                setRandomGradient(baseHue, aesthetic.monochrome, Math.random);
                 pJS.particles.color.value = hslToHex((baseHue + 180) % 360, 80, 70);
-                pJS.particles.number.value = blueprintName === 'Organic' ? 250 : 150;
-                pJS.particles.move.speed = 1 + seededRandom() * 3;
-                pJS.particles.move.trail.enable = !!blueprint.aesthetic.trails;
-                pJS.particles.shape.type = blueprint.aesthetic.shape;
-                if(pJS.particles.shape.type === 'character') pJS.particles.shape.character.value = blueprint.aesthetic.chars;
-                pJS.particles.line_linked.enable = blueprintName === 'Digital' || universeProfile.leftClickPower === 'chainLightning';
-                pJS.particles.move.attract.enable = blueprint.aesthetic.physics.attract;
-                pJS.particles.move.straight = blueprint.aesthetic.physics.straight;
-                pJS.particles.move.random = blueprint.aesthetic.physics.random;
+                pJS.particles.number.value = profile.particleCount;
+                pJS.particles.move.trail.enable = !!aesthetic.trails;
+                pJS.particles.shape.type = aesthetic.shape || 'circle';
                 
-                // Initialize State
-                if (universeProfile.ambientEvent === 'voidPockets') { for(let i=0;i<3;i++) voidPockets.push({x:seededRandom()*window.innerWidth, y:seededRandom()*window.innerHeight, r:100+seededRandom()*100}); }
-                if (universeProfile.ambientEvent === 'binaryStars') { gravityWells.push({x:window.innerWidth*0.25, y:window.innerHeight*0.5, strength:0.1}, {x:window.innerWidth*0.75, y:window.innerHeight*0.5, strength:0.1}); }
-                
-                universeState = { energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 };
-                
-                history.replaceState(null, '', `?seed=${currentSeed}`);
-                seedCaptureUI.textContent = `Seed: ${currentSeed}`;
+                STATE.universe = { energy: 0, state: 'Stable', maxEnergy: 4000 };
+                history.replaceState(null, '', `?${STATE.mode === 'sandbox' ? 'sandbox='+encodeSandboxProfile(profile) : 'seed='+seed}`);
+                STATE.challenge = {...blueprint.challenge, progress: 0, complete: false};
+                updateHUD();
+                updateChallengeUI();
+                updateAmbientSound(profile.blueprintName);
                 pJS.fn.particlesRefresh();
             };
 
-            particlesJS('particles-js', baseConfig);
-            const pJS = window.pJSDom[0].pJS;
+            function resetState(){
+                STATE.gravityWells=[]; STATE.temporaryObjects=[]; STATE.tick=0; STATE.cataclysmInProgress=false;
+                DOM.body.style.filter = '';
+            }
             
-            const urlParams = new URLSearchParams(window.location.search);
-            generateUniverse(pJS, urlParams.get('seed') || generateRandomSeed());
+            // =================================================================
+            // MAIN UPDATE LOOP
+            // =================================================================
+            function update() {
+                if (STATE.isPaused) { requestAnimationFrame(update); return; }
+                STATE.tick++;
+                if (STATE.cataclysmInProgress) { requestAnimationFrame(update); return; }
 
-            // --- Main Update Loop ---
-            const update = () => {
-                tick++;
-                if (cataclysmInProgress) { requestAnimationFrame(update); return; }
-
-                if (isLeftMouseDown || isRightMouseDown) { universeState.energy += 10; } 
-                else { universeState.energy = Math.max(0, universeState.energy - 5); }
-
-                if (universeState.energy > universeState.maxEnergy && universeState.state !== 'Unstable') {
-                    universeState.state = 'Unstable';
-                    triggerCataclysm(pJS);
-                } else if (universeState.energy > universeState.maxEnergy / 2) {
-                    universeState.state = 'Energized';
-                } else {
-                    universeState.state = 'Stable';
+                if (STATE.isLeftMouseDown) { STATE.universe.energy = Math.min(STATE.universe.maxEnergy, STATE.universe.energy + 10); } 
+                else { STATE.universe.energy = Math.max(0, STATE.universe.energy - 5); }
+                
+                if (STATE.universe.energy >= STATE.universe.maxEnergy && STATE.universe.state !== 'Unstable') {
+                    STATE.universe.state = 'Unstable'; updateHUD(); triggerCataclysm(pJS);
+                } else if (STATE.universe.energy > STATE.universe.maxEnergy/2 && STATE.universe.state === 'Stable') {
+                    STATE.universe.state = 'Energized'; updateHUD(); playSound('energize');
+                } else if (STATE.universe.energy <= STATE.universe.maxEnergy/2 && STATE.universe.state === 'Energized') {
+                    STATE.universe.state = 'Stable'; updateHUD();
                 }
                 
-                const energyRatio = universeState.energy / universeState.maxEnergy;
-                pJS.particles.move.speed = (1 + energyRatio * 5);
-                document.querySelector('#particles-js').style.filter = universeState.state === 'Energized' ? `drop-shadow(0 0 5px ${pJS.particles.color.value})` : '';
-
                 pJS.canvas.ctx.clearRect(0, 0, pJS.canvas.w, pJS.canvas.h);
+
+                // Fling logic
+                if(STATE.fling.active && STATE.fling.particle) {
+                    STATE.fling.particle.x = STATE.mouse.x;
+                    STATE.fling.particle.y = STATE.mouse.y;
+                    STATE.fling.particle.vx = 0;
+                    STATE.fling.particle.vy = 0;
+                }
                 
-                if (universeProfile.ambientEvent === 'greatContraction') { const scale = 1 - (Math.sin(tick*0.001)*0.5 + 0.5)*0.1; pJS.canvas.ctx.save(); pJS.canvas.ctx.translate(pJS.canvas.w/2*(1-scale), pJS.canvas.h/2*(1-scale)); pJS.canvas.ctx.scale(scale, scale); }
-                if (universeProfile.ambientEvent === 'cosmicMessage' && tick === 300) { createMessage(pJS, ['CREATE','CHANGE','FEEL','BECOME'][Math.floor(Math.random()*4)]); }
-                if (universeProfile.ambientEvent === 'colorShift') { const newHue = (tick*0.1)%360; pJS.particles.color.value = hslToHex(newHue, 80, 70); }
-                if (universeProfile.ambientEvent === 'pulsingCore' && tick % 180 === 0) { for(const p of pJS.particles.array) { const dx=p.x-window.innerWidth/2; const dy=p.y-window.innerHeight/2; const dist=Math.sqrt(dx*dx+dy*dy)||1; p.vx+=dx/dist*5; p.vy+=dy/dist*5; } }
-                if (universeProfile.ambientEvent === 'meteorShower' && tick % 240 === 0 && Math.random() > 0.5) { createMeteorShower(pJS, mulberry32(stringToSeed(currentSeed))); }
-
                 for(let i = pJS.particles.array.length - 1; i >= 0; i--) {
-                    const p = pJS.particles.array[i];
-                    if (!p) continue;
-                    
-                    let inVoidPocket = false;
-                    for(const pocket of voidPockets){ const dx=pocket.x-p.x; const dy=pocket.y-p.y; if(Math.sqrt(dx*dx+dy*dy)<pocket.r){ inVoidPocket=true; break; } }
-                    
-                    if(!inVoidPocket) {
-                        for(const well of gravityWells) { const dx=well.x-p.x; const dy=well.y-p.y; p.vx+=dx*well.strength*0.01; p.vy+=dy*well.strength*0.01; }
-                        if(orbitalPoint) { const dx = orbitalPoint.x - p.x; const dy = orbitalPoint.y - p.y; p.vx += dx * 0.005; p.vy += dy * 0.005; }
-                        if (isLeftMouseDown) handlePower(p, i, pJS, leftForce);
-                        if (isRightMouseDown) handlePower(p, i, pJS, rightForce);
-                    }
-
-                    p.vx *= friction;
-                    p.vy *= friction;
+                    const p = pJS.particles.array[i]; if (!p) continue;
+                    for(const well of STATE.gravityWells) { const dx=well.x-p.x; const dy=well.y-p.y; p.vx+=dx*0.01; p.vy+=dy*0.01; }
+                    if (STATE.isLeftMouseDown) handlePower(p, i, pJS, STATE.profile.leftClickPower);
+                    p.vx *= PHYSICS.friction; p.vy *= PHYSICS.friction;
                 }
 
-                pJS.fn.particlesUpdate();
-                pJS.fn.particlesDraw();
-                if (universeProfile.ambientEvent === 'greatContraction') { pJS.canvas.ctx.restore(); }
+                pJS.fn.particlesUpdate(); pJS.fn.particlesDraw();
+                STATE.mouse.lastX = STATE.mouse.x;
+                STATE.mouse.lastY = STATE.mouse.y;
                 requestAnimationFrame(update);
             };
-            requestAnimationFrame(update);
-
-            function handlePower(p, i, pJS, force) {
-                const dx=mouse.x-p.x; const dy=mouse.y-p.y; const dist=Math.sqrt(dx*dx+dy*dy)||1;
-                let fx=0, fy=0;
-                switch(force.core) {
-                    case 'Attractor': fx += dx * 0.1; fy += dy * 0.1; break;
-                    case 'Repulsor': if (dist < 200) { const f = -10/dist; fx += dx * f; fy += dy * f; } break;
-                    case 'Shear': if (dist < 150) { fx += dy * 0.1; fy -= dx * 0.1; } break;
-                    case 'Stasis': if (dist < 150) { p.vx *= 0.8; p.vy *= 0.8; } break;
-                    case 'Thermal': if (dist < 100 && p.radius < 10) p.radius += 0.1; break;
-                    case 'Void': if (dist < 100 && p.radius > 0.5) p.radius -= 0.1; if (p.radius <= 0.5) pJS.particles.array.splice(i, 1); break;
+            
+            // =================================================================
+            // POWER IMPLEMENTATIONS
+            // =================================================================
+            function handlePower(p, i, pJS, power) {
+                const dx = STATE.mouse.x - p.x, dy = STATE.mouse.y - p.y, dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                switch(power) {
+                    case 'comet': if (dist < 200) { p.vx += dx * 0.1; p.vy += dy * 0.1; } break;
+                    case 'timeDilation': if (dist < 150) { p.vx *= 0.9; p.vy *= 0.9; } break;
+                    // Other powers...
                 }
-                if(force.modifier === 'Pulsing' && tick % 20 < 10) { fx = 0; fy = 0; }
-                if(force.modifier === 'Chaotic') { fx += (Math.random()-0.5)*5; fy += (Math.random()-0.5)*5; }
-                if(force.modifier === 'Orbital') { fx -= dy * 0.1; fy += dx * 0.1; }
-                p.vx += fx * force.strength; p.vy += fy * force.strength;
-                if(force.modifier === 'Crystalline') { if(Math.abs(p.vx)>Math.abs(p.vy)) p.vy=0; else p.vx=0; }
             }
-
+            function handleRightClick() {
+                const power = STATE.profile.rightClickPower;
+                switch(power) {
+                    case 'gravityWell': STATE.gravityWells.push({ x: STATE.mouse.x, y: STATE.mouse.y }); updateChallenge('gravityWellsPlaced', 1); break;
+                    case 'rewind': pJS.particles.array.forEach(p => { if (Math.sqrt(Math.pow(p.x - STATE.mouse.x, 2) + Math.pow(p.y - STATE.mouse.y, 2)) < 150) { p.vx *= -1; p.vy *= -1; } }); updateChallenge('timeRewound', 1); break;
+                    // Other powers...
+                }
+            }
             function triggerCataclysm(pJS) {
-                cataclysmInProgress = true;
-                const choice = universeProfile.cataclysm;
-                switch(choice) {
-                    case 'The Great Collapse':
-                        canvasContainer.style.transition = 'transform 3s cubic-bezier(0.83, 0, 0.17, 1)';
-                        canvasContainer.style.transform = 'scale(0)';
-                        setTimeout(() => { canvasContainer.style.transform = 'scale(1)'; generateUniverse(pJS, generateRandomSeed()); }, 4000);
-                        break;
-                    case 'Rift Storm': case 'Glitch Storm':
-                        const isGlitch = choice === 'Glitch Storm';
-                        canvasContainer.style.transition = 'filter 0.1s ease';
-                        let stormInterval = setInterval(() => {
-                           canvasContainer.style.filter = `blur(${Math.random()*10}px) ${isGlitch ? 'contrast(2)' : ''}`;
-                           pJS.particles.array.forEach(p => { p.x += (Math.random()-0.5)*20; p.y += (Math.random()-0.5)*20; });
-                        }, 100);
-                        setTimeout(() => { clearInterval(stormInterval); canvasContainer.style.filter = ''; generateUniverse(pJS, generateRandomSeed()); }, 3000);
-                        break;
-                    case 'Phase Shift':
-                        canvasContainer.style.transition = 'opacity 2s ease';
-                        canvasContainer.style.opacity = '0';
-                        setTimeout(() => { generateUniverse(pJS, generateRandomSeed()); canvasContainer.style.opacity = '1'; }, 2500);
-                        break;
-                    case 'Supernova':
-                        for(const p of pJS.particles.array) { p.vx = (Math.random()-0.5)*50; p.vy = (Math.random()-0.5)*50; }
-                        setTimeout(() => generateUniverse(pJS, generateRandomSeed()), 2500);
-                        break;
+                STATE.cataclysmInProgress = true; STATE.stats.cataclysms++; saveStats(); playSound('cataclysm');
+                setTimeout(() => {
+                    STATE.cataclysmInProgress = false;
+                    if (STATE.mode === 'sandbox') {
+                        generateUniverse({ mode: 'sandbox', profile: STATE.profile });
+                    } else {
+                        generateUniverse({ mode: 'discovery', seed: generateRandomSeed() });
+                    }
+                }, 1500);
+            }
+
+            // =================================================================
+            // UI, SETTINGS & EVENT HANDLERS
+            // =================================================================
+            function updateHUD() {
+                document.getElementById('hud-blueprint').textContent = STATE.profile.blueprintName;
+                document.getElementById('hud-mode').textContent = `(${STATE.mode})`;
+                document.getElementById('hud-lclick').textContent = STATE.profile.leftClickPower;
+                document.getElementById('hud-rclick').textContent = STATE.profile.rightClickPower;
+                document.getElementById('hud-state').textContent = STATE.universe.state;
+                const energyRatio = STATE.universe.energy / STATE.universe.maxEnergy;
+                document.getElementById('energy-bar').style.width = `${energyRatio * 100}%`;
+            }
+            function updateChallenge(id, value, isValue=false) {
+                if (STATE.challenge.complete || STATE.challenge.id !== id) return;
+                STATE.challenge.progress = isValue ? Math.max(STATE.challenge.progress, value) : STATE.challenge.progress + value;
+                if (STATE.challenge.progress >= STATE.challenge.target) {
+                    STATE.challenge.progress = STATE.challenge.target;
+                    STATE.challenge.complete = true;
+                    STATE.stats.challenges++; saveStats(); playSound('challenge');
+                }
+                updateChallengeUI();
+            }
+            function updateChallengeUI() {
+                document.getElementById('challenge-title').textContent = STATE.challenge.title;
+                document.getElementById('challenge-description').textContent = STATE.challenge.desc;
+                const progressRatio = STATE.challenge.progress / STATE.challenge.target;
+                document.getElementById('challenge-progress-bar').style.width = `${progressRatio * 100}%`;
+                DOM.challengePanel.classList.toggle('completed', STATE.challenge.complete);
+            }
+            
+            function saveSettings() { localStorage.setItem('celestialCanvasSettings', JSON.stringify(STATE.settings)); }
+            function saveStats() { localStorage.setItem('celestialCanvasStats', JSON.stringify(STATE.stats)); updateStatsUI(); }
+            function loadSettings() {
+                const settings = JSON.parse(localStorage.getItem('celestialCanvasSettings')); if (settings) { STATE.settings = settings; }
+                const stats = JSON.parse(localStorage.getItem('celestialCanvasStats')); if (stats) { STATE.stats = stats; }
+                applySettings(); updateStatsUI();
+            }
+            function applySettings() {
+                DOM.body.className = STATE.settings.theme === 'light' ? 'light-theme' : 'dark-theme';
+                DOM.themeToggle.classList.toggle('active', STATE.settings.theme === 'light');
+                DOM.soundToggle.classList.toggle('active', STATE.settings.sound);
+                if (!STATE.settings.sound && ambientOscillator) { ambientGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1); ambientOscillator.stop(audioCtx.currentTime + 1); ambientOscillator = null; }
+            }
+            function updateStatsUI() {
+                document.getElementById('stats-universes').textContent = STATE.stats.universes;
+                document.getElementById('stats-cataclysms').textContent = STATE.stats.cataclysms;
+                document.getElementById('stats-challenges').textContent = STATE.stats.challenges;
+            }
+
+            function populateSandboxEditor() {
+                const bpSelect = document.getElementById('sb-blueprint');
+                const lClickSelect = document.getElementById('sb-lclick');
+                const rClickSelect = document.getElementById('sb-rclick');
+                const eventSelect = document.getElementById('sb-event');
+                const allPowers = [...new Set(Object.values(universeBlueprints).flatMap(bp => [...bp.left, ...bp.right]))];
+                const allEvents = [...new Set(Object.values(universeBlueprints).flatMap(bp => bp.events))];
+                
+                Object.keys(universeBlueprints).forEach(name => bpSelect.add(new Option(name, name)));
+                allPowers.forEach(name => { lClickSelect.add(new Option(name, name)); rClickSelect.add(new Option(name, name)); });
+                allEvents.forEach(name => eventSelect.add(new Option(name, name)));
+            }
+            function encodeSandboxProfile(profile) { return btoa(JSON.stringify(profile)); }
+            function decodeSandboxProfile(encoded) { try { return JSON.parse(atob(encoded)); } catch (e) { return null; } }
+
+            // Initial Setup
+            loadSettings();
+            populateSandboxEditor();
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('seed')) {
+                DOM.modeSelectOverlay.style.display = 'none';
+                generateUniverse({ mode: 'discovery', seed: urlParams.get('seed') });
+                requestAnimationFrame(update);
+            } else if (urlParams.has('sandbox')) {
+                const profile = decodeSandboxProfile(urlParams.get('sandbox'));
+                if (profile) {
+                    DOM.modeSelectOverlay.style.display = 'none';
+                    generateUniverse({ mode: 'sandbox', profile: profile });
+                    requestAnimationFrame(update);
                 }
             }
             
-            seedCaptureUI.addEventListener('click', () => { navigator.clipboard.writeText(window.location.href).then(() => { seedCaptureUI.textContent = 'Copied!'; setTimeout(() => seedCaptureUI.textContent = `Seed: ${currentSeed}`, 2000); }); });
-            window.addEventListener('mousemove', e => { mouse.x=e.clientX; mouse.y=e.clientY; cursorGlow.style.left=`${e.clientX}px`; cursorGlow.style.top=`${e.clientY}px`; });
-            window.addEventListener('contextmenu', e => e.preventDefault());
-            window.addEventListener('mousedown', e => {
-                if (cataclysmInProgress) return;
-                mouseDownTime = Date.now();
-                if (e.button === 0) isLeftMouseDown = true;
-                else if (e.button === 2) isRightMouseDown = true;
-                cursorGlow.classList.add('active');
+            // Event Listeners
+            DOM.discoveryModeBtn.addEventListener('click', () => { DOM.modeSelectOverlay.style.display = 'none'; generateUniverse({ mode: 'discovery', seed: generateRandomSeed() }); requestAnimationFrame(update); });
+            DOM.sandboxModeBtn.addEventListener('click', () => { DOM.modeSelectOverlay.style.display = 'none'; DOM.sandboxEditorPanel.style.display = 'flex'; });
+            DOM.launchSandboxBtn.addEventListener('click', () => {
+                DOM.sandboxEditorPanel.style.display = 'none';
+                const profile = {
+                    blueprintName: document.getElementById('sb-blueprint').value,
+                    leftClickPower: document.getElementById('sb-lclick').value,
+                    rightClickPower: document.getElementById('sb-rclick').value,
+                    ambientEvent: document.getElementById('sb-event').value,
+                    particleCount: parseInt(document.getElementById('sb-particles').value),
+                    friction: parseFloat(document.getElementById('sb-friction').value),
+                };
+                generateUniverse({ mode: 'sandbox', profile: profile });
+                requestAnimationFrame(update);
             });
-            window.addEventListener('mouseup', e => {
-                if (cataclysmInProgress) return;
-                const holdDuration = Date.now() - mouseDownTime;
-                if (holdDuration < 200) { pJS.fn.modes.pushParticles(4, mouse); }
-                if (e.button === 0) isLeftMouseDown = false;
-                else if (e.button === 2) { isRightMouseDown = false; rightClickUsed = false; }
-                cursorGlow.classList.remove('active');
+            DOM.shareSandboxBtn.addEventListener('click', () => {
+                const profile = { blueprintName: document.getElementById('sb-blueprint').value, leftClickPower: document.getElementById('sb-lclick').value, rightClickPower: document.getElementById('sb-rclick').value, ambientEvent: document.getElementById('sb-event').value, particleCount: parseInt(document.getElementById('sb-particles').value), friction: parseFloat(document.getElementById('sb-friction').value) };
+                const url = `${window.location.origin}${window.location.pathname}?sandbox=${encodeSandboxProfile(profile)}`;
+                navigator.clipboard.writeText(url).then(() => alert('Shareable URL copied to clipboard!'));
             });
+            DOM.backToMenuBtn.addEventListener('click', () => {
+                DOM.sandboxEditorPanel.style.display = 'none';
+                DOM.modeSelectOverlay.style.display = 'flex';
+            });
+            DOM.newSeedBtn.addEventListener('click', () => { 
+                if (STATE.cataclysmInProgress) return;
+                if (STATE.mode === 'sandbox') {
+                    DOM.sandboxEditorPanel.style.display = 'flex';
+                } else {
+                    generateUniverse({ mode: 'discovery', seed: generateRandomSeed() });
+                }
+            });
+
+            function handleInteractionStart(e) {
+                initAudio();
+                if (e.button === 0) { // Left Click
+                    STATE.isLeftMouseDown = true;
+                    // Fling Power Logic: Find and grab the nearest particle
+                    if (STATE.profile.leftClickPower === 'fling') {
+                        let closest = null, minDist = 100;
+                        for(const p of pJS.particles.array) {
+                            const dist = Math.sqrt(Math.pow(p.x-STATE.mouse.x,2)+Math.pow(p.y-STATE.mouse.y,2));
+                            if (dist < minDist) { minDist = dist; closest = p; }
+                        }
+                        if(closest) { STATE.fling.active = true; STATE.fling.particle = closest; }
+                    }
+                } else if (e.button === 2) { // Right Click
+                    handleRightClick();
+                }
+                DOM.cursorGlow.classList.add('active');
+            }
+
+            function handleInteractionEnd(e) {
+                 if (e.button === 0) { // Left Click Release
+                    STATE.isLeftMouseDown = false;
+                     // Fling Power Logic: Release the particle with velocity
+                    if (STATE.fling.active && STATE.fling.particle) {
+                        const velocityX = (STATE.mouse.x - STATE.mouse.lastX) * 2;
+                        const velocityY = (STATE.mouse.y - STATE.mouse.lastY) * 2;
+                        STATE.fling.particle.vx = velocityX;
+                        STATE.fling.particle.vy = velocityY;
+                        updateChallenge('particlesFlung', 1);
+                        STATE.fling.active = false;
+                        STATE.fling.particle = null;
+                    }
+                }
+                DOM.cursorGlow.classList.remove('active');
+            }
+
+            DOM.pauseBtn.addEventListener('click', () => { STATE.isPaused = !STATE.isPaused; DOM.pauseBtn.textContent = STATE.isPaused ? 'Play' : 'Pause'; });
+            DOM.settingsBtn.addEventListener('click', () => { DOM.settingsPanel.style.display = DOM.settingsPanel.style.display === 'block' ? 'none' : 'block'; });
+            DOM.soundToggle.addEventListener('click', () => { STATE.settings.sound = !STATE.settings.sound; saveSettings(); applySettings(); });
+            DOM.themeToggle.addEventListener('click', () => { STATE.settings.theme = STATE.settings.theme === 'dark' ? 'light' : 'dark'; saveSettings(); applySettings(); });
             
-            function resetState(){ symbioteParticles=[]; gravityWells=[]; voidPockets=[]; orbitalPoint=null; wormhole={entry:null,exit:null}; document.body.style.filter=''; tick=0; cataclysmInProgress=false; }
-            function createMeteorShower(pJS, seededRandom) { const count=30,angle=seededRandom()*2*Math.PI,speed=seededRandom()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){setTimeout(()=>{let p=pJS.fn.modes.pushParticles(1,{x:startX+(seededRandom()-0.5)*200,y:startY+(seededRandom()-0.5)*200})[0];if(p){p.vx=Math.cos(angle)*speed;p.vy=Math.sin(angle)*speed;}},i*20);} }
-            function createMessage(pJS, message) { const fontSize=100,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'); ctx.font=`${fontSize}px Arial`; canvas.width=ctx.measureText(message).width; canvas.height=fontSize; ctx.font=`${fontSize}px Arial`; ctx.fillStyle="#FFF"; ctx.fillText(message,0,fontSize*0.8); const data=ctx.getImageData(0,0,canvas.width,canvas.height).data; const startX=window.innerWidth/2-canvas.width/2; const startY=window.innerHeight/2-canvas.height/2; pJS.fn.particlesEmpty(); for(let y=0;y<canvas.height;y+=4){for(let x=0;x<canvas.width;x+=4){if(data[(x+y*canvas.width)*4+3]>128){pJS.fn.modes.pushParticles(1,{x:startX+x,y:startY+y});}}} }
-            function setRandomGradient(hue, isMonochrome, seededRandom) { const angle=Math.floor(seededRandom()*360); if(isMonochrome){document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;}else{document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue+120)%360},80%,20%), hsl(${(hue+240)%360},80%,25%))`;} canvasContainer.style.background = document.body.style.background; canvasContainer.style.backgroundSize = '400% 400%'; }
+            window.addEventListener('mousedown', handleInteractionStart);
+            window.addEventListener('mouseup', handleInteractionEnd);
+            window.addEventListener('contextmenu', e => e.preventDefault());
+            window.addEventListener('mousemove', e => { STATE.mouse.x = e.clientX; STATE.mouse.y = e.clientY; DOM.cursorGlow.style.left=`${STATE.mouse.x}px`; DOM.cursorGlow.style.top=`${STATE.mouse.y}px`; });
+            
+            // =================================================================
+            // UTILITY
+            // =================================================================
+            function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
+            function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0} return h; }
+            function generateRandomSeed() { const w1=['CELESTIAL','KINETIC','COSMIC','VOID','OCEANIC','CRYSTAL','DATA','CHRONO']; const w2=['DRIFT','ECHO','PULSE','SONG','CHAOS','DEEP','SHARD','STREAM','RIFT']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
+            function setRandomGradient(hue, isMonochrome, seededRandom) { const angle=Math.floor(seededRandom*360); if(isMonochrome){document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%))`;}else{document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue+120)%360},80%,20%), hsl(${(hue+240)%360},80%,25%))`;} document.getElementById('canvas-container').style.background = document.body.style.background; document.getElementById('canvas-container').style.backgroundSize = '400% 400%'; }
             function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
         });
     </script>

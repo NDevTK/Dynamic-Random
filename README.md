@@ -1,7 +1,3 @@
-Of course. Here is a complete `README.md` file for the Celestial Canvas project. It captures the project's evolution, its final features, and its philosophy, making it perfect for a portfolio or a code-sharing platform like GitHub.
-
----
-
 # Celestial Canvas: A Generative Interactive Background
 
 **Celestial Canvas** is not just a dynamic website background; it's a generative art piece. It leverages a powerful physics and aesthetics engine to create a completely unique, interactive cosmos every single time the page is loaded. There are no controls or UI—the entire experience is about discovering the unique laws of each new universe and the surprising power you wield within it.

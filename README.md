@@ -1,7 +1,3 @@
-Of course! Here is a comprehensive `README.md` file for your "Celestial Canvas" project. It explains the concept, details the features, and provides instructions on how to interact with it.
-
----
-
 # Celestial Canvas
 
 **Celestial Canvas** is an interactive generative art project that creates unique, mesmerizing particle universes right in your browser. Each universe is procedurally generated from a shareable seed, giving it a distinct set of physical laws, aesthetics, and interactive powers.

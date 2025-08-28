@@ -47,6 +47,10 @@
             height: 800px;
             background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
         }
+        
+        #cursor-glow.repulse {
+             background: radial-gradient(circle, rgba(200, 0, 0, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
+        }
 
         #particles-js {
             position: absolute;
@@ -72,10 +76,13 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const cursorGlow = document.getElementById('cursor-glow');
-            const friction = 0.98; // How quickly particles lose energy
-            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, lastX: 0, lastY: 0, vx: 0, vy: 0 };
-            let isCometActive = false;
+            const friction = 0.98;
+            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, vx: 0, vy: 0 };
+            let isMouseDown = false;
             let initialSpeed = 4;
+            let activeMouseMode = 'comet';
+
+            const mouseModes = ['comet', 'repulsor', 'gravityWell', 'creator'];
 
             const generateRandomScene = (pJS) => {
                 setRandomGradient();
@@ -98,6 +105,10 @@
                 pJS.particles.line_linked.enable = isLinked;
                 pJS.interactivity.events.onhover.enable = true;
                 if (isLinked) { pJS.interactivity.events.onhover.mode = 'grab'; } else { pJS.interactivity.events.onhover.mode = ['bubble', 'repulse'][Math.floor(Math.random() * 2)]; }
+                
+                // --- Choose the user's power for this session ---
+                activeMouseMode = mouseModes[Math.floor(Math.random() * mouseModes.length)];
+
                 pJS.fn.particlesRefresh();
             };
 
@@ -107,16 +118,36 @@
 
             const update = () => {
                 for(const particle of pJS.particles.array) {
-                    if (isCometActive) {
+                    if (isMouseDown) {
                         const dx = mouse.x - particle.x;
                         const dy = mouse.y - particle.y;
-                        const pullFactor = 0.05; // Strength of the pull
-                        const orbitalFactor = 0.2; // Strength of the swirl
-                        // Add orbital velocity (perpendicular to the pull direction)
-                        particle.vx += (dx * pullFactor) - (dy * orbitalFactor * 0.1);
-                        particle.vy += (dy * pullFactor) + (dx * orbitalFactor * 0.1);
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        switch(activeMouseMode) {
+                            case 'comet':
+                                particle.vx += (dx * 0.05) - (dy * 0.01);
+                                particle.vy += (dy * 0.05) + (dx * 0.01);
+                                break;
+                            case 'repulsor':
+                                const force = -100 / (dist * dist);
+                                if (dist < 150) {
+                                    particle.vx += dx * force;
+                                    particle.vy += dy * force;
+                                }
+                                break;
+                            case 'gravityWell':
+                                const orbitDist = 100;
+                                const pullForce = 0.05 * (dist - orbitDist) / orbitDist;
+                                particle.vx += dx * pullForce - dy * 0.01;
+                                particle.vy += dy * pullForce + dx * 0.01;
+                                break;
+                            case 'creator':
+                                if(Math.random() > 0.9) { // Add particles intermittently
+                                    pJS.fn.modes.pushParticles(1, mouse);
+                                }
+                                break;
+                        }
                     }
-                    // Apply universal friction
                     particle.vx *= friction;
                     particle.vy *= friction;
                 }
@@ -130,22 +161,32 @@
                 mouse.x = e.clientX; mouse.y = e.clientY;
                 cursorGlow.style.left = `${e.clientX}px`; cursorGlow.style.top = `${e.clientY}px`;
             });
-            window.addEventListener('mousedown', () => { isCometActive = true; pJS.particles.move.speed = 0; pJS.interactivity.events.onhover.enable = false; cursorGlow.classList.add('active'); });
+
+            window.addEventListener('mousedown', () => {
+                isMouseDown = true;
+                pJS.particles.move.speed = 0;
+                pJS.interactivity.events.onhover.enable = false;
+                cursorGlow.classList.add('active');
+                if (activeMouseMode === 'repulsor') {
+                    cursorGlow.classList.add('repulse');
+                }
+            });
+
             window.addEventListener('mouseup', () => {
-                isCometActive = false;
+                isMouseDown = false;
                 cursorGlow.classList.remove('active');
+                cursorGlow.classList.remove('repulse');
                 pJS.particles.move.speed = initialSpeed;
                 pJS.interactivity.events.onhover.enable = true;
                 
-                const mouseSpeed = Math.min(30, Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy));
-                
-                for(const particle of pJS.particles.array) {
-                    const angle = Math.random() * 2 * Math.PI;
-                    // The explosion speed is a combination of a random base and the mouse's speed
-                    const explosionSpeed = Math.random() * 20 + mouseSpeed;
-                    // Inherit some of the mouse's final direction
-                    particle.vx = (Math.cos(angle) * explosionSpeed) + (mouse.vx * 0.5);
-                    particle.vy = (Math.sin(angle) * explosionSpeed) + (mouse.vy * 0.5);
+                if (activeMouseMode === 'comet' || activeMouseMode === 'repulsor') {
+                    const mouseSpeed = Math.min(30, Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy));
+                    for(const particle of pJS.particles.array) {
+                        const angle = Math.random() * 2 * Math.PI;
+                        const explosionSpeed = Math.random() * 20 + mouseSpeed;
+                        particle.vx = (Math.cos(angle) * explosionSpeed) + (mouse.vx * 0.5);
+                        particle.vy = (Math.sin(angle) * explosionSpeed) + (mouse.vy * 0.5);
+                    }
                 }
             });
         });

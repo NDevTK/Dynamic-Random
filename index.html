@@ -14,7 +14,7 @@
             overflow: hidden;
             font-family: 'Segoe UI', 'Roboto', sans-serif;
             color: white;
-            cursor: none; /* Hide the default cursor */
+            cursor: none;
         }
 
         body {
@@ -64,7 +64,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        const particlesConfig = { "particles": { "number": { "value": 150, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "polygon": { "nb_sides": 5 }, "star": { "nb_sides": 5 } }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 2, "random": true }, "line_linked": { "enable": false, "color": "#ffffff" }, "move": { "enable": true, "speed": 4, "direction": "none", "out_mode": "out" } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "grab": { "distance": 200, "line_linked": { "opacity": 1 } }, "bubble": { "distance": 200, "size": 8, "duration": 2, "opacity": 1 }, "repulse": { "distance": 150, "duration": 0.4 } } }, "retina_detect": true };
+        const baseConfig = { "particles": { "number": { "value": 150, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "polygon": { "nb_sides": 5 }, "star": { "nb_sides": 5 } }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 2, "random": true }, "line_linked": { "enable": false, "color": "#ffffff", "distance": 150 }, "move": { "enable": true, "speed": 4, "direction": "none", "out_mode": "out" } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "grab": { "distance": 200, "line_linked": { "opacity": 1 } }, "bubble": { "distance": 200, "size": 8, "duration": 2, "opacity": 1 }, "repulse": { "distance": 150, "duration": 0.4 } } }, "retina_detect": true };
 
         function getRandomColor() { const h = Math.floor(Math.random() * 360); const s = Math.floor(Math.random() * 20) + 75; const l = Math.floor(Math.random() * 20) + 50; return `hsl(${h}, ${s}%, ${l}%)`; }
         function hslToHex(h, s, l) { l /= 100; const a = s * Math.min(l, 1 - l) / 100; const f = n => { const k = (n + h / 30) % 12; const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(255 * color).toString(16).padStart(2, '0'); }; return `#${f(0)}${f(8)}${f(4)}`; }
@@ -72,46 +72,53 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const cursorGlow = document.getElementById('cursor-glow');
-            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+            const friction = 0.98; // How quickly particles lose energy
+            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, lastX: 0, lastY: 0, vx: 0, vy: 0 };
             let isCometActive = false;
             let initialSpeed = 4;
 
-            const randomizeScene = (pJS) => {
+            const generateRandomScene = (pJS) => {
                 setRandomGradient();
                 const particleColor = hslToHex(Math.random() * 360, 70 + Math.random() * 30, 60 + Math.random() * 30);
-                pJS.particles.color.value = particleColor;
-                pJS.particles.line_linked.color = particleColor;
-                pJS.particles.number.value = Math.floor(Math.random() * 200) + 75;
+                pJS.particles.color.value = particleColor; pJS.particles.line_linked.color = particleColor;
+                pJS.particles.number.value = Math.floor(Math.random() * 150) + 75;
                 pJS.particles.size.value = Number(((Math.random() * 4) + 1).toFixed(1));
                 pJS.particles.opacity.value = Number((Math.random() * 0.6 + 0.2).toFixed(2));
-                initialSpeed = Number(((Math.random() * 5) + 1).toFixed(1));
-                pJS.particles.move.speed = initialSpeed;
                 const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
                 pJS.particles.shape.type = shapes[Math.floor(Math.random() * shapes.length)];
-                if (['polygon', 'star'].includes(pJS.particles.shape.type)) {
-                    const sides = Math.floor(Math.random() * 6) + 5;
-                    pJS.particles.shape.polygon.nb_sides = sides;
-                    if(pJS.particles.shape.star) pJS.particles.shape.star.nb_sides = sides;
-                }
-                pJS.particles.line_linked.enable = Math.random() < 0.4;
-                const hoverModes = ['bubble', 'repulse', 'grab'];
+                if (['polygon', 'star'].includes(pJS.particles.shape.type)) { pJS.particles.shape.polygon.nb_sides = Math.floor(Math.random() * 6) + 5; }
+                
+                const physicsChoice = Math.random();
+                if (physicsChoice < 0.33) { pJS.particles.move.direction = ["top", "bottom", "left", "right"][Math.floor(Math.random() * 4)]; pJS.particles.move.out_mode = "out"; initialSpeed = Math.random() * 2 + 0.5;
+                } else if (physicsChoice < 0.66) { pJS.particles.move.direction = "none"; pJS.particles.move.out_mode = "bounce"; initialSpeed = Math.random() * 4 + 2;
+                } else { pJS.particles.move.direction = "none"; pJS.particles.move.out_mode = "out"; initialSpeed = Math.random() * 5 + 1; }
+                pJS.particles.move.speed = initialSpeed;
+
+                const isLinked = Math.random() < 0.3;
+                pJS.particles.line_linked.enable = isLinked;
                 pJS.interactivity.events.onhover.enable = true;
-                pJS.interactivity.events.onhover.mode = hoverModes[Math.floor(Math.random() * hoverModes.length)];
+                if (isLinked) { pJS.interactivity.events.onhover.mode = 'grab'; } else { pJS.interactivity.events.onhover.mode = ['bubble', 'repulse'][Math.floor(Math.random() * 2)]; }
                 pJS.fn.particlesRefresh();
             };
 
-            particlesJS('particles-js', particlesConfig);
+            particlesJS('particles-js', baseConfig);
             const pJS = window.pJSDom[0].pJS;
-            randomizeScene(pJS);
+            generateRandomScene(pJS);
 
             const update = () => {
-                if (isCometActive) {
-                    for(const particle of pJS.particles.array) {
+                for(const particle of pJS.particles.array) {
+                    if (isCometActive) {
                         const dx = mouse.x - particle.x;
                         const dy = mouse.y - particle.y;
-                        particle.vx = dx / 20;
-                        particle.vy = dy / 20;
+                        const pullFactor = 0.05; // Strength of the pull
+                        const orbitalFactor = 0.2; // Strength of the swirl
+                        // Add orbital velocity (perpendicular to the pull direction)
+                        particle.vx += (dx * pullFactor) - (dy * orbitalFactor * 0.1);
+                        particle.vy += (dy * pullFactor) + (dx * orbitalFactor * 0.1);
                     }
+                    // Apply universal friction
+                    particle.vx *= friction;
+                    particle.vy *= friction;
                 }
                 pJS.fn.particlesDraw();
                 requestAnimationFrame(update);
@@ -119,29 +126,26 @@
             requestAnimationFrame(update);
 
             window.addEventListener('mousemove', e => {
+                mouse.vx = e.clientX - mouse.x; mouse.vy = e.clientY - mouse.y;
                 mouse.x = e.clientX; mouse.y = e.clientY;
-                cursorGlow.style.left = `${e.clientX}px`;
-                cursorGlow.style.top = `${e.clientY}px`;
+                cursorGlow.style.left = `${e.clientX}px`; cursorGlow.style.top = `${e.clientY}px`;
             });
-
-            window.addEventListener('mousedown', () => {
-                isCometActive = true;
-                pJS.particles.move.speed = 0;
-                pJS.interactivity.events.onhover.enable = false;
-                cursorGlow.classList.add('active');
-            });
-
+            window.addEventListener('mousedown', () => { isCometActive = true; pJS.particles.move.speed = 0; pJS.interactivity.events.onhover.enable = false; cursorGlow.classList.add('active'); });
             window.addEventListener('mouseup', () => {
                 isCometActive = false;
                 cursorGlow.classList.remove('active');
                 pJS.particles.move.speed = initialSpeed;
                 pJS.interactivity.events.onhover.enable = true;
                 
+                const mouseSpeed = Math.min(30, Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy));
+                
                 for(const particle of pJS.particles.array) {
                     const angle = Math.random() * 2 * Math.PI;
-                    const speed = Math.random() * 25 + 5;
-                    particle.vx = Math.cos(angle) * speed;
-                    particle.vy = Math.sin(angle) * speed;
+                    // The explosion speed is a combination of a random base and the mouse's speed
+                    const explosionSpeed = Math.random() * 20 + mouseSpeed;
+                    // Inherit some of the mouse's final direction
+                    particle.vx = (Math.cos(angle) * explosionSpeed) + (mouse.vx * 0.5);
+                    particle.vy = (Math.sin(angle) * explosionSpeed) + (mouse.vy * 0.5);
                 }
             });
         });

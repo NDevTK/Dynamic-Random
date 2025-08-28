@@ -1,38 +1,39 @@
-# Celestial Canvas: The Chaos Engine
+# Celestial Canvas: The Synergy Engine
 
-**Celestial Canvas** is not a dynamic background; it is a generative, interactive art engine. It creates a unique, living cosmos on every page load, with its own aesthetic, its own laws of physics, and its own set of mysterious powers for you to discover.
+**Celestial Canvas** is a generative, interactive art engine. It is not a background; it is a destination. Every time the page is loaded, a unique, living cosmos is born, complete with its own aesthetic, its own laws of physics, and its own set of mysterious powers for you to discover and wield.
 
-There is no UI, no controls, and no instructions. The entire experience is about play and discovery. Every visit is different, without exception.
+There is no UI, no controls, and no instructions. The entire experience is about play, discovery, and the emergent beauty that arises from a complex, generative system.
 
-## The Core Concept: A New Universe, Every Time
+## The Core Concept: The Synergy Engine
 
-The Chaos Engine is built on a powerful generative system that ensures no two experiences are alike. On each page load, the engine creates a unique **Universe Profile** by making a series of random, high-level decisions. This profile dictates the entire feel of the session, from the ambient physics to the very nature of your interaction.
+This project has evolved beyond simple randomness. It is now powered by the **Synergy Engine**, a system designed to create cohesive, thematic experiences. Instead of picking features from a list, the engine generates a universe around a core **Cosmic Phenomenon**. It then intelligently selects powers, events, and aesthetics that are thematically linked, ensuring that every universe, while unique, feels intentional and harmonious.
 
-## The Generative Engine Features
+### Core Cosmic Phenomena
 
-### 1. Universe Archetypes
-Every session is born with a fundamental "Archetype" that governs its personality and the pool of possible features:
+The Synergy Engine builds each session around one of these fundamental themes:
 
-*   **`Calm:`** A peaceful cosmos. Expect gentle physics, softer colors, and creative, non-destructive powers.
-*   **`Volatile:`** High-energy and dangerous. Expect fast-moving particles, glowing bloom effects, destructive powers, and a high chance of chaotic cosmic events.
-*   **`Teeming:`** A universe overflowing with life. Expect a huge number of smaller particles, often forming vast, interconnected webs.
-*   **`Ethereal:`** Mysterious and strange. Expect low-opacity, twinkling particles, reality-bending powers, and a chance for the universe to be born in a striking monochrome palette.
+*   **`Gravity:`** A universe governed by attraction and orbits. Expect powerful attractors, gravity wells, and particles that clump together into beautiful galaxies.
+*   **`Flow:`** A universe defined by movement. Expect gentle cosmic winds, particle rivers, and powers that let you guide the current.
+*   **`Structure:`** A universe of order and connection. Expect particles that form crystal lattices and interconnected webs, and powers that let you manipulate the entire constellation as one.
+*   **`Chaos:`** A violent, high-energy cosmos. Expect fast, unpredictable particles, destructive powers, and a high chance of cataclysmic events.
+*   **`Energy:`** A universe crackling with power. Expect glowing particles and powers based on raw energy, like lightning and powerful shockwaves.
+*   **`Ethereal:`** A mysterious, ghost-like universe. Expect low-opacity, twinkling particles and reality-bending powers that defy normal physics.
+*   **`Crystalline:`** An orderly universe where particles move along grid lines, forming sharp, beautiful, and rigid structures.
 
-### 2. Autonomous, Living Universes
-The cosmos does not wait for you. It lives and breathes on its own, subject to random, universe-wide events:
+## A Universe of Infinite Features
 
-*   **`Binary Stars:`** Two autonomous gravity wells will appear, pulling the cosmos into beautiful, swirling galaxies.
-*   **`Pulsing Core:`** A "heartbeat" will emanate from the center of the screen, creating gentle, rhythmic waves.
-*   **`Meteor Showers:`** Volleys of high-speed particles will periodically streak across the screen.
-*   **`Cosmic Color Shift:`** The entire color palette of the universe will begin to slowly and continuously evolve through the spectrum.
+The Synergy Engine has a vast and chaotic toolbox of features to draw from, ensuring no two universes are alike.
 
-### 3. Procedurally Generated Powers
-You are not just a visitor; you are a force of nature. Your powers are randomized on each visit, assigned to your left and right mouse buttons. You must discover them through experimentation.
+### Procedurally Generated Powers
+Your powers are a surprise on each visit, assigned to your left and right mouse buttons.
 
 #### **Primary "Left-Click" Powers:**
-*   **`Comet:`** A classic swirling attractor that gathers matter.
+*   **`Comet:`** The classic swirling attractor that gathers matter.
 *   **`Void:`** A powerful repulsor that carves out empty space.
-*   **`Chain Lightning:`** Hold to arc raw energy between nearby particles.
+*   **`Force Field:`** Project a temporary, invisible barrier that particles realistically bounce off.
+*   **`Solar Flare:`** Unleash a powerful, cone-shaped blast of force.
+*   **`Conductor:`** In a universe with linked particles, grab and pull the entire constellation like a tangible web.
+*   **`Chain Lightning:`** Arc raw energy between nearby particles.
 *   **`Time Warp:`** A field around your cursor that dramatically slows any particles that enter.
 *   **`The Symbiote:`** Capture particles to form a living, writhing tail that follows your cursor.
 *   **`Black Hole:`** A hyper-aggressive vortex that consumes and destroys any matter it touches.
@@ -43,9 +44,20 @@ You are not just a visitor; you are a force of nature. Your powers are randomize
 *   **`Supernova:`** Instantly trigger a "Big Bang" explosion.
 *   **`Wormhole:`** Create an entry and exit point to teleport particles across the canvas.
 *   **`Gravity Well:`** Place a new, stationary gravity well on the canvas.
+*   **`Set Orbit:`** Click to place a persistent orbital point that all particles will be gently drawn towards.
+*   **`Toggle Links:`** A direct utility to instantly turn particle linking on or off.
 *   **`Cycle Shape:`** Right-click on particles to instantly change their form.
-*   **`Anchor:`** Instantly freeze all particles in place, allowing you to create a static sculpture.
+*   **`Anchor:`** Instantly freeze all particles in place.
 *   **`The Sculptor:`** Shrinks particles near the cursor.
+
+### Autonomous, Living Universes
+The cosmos does not wait for you. It is subject to random, ambient events:
+
+*   **`Binary Stars:`** Two autonomous gravity wells will appear, pulling the cosmos into beautiful, swirling galaxies.
+*   **`Pulsing Core:`** A "heartbeat" will emanate from the center of the screen, creating gentle, rhythmic waves.
+*   **`Meteor Showers:`** Volleys of high-speed particles will periodically streak across the screen.
+*   **`Supercluster:`** All matter will begin a slow, inexorable drift towards a single, far-off-screen point.
+*   **`Phase Shift:`** All particles will periodically and synchronously fade in and out of visibility.
 
 ## How to Use
 
@@ -59,11 +71,5 @@ This project is entirely self-contained.
 
 *   **HTML5**
 *   **CSS3** (for background gradients, animations, and glow effects)
-*   **JavaScript (ES6)** (for the generative engine and all physics)
+*   **JavaScript (ES6)** (for the Synergy Engine, generative logic, and all physics)
 *   **particles.js:** Used as a lightweight rendering foundation, now heavily extended by a custom physics and interaction engine.
-
----
-
-## License
-
-This project is licensed under the MIT License.

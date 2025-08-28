@@ -1,38 +1,38 @@
-# Celestial Canvas: The Synergy Engine
+# Celestial Canvas: The Omega Engine
 
-**Celestial Canvas** is a generative, interactive art engine. It is not a background; it is a destination. Every time the page is loaded, a unique, living cosmos is born, complete with its own aesthetic, its own laws of physics, and its own set of mysterious powers for you to discover and wield.
+**Celestial Canvas** is the definitive generative, interactive art engine. It is not a background; it is a destination. Every time the page is loaded, a unique, living cosmos is born, complete with its own aesthetic, its own laws of physics, and its own set of mysterious powers for you to discover and wield.
 
-There is no UI, no controls, and no instructions. The entire experience is about play, discovery, and the emergent beauty that arises from a complex, generative system.
+This is the ultimate version, built on the powerful **Omega Engine**. It is a system designed for maximum variety, maximum fun, and maximum unpredictability. It will likely never create the same universe twice.
 
-## The Core Concept: The Synergy Engine
+## The Core Concept: The Blueprint System
 
-This project has evolved beyond simple randomness. It is now powered by the **Synergy Engine**, a system designed to create cohesive, thematic experiences. Instead of picking features from a list, the engine generates a universe around a core **Cosmic Phenomenon**. It then intelligently selects powers, events, and aesthetics that are thematically linked, ensuring that every universe, while unique, feels intentional and harmonious.
+The Omega Engine is not merely random; it is generative. It builds each universe from a **Blueprint**, a comprehensive thematic profile that ensures every element—from the shape of the particles to the nature of your power—feels cohesive and intentional.
 
-### Core Cosmic Phenomena
+### Universe Blueprints
 
-The Synergy Engine builds each session around one of these fundamental themes:
+The engine forges each session around one of these core Blueprints:
 
-*   **`Gravity:`** A universe governed by attraction and orbits. Expect powerful attractors, gravity wells, and particles that clump together into beautiful galaxies.
-*   **`Flow:`** A universe defined by movement. Expect gentle cosmic winds, particle rivers, and powers that let you guide the current.
-*   **`Structure:`** A universe of order and connection. Expect particles that form crystal lattices and interconnected webs, and powers that let you manipulate the entire constellation as one.
-*   **`Chaos:`** A violent, high-energy cosmos. Expect fast, unpredictable particles, destructive powers, and a high chance of cataclysmic events.
-*   **`Energy:`** A universe crackling with power. Expect glowing particles and powers based on raw energy, like lightning and powerful shockwaves.
-*   **`Ethereal:`** A mysterious, ghost-like universe. Expect low-opacity, twinkling particles and reality-bending powers that defy normal physics.
-*   **`Crystalline:`** An orderly universe where particles move along grid lines, forming sharp, beautiful, and rigid structures.
+*   **`Classical:`** A beautiful and balanced cosmos of stars and nebulae, governed by familiar forces.
+*   **`Organic:`** A living, breathing universe of soft, flowing matter, featuring particle trails and symbiotic powers.
+*   **`Digital:`** A universe of information. Expect particles made of text characters, interconnected data webs, and glitch-based powers.
+*   **`Cosmic Horror:`** A strange, unsettling, and often monochrome universe. Expect eerie physics, void-like events, and reality-bending powers.
+*   **`Painterly:`** A world of beautiful, smearing particle trails that create an ever-evolving oil painting on your screen.
 
 ## A Universe of Infinite Features
 
-The Synergy Engine has a vast and chaotic toolbox of features to draw from, ensuring no two universes are alike.
+The Omega Engine has a vast and chaotic toolbox of features to draw from, ensuring no two universes are alike.
 
-### Procedurally Generated Powers
+### A Vast Arsenal of Powers
 Your powers are a surprise on each visit, assigned to your left and right mouse buttons.
 
 #### **Primary "Left-Click" Powers:**
 *   **`Comet:`** The classic swirling attractor that gathers matter.
 *   **`Void:`** A powerful repulsor that carves out empty space.
-*   **`Force Field:`** Project a temporary, invisible barrier that particles realistically bounce off.
+*   **`The Shaper:`** Force all nearby particles into a single, rotating geometric shape.
+*   **`The Weaver:`** Create persistent, tangible links between particles, weaving a permanent web.
+*   **`Force Field:`** Project an invisible, bouncy barrier.
 *   **`Solar Flare:`** Unleash a powerful, cone-shaped blast of force.
-*   **`Conductor:`** In a universe with linked particles, grab and pull the entire constellation like a tangible web.
+*   **`The Scribe:`** Paint new particles made of random text characters into the world.
 *   **`Chain Lightning:`** Arc raw energy between nearby particles.
 *   **`Time Warp:`** A field around your cursor that dramatically slows any particles that enter.
 *   **`The Symbiote:`** Capture particles to form a living, writhing tail that follows your cursor.
@@ -44,32 +44,45 @@ Your powers are a surprise on each visit, assigned to your left and right mouse 
 *   **`Supernova:`** Instantly trigger a "Big Bang" explosion.
 *   **`Wormhole:`** Create an entry and exit point to teleport particles across the canvas.
 *   **`Gravity Well:`** Place a new, stationary gravity well on the canvas.
-*   **`Set Orbit:`** Click to place a persistent orbital point that all particles will be gently drawn towards.
-*   **`Toggle Links:`** A direct utility to instantly turn particle linking on or off.
-*   **`Cycle Shape:`** Right-click on particles to instantly change their form.
+*   **`Glitch:`** Instantly and violently scramble the positions of all particles.
+*   **`Invert:`** Invert the colors of the background and particles in a flash.
+*   **`Spotlight:`** Dramatically fade all particles outside a radius around your cursor.
+*   **`Toggle Trails:`** Instantly turn the `Painterly` trail effect on or off.
 *   **`Anchor:`** Instantly freeze all particles in place.
 *   **`The Sculptor:`** Shrinks particles near the cursor.
 
-### Autonomous, Living Universes
-The cosmos does not wait for you. It is subject to random, ambient events:
+### A Living, Autonomous Cosmos
+The universe does not wait for you. It is subject to random, ambient events:
 
+*   **`The Great Contraction:`** The walls of the universe will slowly close in, crushing all matter together before exploding back out in a new Big Bang.
+*   **`Cosmic Message:`** The universe will spontaneously arrange its particles to spell out a cryptic, thematic word.
+*   **`Void Pockets:`** Strange, dead zones will appear where all physics are nullified.
 *   **`Binary Stars:`** Two autonomous gravity wells will appear, pulling the cosmos into beautiful, swirling galaxies.
 *   **`Pulsing Core:`** A "heartbeat" will emanate from the center of the screen, creating gentle, rhythmic waves.
 *   **`Meteor Showers:`** Volleys of high-speed particles will periodically streak across the screen.
-*   **`Supercluster:`** All matter will begin a slow, inexorable drift towards a single, far-off-screen point.
-*   **`Phase Shift:`** All particles will periodically and synchronously fade in and out of visibility.
+
+## The Seeding Engine: Capture & Share
+Every unique universe is born from a **Seed**—a short string of characters that acts as its unique DNA.
+
+*   **Capture:** A discreet button in the bottom-left corner allows you to copy the current universe's Seed (and a shareable URL) to your clipboard.
+*   **Revisit & Share:** Pasting a seed into the URL (`index.html?seed=COSMIC-CHAOS-1138`) will allow anyone, anywhere, to experience the exact same universe you discovered.
 
 ## How to Use
 
-This project is entirely self-contained.
-
 1.  Save the code as a single `index.html` file.
 2.  Open it in any modern web browser.
-3.  Refresh the page to generate a new universe.
+3.  Refresh the page to generate a new, unique universe.
+4.  Use the "Capture Seed" button to save and share the URL of your favorite discoveries.
 
 ## Technology Stack
 
 *   **HTML5**
 *   **CSS3** (for background gradients, animations, and glow effects)
-*   **JavaScript (ES6)** (for the Synergy Engine, generative logic, and all physics)
+*   **JavaScript (ES6)** (for the Omega Engine, generative logic, and all physics)
 *   **particles.js:** Used as a lightweight rendering foundation, now heavily extended by a custom physics and interaction engine.
+
+---
+
+## License
+
+This project is licensed under the MIT License.

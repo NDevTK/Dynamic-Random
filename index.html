@@ -56,32 +56,9 @@
             left: 0;
             z-index: 2;
         }
-
-        #instruction-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.5em;
-            font-weight: 300;
-            color: rgba(255, 255, 255, 0.7);
-            pointer-events: none;
-            z-index: 5;
-            opacity: 0;
-            animation: fade-in-out 6s ease-in-out forwards;
-        }
-
-        @keyframes fade-in-out {
-            0% { opacity: 0; }
-            20% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-
     </style>
 </head>
 <body>
-    <div id="instruction-text">Click and hold to form a comet</div>
     <div id="cursor-glow"></div>
     <div id="particles-js"></div>
 
@@ -97,37 +74,29 @@
             const cursorGlow = document.getElementById('cursor-glow');
             let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
             let isCometActive = false;
-            let initialSpeed = 4; // To store the randomized speed
+            let initialSpeed = 4;
 
             const randomizeScene = (pJS) => {
                 setRandomGradient();
-
                 const particleColor = hslToHex(Math.random() * 360, 70 + Math.random() * 30, 60 + Math.random() * 30);
                 pJS.particles.color.value = particleColor;
                 pJS.particles.line_linked.color = particleColor;
-
                 pJS.particles.number.value = Math.floor(Math.random() * 200) + 75;
                 pJS.particles.size.value = Number(((Math.random() * 4) + 1).toFixed(1));
                 pJS.particles.opacity.value = Number((Math.random() * 0.6 + 0.2).toFixed(2));
-                
                 initialSpeed = Number(((Math.random() * 5) + 1).toFixed(1));
                 pJS.particles.move.speed = initialSpeed;
-
                 const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
                 pJS.particles.shape.type = shapes[Math.floor(Math.random() * shapes.length)];
-                
                 if (['polygon', 'star'].includes(pJS.particles.shape.type)) {
                     const sides = Math.floor(Math.random() * 6) + 5;
                     pJS.particles.shape.polygon.nb_sides = sides;
                     if(pJS.particles.shape.star) pJS.particles.shape.star.nb_sides = sides;
                 }
-
                 pJS.particles.line_linked.enable = Math.random() < 0.4;
-                
                 const hoverModes = ['bubble', 'repulse', 'grab'];
                 pJS.interactivity.events.onhover.enable = true;
                 pJS.interactivity.events.onhover.mode = hoverModes[Math.floor(Math.random() * hoverModes.length)];
-
                 pJS.fn.particlesRefresh();
             };
 
@@ -140,7 +109,7 @@
                     for(const particle of pJS.particles.array) {
                         const dx = mouse.x - particle.x;
                         const dy = mouse.y - particle.y;
-                        particle.vx = dx / 20; // A smoother, less aggressive pull
+                        particle.vx = dx / 20;
                         particle.vy = dy / 20;
                     }
                 }
@@ -165,6 +134,8 @@
             window.addEventListener('mouseup', () => {
                 isCometActive = false;
                 cursorGlow.classList.remove('active');
+                pJS.particles.move.speed = initialSpeed;
+                pJS.interactivity.events.onhover.enable = true;
                 
                 for(const particle of pJS.particles.array) {
                     const angle = Math.random() * 2 * Math.PI;
@@ -172,8 +143,6 @@
                     particle.vx = Math.cos(angle) * speed;
                     particle.vy = Math.sin(angle) * speed;
                 }
-                
-                setTimeout(() => randomizeScene(pJS), 1800);
             });
         });
     </script>

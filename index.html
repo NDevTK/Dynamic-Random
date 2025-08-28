@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'none'; require-trusted-types-for 'script';" />
-    <title>Celestial Canvas: Omega Engine v6 (Final - Patched)</title>
+    <title>Celestial Canvas: Omega Engine v6</title>
     <style>
         :root {
             --ui-bg-color-dark: rgba(10, 10, 15, 0.5);
@@ -44,12 +44,18 @@
 
         #mode-select-overlay h1 { font-size: 48px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
         #mode-select-overlay p { font-size: 18px; color: rgba(255,255,255,0.7); margin-top: 0; margin-bottom: 40px; }
+        .button-base {
+            cursor: pointer;
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            transition: all 0.2s;
+        }
         .mode-button {
             padding: 15px 30px; margin: 0 20px; font-size: 20px;
             background: var(--ui-bg-color-dark); border: 1px solid var(--ui-border-color-dark);
-            color: var(--ui-text-color-dark); border-radius: 8px; cursor: pointer; transition: all 0.2s;
+            color: var(--ui-text-color-dark); border-radius: 8px;
         }
         .mode-button:hover { background: rgba(255,255,255,0.2); border-color: #fff; }
+        .mode-button:focus-visible { outline: 2px solid #48dbfb; outline-offset: 2px; }
 
         #canvas-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -83,35 +89,46 @@
         .ui-panel:hover { opacity: 1; }
         .ui-panel h3 { margin: 0 0 8px 0; padding-bottom: 5px; border-bottom: 1px solid var(--ui-border-color); font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
 
-        #info-hud { top: 15px; left: 15px; }
+        #info-hud { top: 15px; left: 15px; display: none; }
         #info-hud p { margin: 4px 0; font-size: 13px; }
         #info-hud strong { color: var(--ui-text-color); font-weight: 600; filter: brightness(1.2); }
         #energy-bar-container { width: 100%; height: 8px; background-color: rgba(0,0,0,0.1); border-radius: 4px; margin-top: 8px; overflow: hidden; }
         #energy-bar { width: 0%; height: 100%; background-color: #48dbfb; border-radius: 4px; transition: width 0.1s linear, background-color 0.5s ease; }
 
-        #controls { bottom: 15px; right: 15px; display: flex; gap: 10px; }
-        .control-button { padding: 8px 12px; cursor: pointer; border: 1px solid var(--ui-border-color); border-radius: 5px; font-size: 14px; transition: background-color 0.2s; background-color: var(--ui-bg-color); color: var(--ui-text-color);}
+        #controls { bottom: 15px; right: 15px; display: none; gap: 10px; }
+        .control-button { 
+            padding: 8px 12px; border: 1px solid var(--ui-border-color); 
+            border-radius: 5px; font-size: 14px;
+            background-color: var(--ui-bg-color); color: var(--ui-text-color);
+        }
         .control-button:hover { filter: brightness(1.2); }
+        .control-button:disabled { cursor: not-allowed; opacity: 0.5; filter: none; }
+        .control-button:focus-visible { outline: 2px solid #48dbfb; outline-offset: 2px; }
 
         #settings-panel { bottom: 60px; right: 15px; display: none; }
         .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .setting-row label { margin-right: 20px; }
-        .toggle-switch { width: 40px; height: 20px; background: rgba(0,0,0,0.2); border-radius: 10px; position: relative; cursor: pointer;}
-        .toggle-switch.active .slider { transform: translateX(20px); background-color: #48dbfb; }
-        .toggle-switch .slider { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.2s; }
+        .setting-row label { margin-right: 20px; cursor: pointer; }
+        .toggle-switch-container { position: relative; }
+        .toggle-switch-checkbox { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-switch-label { display: block; width: 40px; height: 20px; background: rgba(0,0,0,0.2); border-radius: 10px; position: relative; cursor: pointer;}
+        .toggle-switch-checkbox:checked + .toggle-switch-label .slider { transform: translateX(20px); background-color: #48dbfb; }
+        .toggle-switch-label .slider { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: 0.2s; }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; font-size: 12px; }
 
-        #challenge-panel { bottom: 15px; left: 15px; max-width: 250px; }
+        #challenge-panel { bottom: 15px; left: 15px; max-width: 250px; display: none; }
         #challenge-panel.completed { border-color: #feca57; }
         #challenge-description { margin-top: 5px; }
         #challenge-progress-bar-container { width: 100%; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; margin-top: 5px; overflow: hidden; }
         #challenge-progress-bar { width: 0%; height: 100%; background: #feca57; border-radius: 3px; transition: width 0.3s ease; }
         
-        #sandbox-editor-panel { width: 400px; max-width: 90vw; background: rgba(20, 20, 30, 0.85); border: 1px solid rgba(255,255,255,0.3); color: #fff; }
+        #sandbox-editor-panel { width: 400px; max-width: 90vw; background: var(--ui-bg-color); border: 1px solid var(--ui-border-color); color: var(--ui-text-color); }
         .sandbox-row { display: grid; grid-template-columns: 120px 1fr; gap: 15px; align-items: center; margin-bottom: 12px; }
         .sandbox-row label { text-align: right; }
-        .sandbox-row select, .sandbox-row input { width: 100%; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid #555; border-radius: 4px; padding: 5px; }
+        .sandbox-row select, .sandbox-row input { width: 100%; background: rgba(0,0,0,0.3); color: var(--ui-text-color); border: 1px solid var(--ui-border-color); border-radius: 4px; padding: 5px; font-family: 'Segoe UI', 'Roboto', sans-serif; }
         .sandbox-buttons { display: flex; justify-content: space-around; margin-top: 20px; }
+        
+        body.light-theme .sandbox-row select, body.light-theme .sandbox-row input, body.light-theme .mode-button { color: #000; background-color: var(--ui-bg-color-light); border-color: var(--ui-border-color-light); }
+        body.light-theme .mode-button:hover { background: rgba(0,0,0,0.1); }
 
         /* Mobile Adjustments */
         @media (max-width: 768px) {
@@ -130,8 +147,8 @@
         <h1>Celestial Canvas</h1>
         <p>The Omega Engine</p>
         <div>
-            <button id="discovery-mode-btn" class="mode-button">Discovery Mode</button>
-            <button id="sandbox-mode-btn" class="mode-button">Sandbox Mode</button>
+            <button id="discovery-mode-btn" class="mode-button button-base">Discovery Mode</button>
+            <button id="sandbox-mode-btn" class="mode-button button-base">Sandbox Mode</button>
         </div>
     </div>
     <div id="sandbox-editor-panel" class="fullscreen-overlay ui-panel" style="display: none;">
@@ -161,9 +178,9 @@
             <input type="range" id="sb-friction" min="0.8" max="0.99" step="0.01" value="0.98">
         </div>
         <div class="sandbox-buttons">
-            <button id="back-to-menu-btn" class="mode-button">Back</button>
-            <button id="launch-sandbox-btn" class="mode-button">Launch</button>
-            <button id="share-sandbox-btn" class="mode-button">Share</button>
+            <button id="back-to-menu-btn" class="mode-button button-base">Back</button>
+            <button id="launch-sandbox-btn" class="mode-button button-base">Launch</button>
+            <button id="share-sandbox-btn" class="mode-button button-base">Share</button>
         </div>
     </div>
 
@@ -180,20 +197,26 @@
         <div id="challenge-description">---</div>
         <div id="challenge-progress-bar-container"><div id="challenge-progress-bar"></div></div>
     </div>
-    <div id="controls">
-        <div id="pause-btn" class="control-button">Pause</div>
-        <div id="new-seed-btn" class="control-button">New</div>
-        <div id="settings-btn" class="control-button">&#9881;</div>
+    <div id="controls" class="ui-panel">
+        <button id="pause-btn" class="control-button button-base">Pause</button>
+        <button id="new-seed-btn" class="control-button button-base">New Seed</button>
+        <button id="settings-btn" class="control-button button-base" aria-label="Settings">&#9881;</button>
     </div>
     <div id="settings-panel" class="ui-panel">
         <h3>Settings</h3>
         <div class="setting-row">
-            <label for="sound-toggle">Sound</label>
-            <div id="sound-toggle" class="toggle-switch"><div class="slider"></div></div>
+            <label for="sound-toggle-checkbox">Sound</label>
+            <div class="toggle-switch-container">
+                <input type="checkbox" id="sound-toggle-checkbox" class="toggle-switch-checkbox">
+                <label for="sound-toggle-checkbox" id="sound-toggle-label" class="toggle-switch-label"><div class="slider"></div></label>
+            </div>
         </div>
         <div class="setting-row">
-            <label for="theme-toggle">Light Theme</label>
-            <div id="theme-toggle" class="toggle-switch"><div class="slider"></div></div>
+            <label for="theme-toggle-checkbox">Light Theme</label>
+            <div class="toggle-switch-container">
+                <input type="checkbox" id="theme-toggle-checkbox" class="toggle-switch-checkbox">
+                <label for="theme-toggle-checkbox" id="theme-toggle-label" class="toggle-switch-label"><div class="slider"></div></label>
+            </div>
         </div>
         <h3 style="margin-top: 15px;">Stats</h3>
         <div class="stats-grid">
@@ -227,22 +250,33 @@
                 pauseBtn: document.getElementById('pause-btn'),
                 newSeedBtn: document.getElementById('new-seed-btn'),
                 settingsBtn: document.getElementById('settings-btn'),
-                soundToggle: document.getElementById('sound-toggle'),
-                themeToggle: document.getElementById('theme-toggle'),
+                soundToggleCheckbox: document.getElementById('sound-toggle-checkbox'),
+                themeToggleCheckbox: document.getElementById('theme-toggle-checkbox'),
+                controls: document.getElementById('controls')
             };
             const STATE = {
                 mouse: { x: window.innerWidth / 2, y: window.innerHeight / 2, lastX: window.innerWidth / 2, lastY: window.innerHeight/2 },
-                isLeftMouseDown: false, tick: 0,
+                isLeftMouseDown: false, isRightMouseDown: false, tick: 0,
                 universe: { energy: 0, state: 'Stable' }, profile: {},
                 gravityWells: [], temporaryObjects: [],
-                currentSeed: '', cataclysmInProgress: false, isPaused: false,
-                challenge: { complete: true },
+                currentSeed: '', cataclysmInProgress: false, isPaused: false, isGenerating: false,
+                challenge: { complete: true, startTime: 0, pauseTime: 0 },
                 settings: { sound: true, theme: 'dark' },
                 stats: { universes: 0, cataclysms: 0, challenges: 0 },
                 mode: 'discovery',
-                fling: { active: false, particle: null }
+                fling: { active: false, particle: null },
+                lastFrameTime: 0, deltaTime: 0,
+                lastSandboxConfig: {}
             };
             let PHYSICS = { friction: 0.98 };
+            
+            const CONSTANTS = {
+                SYMBIOTE_RADIUS: 150,
+                BARRIER_LIFE: 120,
+                FLING_GRAB_RADIUS: 100,
+                FLING_VELOCITY_MULTIPLIER: 0.05,
+                MAX_FLING_VELOCITY: 50
+            };
 
             // =================================================================
             // SOUND ENGINE
@@ -285,7 +319,7 @@
             const universeBlueprints = {
                 Classical: { left:['comet'], right:['gravityWell'], events:['binaryStars'], cataclysms:['Supernova'], challenge: {id: 'gravityWellsPlaced', title: 'Binary Stars', desc: 'Place 2 Gravity Wells.', target: 2}},
                 Organic: { left:['symbiote'], right:['sculptor'], events:['pulsingCore'], cataclysms:['Phase Shift'], challenge: {id: 'symbioteLength', title: 'Symbiosis', desc: 'Grow a tail of 50 particles.', target: 50}},
-                Digital: { left:['chainLightning'], right:['glitch'], events:['cosmicMessage'], cataclysms:['Glitch Storm'], challenge: {id: 'linksCreated', title: 'Data Web', desc: 'Create 100 particle links.', target: 100}},
+                Digital: { left:['chainLightning'], right:['glitch'], events:['cosmicMessage'], cataclysms:['Glitch Storm'], challenge: {id: 'linksCreated', title: 'Data Web', desc: 'Activate Chain Lightning for 5s.', target: 5000, isTime: true}},
                 CosmicHorror: { left:['blackHole'], right:['invert'], events:['greatContraction'], cataclysms:['The Great Collapse'], challenge: {id: 'particlesConsumed', title: 'The Void', desc: 'Consume 100 particles.', target: 100}},
                 Painterly: { left:['alchemist'], right:['toggleTrails'], events:['colorShift'], cataclysms:['Rift Storm'], challenge: {id: 'colorsChanged', title: 'Alchemist', desc: 'Change the color of 200 particles.', target: 200}},
                 Aquatic: { left:['vortex'], right:['depthCharge'], events:['currents'], cataclysms:['Maelstrom'], challenge: {id: 'depthCharges', title: 'Shockwaves', desc: 'Trigger 5 Depth Charges.', target: 5}},
@@ -299,6 +333,8 @@
             // CORE GENERATION & STATE MANAGEMENT
             // =================================================================
             function generateUniverse(config) {
+                if (STATE.isGenerating) return;
+                STATE.isGenerating = true;
                 resetState();
                 STATE.stats.universes++;
                 saveStats();
@@ -339,27 +375,35 @@
                 
                 STATE.universe = { energy: 0, state: 'Stable', maxEnergy: 4000 };
                 history.replaceState(null, '', `?${STATE.mode === 'sandbox' ? 'sandbox='+encodeSandboxProfile(profile) : 'seed='+seed}`);
-                STATE.challenge = {...blueprint.challenge, progress: 0, complete: false};
+                STATE.challenge = {...blueprint.challenge, progress: 0, complete: false, startTime: 0, pauseTime: 0 };
                 updateHUD();
                 updateChallengeUI();
                 updateAmbientSound(profile.blueprintName);
                 pJS.fn.particlesRefresh();
+                showGameUI();
+                STATE.isGenerating = false;
             };
 
             function resetState(){
                 STATE.gravityWells=[]; STATE.temporaryObjects=[]; STATE.tick=0; STATE.cataclysmInProgress=false;
+                STATE.challenge.startTime = 0; STATE.challenge.pauseTime = 0;
                 DOM.body.style.filter = '';
             }
             
             // =================================================================
             // MAIN UPDATE LOOP
             // =================================================================
-            function update() {
+            function update(timestamp) {
+                if (!STATE.lastFrameTime) STATE.lastFrameTime = timestamp;
+                STATE.deltaTime = (timestamp - STATE.lastFrameTime) / 1000;
+                STATE.lastFrameTime = timestamp;
+
                 if (STATE.isPaused) { requestAnimationFrame(update); return; }
                 STATE.tick++;
                 if (STATE.cataclysmInProgress) { requestAnimationFrame(update); return; }
 
-                if (STATE.isLeftMouseDown) { STATE.universe.energy = Math.min(STATE.universe.maxEnergy, STATE.universe.energy + 10); } 
+                const isInteracting = STATE.isLeftMouseDown || STATE.isRightMouseDown;
+                if (isInteracting) { STATE.universe.energy = Math.min(STATE.universe.maxEnergy, STATE.universe.energy + 10); } 
                 else { STATE.universe.energy = Math.max(0, STATE.universe.energy - 5); }
                 
                 if (STATE.universe.energy >= STATE.universe.maxEnergy && STATE.universe.state !== 'Unstable') {
@@ -372,22 +416,69 @@
                 
                 pJS.canvas.ctx.clearRect(0, 0, pJS.canvas.w, pJS.canvas.h);
 
-                // Fling logic
                 if(STATE.fling.active && STATE.fling.particle) {
                     STATE.fling.particle.x = STATE.mouse.x;
                     STATE.fling.particle.y = STATE.mouse.y;
                     STATE.fling.particle.vx = 0;
                     STATE.fling.particle.vy = 0;
                 }
+
+                STATE.temporaryObjects = STATE.temporaryObjects.filter(obj => obj.life-- > 0);
+                STATE.temporaryObjects.forEach(obj => {
+                    if (obj.type === 'barrier') {
+                         pJS.canvas.ctx.strokeStyle = `rgba(255, 255, 255, ${obj.life / CONSTANTS.BARRIER_LIFE})`;
+                         pJS.canvas.ctx.lineWidth = 3;
+                         pJS.canvas.ctx.beginPath();
+                         pJS.canvas.ctx.moveTo(obj.x1, obj.y1);
+                         pJS.canvas.ctx.lineTo(obj.x2, obj.y2);
+                         pJS.canvas.ctx.stroke();
+                    }
+                });
                 
+                if(STATE.isLeftMouseDown) {
+                    if (STATE.profile.leftClickPower === 'chainLightning' && STATE.challenge.isTime) {
+                        if (STATE.challenge.startTime === 0) STATE.challenge.startTime = Date.now();
+                        updateChallenge('linksCreated', Date.now() - STATE.challenge.startTime, true);
+                    }
+                }
+                
+                let symbioteCount = 0;
                 for(let i = pJS.particles.array.length - 1; i >= 0; i--) {
                     const p = pJS.particles.array[i]; if (!p) continue;
+                    
                     for(const well of STATE.gravityWells) { const dx=well.x-p.x; const dy=well.y-p.y; p.vx+=dx*0.01; p.vy+=dy*0.01; }
+                    
                     if (STATE.isLeftMouseDown) handlePower(p, i, pJS, STATE.profile.leftClickPower);
-                    p.vx *= PHYSICS.friction; p.vy *= PHYSICS.friction;
+                    if (STATE.isRightMouseDown) handlePower(p, i, pJS, STATE.profile.rightClickPower);
+
+                    for(const obj of STATE.temporaryObjects) {
+                        if(obj.type === 'barrier' && particleCrossesLine(p, obj)) {
+                            const lineVec = { x: obj.x2 - obj.x1, y: obj.y2 - obj.y1 };
+                            const lineNormal = { x: -lineVec.y, y: lineVec.x };
+                            const d = Math.sqrt(lineNormal.x * lineNormal.x + lineNormal.y * lineNormal.y);
+                            lineNormal.x /= d; lineNormal.y /= d;
+                            const dot = p.vx * lineNormal.x + p.vy * lineNormal.y;
+                            p.vx -= 2 * dot * lineNormal.x;
+                            p.vy -= 2 * dot * lineNormal.y;
+                            p.x += lineNormal.x * 2;
+                            p.y += lineNormal.y * 2;
+                        }
+                    }
+
+                    if (STATE.profile.leftClickPower === 'symbiote' && STATE.isLeftMouseDown && Math.sqrt(Math.pow(p.x - STATE.mouse.x,2)+Math.pow(p.y-STATE.mouse.y,2)) < CONSTANTS.SYMBIOTE_RADIUS) {
+                        symbioteCount++;
+                    }
+
+                    p.vx *= PHYSICS.friction;
+                    p.vy *= PHYSICS.friction;
                 }
 
-                pJS.fn.particlesUpdate(); pJS.fn.particlesDraw();
+                if(STATE.profile.leftClickPower === 'symbiote' && STATE.isLeftMouseDown) {
+                    updateChallenge('symbioteLength', symbioteCount, true);
+                }
+
+                pJS.fn.particlesUpdate();
+                pJS.fn.particlesDraw();
                 STATE.mouse.lastX = STATE.mouse.x;
                 STATE.mouse.lastY = STATE.mouse.y;
                 requestAnimationFrame(update);
@@ -401,21 +492,18 @@
                 switch(power) {
                     case 'comet': if (dist < 200) { p.vx += dx * 0.1; p.vy += dy * 0.1; } break;
                     case 'timeDilation': if (dist < 150) { p.vx *= 0.9; p.vy *= 0.9; } break;
-                    // Other powers...
                 }
             }
-            function handleRightClick() {
-                const power = STATE.profile.rightClickPower;
-                switch(power) {
-                    case 'gravityWell': STATE.gravityWells.push({ x: STATE.mouse.x, y: STATE.mouse.y }); updateChallenge('gravityWellsPlaced', 1); break;
-                    case 'rewind': pJS.particles.array.forEach(p => { if (Math.sqrt(Math.pow(p.x - STATE.mouse.x, 2) + Math.pow(p.y - STATE.mouse.y, 2)) < 150) { p.vx *= -1; p.vy *= -1; } }); updateChallenge('timeRewound', 1); break;
-                    // Other powers...
-                }
-            }
+            
             function triggerCataclysm(pJS) {
-                STATE.cataclysmInProgress = true; STATE.stats.cataclysms++; saveStats(); playSound('cataclysm');
+                STATE.cataclysmInProgress = true; 
+                [DOM.pauseBtn, DOM.newSeedBtn, DOM.settingsBtn].forEach(btn => btn.disabled = true);
+                STATE.stats.cataclysms++; 
+                saveStats(); 
+                playSound('cataclysm');
                 setTimeout(() => {
                     STATE.cataclysmInProgress = false;
+                    [DOM.pauseBtn, DOM.newSeedBtn, DOM.settingsBtn].forEach(btn => btn.disabled = false);
                     if (STATE.mode === 'sandbox') {
                         generateUniverse({ mode: 'sandbox', profile: STATE.profile });
                     } else {
@@ -427,6 +515,8 @@
             // =================================================================
             // UI, SETTINGS & EVENT HANDLERS
             // =================================================================
+            function showGameUI() { DOM.infoHud.style.display = 'block'; DOM.challengePanel.style.display = 'block'; DOM.controls.style.display = 'flex'; DOM.newSeedBtn.textContent = STATE.mode === 'sandbox' ? 'Edit Sandbox' : 'New Seed'; }
+            function hideGameUI() { DOM.infoHud.style.display = 'none'; DOM.challengePanel.style.display = 'none'; DOM.controls.style.display = 'none'; DOM.settingsPanel.style.display = 'none'; }
             function updateHUD() {
                 document.getElementById('hud-blueprint').textContent = STATE.profile.blueprintName;
                 document.getElementById('hud-mode').textContent = `(${STATE.mode})`;
@@ -438,7 +528,7 @@
             }
             function updateChallenge(id, value, isValue=false) {
                 if (STATE.challenge.complete || STATE.challenge.id !== id) return;
-                STATE.challenge.progress = isValue ? Math.max(STATE.challenge.progress, value) : STATE.challenge.progress + value;
+                STATE.challenge.progress = isValue ? value : STATE.challenge.progress + value;
                 if (STATE.challenge.progress >= STATE.challenge.target) {
                     STATE.challenge.progress = STATE.challenge.target;
                     STATE.challenge.complete = true;
@@ -454,18 +544,23 @@
                 DOM.challengePanel.classList.toggle('completed', STATE.challenge.complete);
             }
             
-            function saveSettings() { localStorage.setItem('celestialCanvasSettings', JSON.stringify(STATE.settings)); }
-            function saveStats() { localStorage.setItem('celestialCanvasStats', JSON.stringify(STATE.stats)); updateStatsUI(); }
+            // Safe localStorage Wrappers
+            function safeLocalStorageSet(key, value) { try { localStorage.setItem(key, value); } catch(e) { console.warn("LocalStorage is unavailable. Settings will not be saved."); } }
+            function safeLocalStorageGet(key) { try { return localStorage.getItem(key); } catch(e) { console.warn("LocalStorage is unavailable. Cannot load settings."); return null; } }
+
+            function saveSettings() { safeLocalStorageSet('celestialCanvasSettings', JSON.stringify(STATE.settings)); }
+            function saveStats() { safeLocalStorageSet('celestialCanvasStats', JSON.stringify(STATE.stats)); updateStatsUI(); }
             function loadSettings() {
-                const settings = JSON.parse(localStorage.getItem('celestialCanvasSettings')); if (settings) { STATE.settings = settings; }
-                const stats = JSON.parse(localStorage.getItem('celestialCanvasStats')); if (stats) { STATE.stats = stats; }
+                const settings = JSON.parse(safeLocalStorageGet('celestialCanvasSettings')); if (settings) { STATE.settings = settings; }
+                const stats = JSON.parse(safeLocalStorageGet('celestialCanvasStats')); if (stats) { STATE.stats = stats; }
+                STATE.lastSandboxConfig = JSON.parse(safeLocalStorageGet('celestialCanvasSandbox')) || {};
                 applySettings(); updateStatsUI();
             }
             function applySettings() {
                 DOM.body.className = STATE.settings.theme === 'light' ? 'light-theme' : 'dark-theme';
-                DOM.themeToggle.classList.toggle('active', STATE.settings.theme === 'light');
-                DOM.soundToggle.classList.toggle('active', STATE.settings.sound);
-                if (!STATE.settings.sound && ambientOscillator) { ambientGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1); ambientOscillator.stop(audioCtx.currentTime + 1); ambientOscillator = null; }
+                DOM.themeToggleCheckbox.checked = STATE.settings.theme === 'light';
+                DOM.soundToggleCheckbox.checked = STATE.settings.sound;
+                if (!STATE.settings.sound && audioCtx && ambientOscillator) { ambientGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1); ambientOscillator.stop(audioCtx.currentTime + 1); ambientOscillator = null; }
             }
             function updateStatsUI() {
                 document.getElementById('stats-universes').textContent = STATE.stats.universes;
@@ -473,17 +568,26 @@
                 document.getElementById('stats-challenges').textContent = STATE.stats.challenges;
             }
 
+            function getSandboxProfileFromDOM() {
+                return {
+                    blueprintName: document.getElementById('sb-blueprint').value,
+                    leftClickPower: document.getElementById('sb-lclick').value,
+                    rightClickPower: document.getElementById('sb-rclick').value,
+                    ambientEvent: document.getElementById('sb-event').value,
+                    particleCount: parseInt(document.getElementById('sb-particles').value),
+                    friction: parseFloat(document.getElementById('sb-friction').value),
+                };
+            }
             function populateSandboxEditor() {
-                const bpSelect = document.getElementById('sb-blueprint');
-                const lClickSelect = document.getElementById('sb-lclick');
-                const rClickSelect = document.getElementById('sb-rclick');
-                const eventSelect = document.getElementById('sb-event');
+                const selects = [document.getElementById('sb-blueprint'), document.getElementById('sb-lclick'), document.getElementById('sb-rclick'), document.getElementById('sb-event')];
+                selects.forEach(sel => { while(sel.firstChild) sel.removeChild(sel.firstChild); });
+                
                 const allPowers = [...new Set(Object.values(universeBlueprints).flatMap(bp => [...bp.left, ...bp.right]))];
                 const allEvents = [...new Set(Object.values(universeBlueprints).flatMap(bp => bp.events))];
                 
-                Object.keys(universeBlueprints).forEach(name => bpSelect.add(new Option(name, name)));
-                allPowers.forEach(name => { lClickSelect.add(new Option(name, name)); rClickSelect.add(new Option(name, name)); });
-                allEvents.forEach(name => eventSelect.add(new Option(name, name)));
+                Object.keys(universeBlueprints).forEach(name => selects[0].add(new Option(name, name)));
+                allPowers.forEach(name => { selects[1].add(new Option(name, name)); selects[2].add(new Option(name, name)); });
+                allEvents.forEach(name => selects[3].add(new Option(name, name)));
             }
             function encodeSandboxProfile(profile) { return btoa(JSON.stringify(profile)); }
             function decodeSandboxProfile(encoded) { try { return JSON.parse(atob(encoded)); } catch (e) { return null; } }
@@ -500,6 +604,8 @@
                 const profile = decodeSandboxProfile(urlParams.get('sandbox'));
                 if (profile) {
                     DOM.modeSelectOverlay.style.display = 'none';
+                    STATE.lastSandboxConfig = profile;
+                    safeLocalStorageSet('celestialCanvasSandbox', JSON.stringify(profile));
                     generateUniverse({ mode: 'sandbox', profile: profile });
                     requestAnimationFrame(update);
                 }
@@ -507,31 +613,42 @@
             
             // Event Listeners
             DOM.discoveryModeBtn.addEventListener('click', () => { DOM.modeSelectOverlay.style.display = 'none'; generateUniverse({ mode: 'discovery', seed: generateRandomSeed() }); requestAnimationFrame(update); });
-            DOM.sandboxModeBtn.addEventListener('click', () => { DOM.modeSelectOverlay.style.display = 'none'; DOM.sandboxEditorPanel.style.display = 'flex'; });
+            DOM.sandboxModeBtn.addEventListener('click', () => { 
+                DOM.modeSelectOverlay.style.display = 'none'; 
+                if(STATE.lastSandboxConfig.blueprintName) {
+                    document.getElementById('sb-blueprint').value = STATE.lastSandboxConfig.blueprintName;
+                    document.getElementById('sb-lclick').value = STATE.lastSandboxConfig.leftClickPower;
+                    document.getElementById('sb-rclick').value = STATE.lastSandboxConfig.rightClickPower;
+                    document.getElementById('sb-event').value = STATE.lastSandboxConfig.ambientEvent;
+                    document.getElementById('sb-particles').value = STATE.lastSandboxConfig.particleCount;
+                    document.getElementById('sb-friction').value = STATE.lastSandboxConfig.friction;
+                }
+                DOM.sandboxEditorPanel.style.display = 'flex'; 
+            });
             DOM.launchSandboxBtn.addEventListener('click', () => {
                 DOM.sandboxEditorPanel.style.display = 'none';
-                const profile = {
-                    blueprintName: document.getElementById('sb-blueprint').value,
-                    leftClickPower: document.getElementById('sb-lclick').value,
-                    rightClickPower: document.getElementById('sb-rclick').value,
-                    ambientEvent: document.getElementById('sb-event').value,
-                    particleCount: parseInt(document.getElementById('sb-particles').value),
-                    friction: parseFloat(document.getElementById('sb-friction').value),
-                };
+                const profile = getSandboxProfileFromDOM();
+                STATE.lastSandboxConfig = profile;
+                safeLocalStorageSet('celestialCanvasSandbox', JSON.stringify(profile));
                 generateUniverse({ mode: 'sandbox', profile: profile });
                 requestAnimationFrame(update);
             });
-            DOM.shareSandboxBtn.addEventListener('click', () => {
-                const profile = { blueprintName: document.getElementById('sb-blueprint').value, leftClickPower: document.getElementById('sb-lclick').value, rightClickPower: document.getElementById('sb-rclick').value, ambientEvent: document.getElementById('sb-event').value, particleCount: parseInt(document.getElementById('sb-particles').value), friction: parseFloat(document.getElementById('sb-friction').value) };
+            DOM.shareSandboxBtn.addEventListener('click', (e) => {
+                const profile = getSandboxProfileFromDOM();
                 const url = `${window.location.origin}${window.location.pathname}?sandbox=${encodeSandboxProfile(profile)}`;
-                navigator.clipboard.writeText(url).then(() => alert('Shareable URL copied to clipboard!'));
+                navigator.clipboard.writeText(url).then(() => {
+                    e.target.textContent = 'Copied!';
+                    setTimeout(() => e.target.textContent = 'Share', 2000);
+                });
             });
             DOM.backToMenuBtn.addEventListener('click', () => {
                 DOM.sandboxEditorPanel.style.display = 'none';
                 DOM.modeSelectOverlay.style.display = 'flex';
+                hideGameUI();
             });
             DOM.newSeedBtn.addEventListener('click', () => { 
-                if (STATE.cataclysmInProgress) return;
+                if (STATE.cataclysmInProgress || STATE.isGenerating) return;
+                hideGameUI();
                 if (STATE.mode === 'sandbox') {
                     DOM.sandboxEditorPanel.style.display = 'flex';
                 } else {
@@ -540,54 +657,109 @@
             });
 
             function handleInteractionStart(e) {
+                if (STATE.cataclysmInProgress) return;
                 initAudio();
-                if (e.button === 0) { // Left Click
+                const isTouchEvent = e.touches && e.touches.length > 0;
+                const eventPos = isTouchEvent ? e.touches[0] : e;
+
+                if ((isTouchEvent && e.touches.length > 1) || (!isTouchEvent && e.button === 2)) {
+                    STATE.isRightMouseDown = true;
+                    const power = STATE.profile.rightClickPower;
+                    if(power === 'barrier') STATE.temporaryObjects.push({ type: 'barrier', x1: eventPos.clientX-100, y1: eventPos.clientY-100, x2: eventPos.clientX+100, y2: eventPos.clientY+100, life: CONSTANTS.BARRIER_LIFE });
+                    else handleRightClick();
+                } else {
                     STATE.isLeftMouseDown = true;
-                    // Fling Power Logic: Find and grab the nearest particle
                     if (STATE.profile.leftClickPower === 'fling') {
-                        let closest = null, minDist = 100;
+                        let closest = null, minDist = CONSTANTS.FLING_GRAB_RADIUS;
                         for(const p of pJS.particles.array) {
-                            const dist = Math.sqrt(Math.pow(p.x-STATE.mouse.x,2)+Math.pow(p.y-STATE.mouse.y,2));
+                            const dist = Math.sqrt(Math.pow(p.x-eventPos.clientX,2)+Math.pow(p.y-eventPos.clientY,2));
                             if (dist < minDist) { minDist = dist; closest = p; }
                         }
                         if(closest) { STATE.fling.active = true; STATE.fling.particle = closest; }
                     }
-                } else if (e.button === 2) { // Right Click
-                    handleRightClick();
                 }
                 DOM.cursorGlow.classList.add('active');
             }
 
             function handleInteractionEnd(e) {
-                 if (e.button === 0) { // Left Click Release
-                    STATE.isLeftMouseDown = false;
-                     // Fling Power Logic: Release the particle with velocity
-                    if (STATE.fling.active && STATE.fling.particle) {
-                        const velocityX = (STATE.mouse.x - STATE.mouse.lastX) * 2;
-                        const velocityY = (STATE.mouse.y - STATE.mouse.lastY) * 2;
-                        STATE.fling.particle.vx = velocityX;
-                        STATE.fling.particle.vy = velocityY;
-                        updateChallenge('particlesFlung', 1);
-                        STATE.fling.active = false;
-                        STATE.fling.particle = null;
-                    }
+                if (STATE.cataclysmInProgress) {
+                    STATE.isLeftMouseDown = false; STATE.isRightMouseDown = false; STATE.fling.active = false;
+                    return;
                 }
+                if (STATE.fling.active && STATE.fling.particle) {
+                    let velocityX = (STATE.mouse.x - STATE.mouse.lastX) / (STATE.deltaTime || 1/60) * CONSTANTS.FLING_VELOCITY_MULTIPLIER;
+                    let velocityY = (STATE.mouse.y - STATE.mouse.lastY) / (STATE.deltaTime || 1/60) * CONSTANTS.FLING_VELOCITY_MULTIPLIER;
+                    velocityX = Math.max(-CONSTANTS.MAX_FLING_VELOCITY, Math.min(CONSTANTS.MAX_FLING_VELOCITY, velocityX));
+                    velocityY = Math.max(-CONSTANTS.MAX_FLING_VELOCITY, Math.min(CONSTANTS.MAX_FLING_VELOCITY, velocityY));
+                    STATE.fling.particle.vx = velocityX;
+                    STATE.fling.particle.vy = velocityY;
+                    updateChallenge('particlesFlung', 1);
+                    STATE.fling.active = false;
+                    STATE.fling.particle = null;
+                }
+                if (STATE.challenge.isTime) STATE.challenge.startTime = 0;
+                STATE.isLeftMouseDown = false;
+                STATE.isRightMouseDown = false;
                 DOM.cursorGlow.classList.remove('active');
             }
 
-            DOM.pauseBtn.addEventListener('click', () => { STATE.isPaused = !STATE.isPaused; DOM.pauseBtn.textContent = STATE.isPaused ? 'Play' : 'Pause'; });
+            function handleInteractionMove(e) {
+                const eventPos = e.touches ? e.touches[0] : e;
+                STATE.mouse.x = eventPos.clientX;
+                STATE.mouse.y = eventPos.clientY;
+                if(getComputedStyle(DOM.cursorGlow).display !== 'none') {
+                    DOM.cursorGlow.style.left=`${STATE.mouse.x}px`;
+                    DOM.cursorGlow.style.top=`${STATE.mouse.y}px`;
+                }
+            }
+
+            function handleVisibilityChange() {
+                if (document.hidden && !STATE.isPaused) {
+                    DOM.pauseBtn.click();
+                }
+            }
+
+            DOM.pauseBtn.addEventListener('click', () => { 
+                STATE.isPaused = !STATE.isPaused; 
+                DOM.pauseBtn.textContent = STATE.isPaused ? 'Play' : 'Pause';
+                if(STATE.isPaused) {
+                    if(STATE.challenge.isTime && STATE.challenge.startTime > 0) STATE.challenge.pauseTime = Date.now();
+                } else {
+                    if(STATE.challenge.isTime && STATE.challenge.startTime > 0) STATE.challenge.startTime += (Date.now() - STATE.challenge.pauseTime);
+                    STATE.lastFrameTime = performance.now();
+                }
+                if(STATE.fling.active) { STATE.fling.active = false; STATE.fling.particle = null; }
+            });
             DOM.settingsBtn.addEventListener('click', () => { DOM.settingsPanel.style.display = DOM.settingsPanel.style.display === 'block' ? 'none' : 'block'; });
-            DOM.soundToggle.addEventListener('click', () => { STATE.settings.sound = !STATE.settings.sound; saveSettings(); applySettings(); });
-            DOM.themeToggle.addEventListener('click', () => { STATE.settings.theme = STATE.settings.theme === 'dark' ? 'light' : 'dark'; saveSettings(); applySettings(); });
+            DOM.soundToggleCheckbox.addEventListener('change', () => { STATE.settings.sound = DOM.soundToggleCheckbox.checked; saveSettings(); applySettings(); });
+            DOM.themeToggleCheckbox.addEventListener('change', () => { STATE.settings.theme = DOM.themeToggleCheckbox.checked ? 'light' : 'dark'; saveSettings(); applySettings(); });
             
             window.addEventListener('mousedown', handleInteractionStart);
             window.addEventListener('mouseup', handleInteractionEnd);
+            window.addEventListener('mousemove', handleInteractionMove);
+            window.addEventListener('touchstart', handleInteractionStart);
+            window.addEventListener('touchend', handleInteractionEnd);
+            window.addEventListener('touchmove', handleInteractionMove);
+            window.addEventListener('touchcancel', handleInteractionEnd);
             window.addEventListener('contextmenu', e => e.preventDefault());
-            window.addEventListener('mousemove', e => { STATE.mouse.x = e.clientX; STATE.mouse.y = e.clientY; DOM.cursorGlow.style.left=`${STATE.mouse.x}px`; DOM.cursorGlow.style.top=`${STATE.mouse.y}px`; });
+            document.addEventListener("visibilitychange", handleVisibilityChange);
             
             // =================================================================
-            // UTILITY
+            // UTILITY & PHYSICS HELPERS
             // =================================================================
+            function particleCrossesLine(p, line) {
+                const p2 = { x: p.x + p.vx, y: p.y + p.vy };
+                const a1 = line.y2 - line.y1; const b1 = line.x1 - line.x2;
+                if(b1 === 0 && a1 === 0) return false;
+                const c1 = a1*line.x1 + b1*line.y1;
+                const a2 = p2.y - p.y; const b2 = p.x - p2.x;
+                const det = a1*b2 - a2*b1;
+                if (det === 0) return false;
+                const x = (b2*c1 - b1*c2)/det; const y = (a1*c2 - a2*c1)/det;
+                const onSegment1 = x >= Math.min(line.x1, line.x2) - 1 && x <= Math.max(line.x1, line.x2) + 1 && y >= Math.min(line.y1, line.y2) - 1 && y <= Math.max(line.y1, line.y2) + 1;
+                const onSegment2 = x >= Math.min(p.x, p2.x) - 1 && x <= Math.max(p.x, p2.x) + 1 && y >= Math.min(p.y, p2.y) - 1 && y <= Math.max(p.y, p2.y) + 1;
+                return onSegment1 && onSegment2;
+            }
             function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
             function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0} return h; }
             function generateRandomSeed() { const w1=['CELESTIAL','KINETIC','COSMIC','VOID','OCEANIC','CRYSTAL','DATA','CHRONO']; const w2=['DRIFT','ECHO','PULSE','SONG','CHAOS','DEEP','SHARD','STREAM','RIFT']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }

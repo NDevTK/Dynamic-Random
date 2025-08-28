@@ -69,124 +69,128 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
     <script>
-        const baseConfig = { "particles": { "number": { "value": 150 }, "color": { "value": "#ffffff" }, "shape": { "type": "circle" }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 3, "random": true }, "line_linked": { "enable": false }, "move": { "enable": true, "speed": 4, "direction": "none", "out_mode": "out" } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "bubble": { "distance": 200, "size": 8, "duration": 2 } } }, "retina_detect": true };
+        const baseConfig = { "particles": { "number": { "value": 150 }, "color": { "value": "#ffffff" }, "shape": { "type": "circle" }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 3, "random": true }, "line_linked": { "enable": false, "distance": 120, "opacity": 0.4 }, "move": { "enable": true, "speed": 4, "direction": "none", "out_mode": "out", "attract": { "enable": false } } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "bubble": { "distance": 200, "size": 8, "duration": 2 } } }, "retina_detect": true };
 
         document.addEventListener('DOMContentLoaded', () => {
             const cursorGlow = document.getElementById('cursor-glow');
             const friction = 0.98;
-            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-            let isLeftMouseDown = false, isRightMouseDown = false;
+            let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, px: 0, py: 0 };
+            let isLeftMouseDown = false, isRightMouseDown = false, rightClickUsed = false;
             let tick = 0;
             
             let universeProfile = {};
             let symbioteParticles = [];
-            let wormhole = { entry: null, exit: null };
             let gravityWells = [];
+            let orbitalPoint = null;
+            let offScreenTarget = { x: Math.random() * 4000 - 1000, y: Math.random() * 4000 - 1000 };
 
-            const generateUniverseProfile = () => {
-                const archetypes = ['Calm', 'Volatile', 'Teeming', 'Ethereal'];
-                const archetype = archetypes[Math.floor(Math.random() * archetypes.length)];
-                const profile = { archetype };
+            const phenomena = ['Gravity', 'Flow', 'Structure', 'Chaos', 'Energy', 'Ethereal', 'Crystalline'];
+            const features = {
+                // Left Click
+                comet: { tags: ['Gravity', 'Flow'] },
+                void: { tags: ['Chaos', 'Energy'] },
+                chainLightning: { tags: ['Energy', 'Structure'], requiresLinks: true },
+                timeWarp: { tags: ['Ethereal', 'Gravity'] },
+                symbiote: { tags: ['Flow'] },
+                blackHole: { tags: ['Chaos', 'Gravity'] },
+                pulsar: { tags: ['Energy'] },
+                forceField: { tags: ['Structure'] },
+                conductor: { tags: ['Structure', 'Energy'], requiresLinks: true },
+                solarFlare: { tags: ['Energy', 'Chaos'] },
+                alchemist: { tags: ['Ethereal'] },
 
-                switch (archetype) {
-                    case 'Calm':
-                        profile.speedRange = [0.5, 2]; profile.particleCount = [50, 100];
-                        profile.leftClickPowers = ['comet', 'timeWarp'];
-                        profile.rightClickPowers = ['cycleShape', 'gravityWell'];
-                        profile.ambientEvents = ['pulsingCore', 'none'];
-                        break;
-                    case 'Volatile':
-                        profile.speedRange = [4, 8]; profile.particleCount = [100, 200];
-                        profile.leftClickPowers = ['void', 'chainLightning', 'blackHole', 'pulsar'];
-                        profile.rightClickPowers = ['supernova'];
-                        profile.ambientEvents = ['meteorShower', 'pulsingCore'];
-                        profile.hasGlow = true;
-                        break;
-                    case 'Teeming':
-                        profile.speedRange = [1, 3]; profile.particleCount = [250, 400];
-                        profile.leftClickPowers = ['comet', 'void', 'symbiote'];
-                        profile.rightClickPowers = ['sculptor', 'anchor'];
-                        profile.ambientEvents = ['binaryStars', 'none'];
-                        break;
-                    case 'Ethereal':
-                        profile.speedRange = [0.2, 1]; profile.particleCount = [75, 150];
-                        profile.leftClickPowers = ['timeWarp', 'alchemist'];
-                        profile.rightClickPowers = ['wormhole'];
-                        profile.ambientEvents = ['colorShift'];
-                        profile.isMonochrome = Math.random() < 0.5;
-                        profile.hasGlow = true;
-                        break;
-                }
-                
-                profile.leftClickPower = profile.leftClickPowers[Math.floor(Math.random() * profile.leftClickPowers.length)];
-                profile.rightClickPower = profile.rightClickPowers[Math.floor(Math.random() * profile.rightClickPowers.length)];
-                profile.ambientEvent = profile.ambientEvents[Math.floor(Math.random() * profile.ambientEvents.length)];
-                
-                return profile;
+                // Right Click
+                supernova: { tags: ['Chaos', 'Energy'] },
+                wormhole: { tags: ['Ethereal'] },
+                gravityWell: { tags: ['Gravity'] },
+                toggleLinks: { tags: ['Structure', 'Utility'] },
+                setOrbit: { tags: ['Gravity', 'Flow'] },
+                sculptor: { tags: ['Utility'] },
+                anchor: { tags: ['Structure'] },
+
+                // Ambient Events
+                binaryStars: { tags: ['Gravity'] },
+                pulsingCore: { tags: ['Energy', 'Flow'] },
+                meteorShower: { tags: ['Chaos'] },
+                supercluster: { tags: ['Flow', 'Gravity'] },
+                phaseShift: { tags: ['Ethereal'] },
             };
 
-            const applyUniverseProfile = (pJS, profile) => {
-                universeProfile = profile;
-                
+            const generateUniverseProfile = (pJS) => {
+                const profile = {};
+                profile.phenomenon = phenomena[Math.floor(Math.random() * phenomena.length)];
+
+                const getFeature = (type) => {
+                    const all = Object.keys(features).filter(f => features[f].tags.includes(type));
+                    return all[Math.floor(Math.random() * all.length)];
+                };
+
+                const getTaggedFeature = (tag) => {
+                    const candidates = Object.keys(features).filter(f => features[f].tags.includes(tag));
+                    return candidates[Math.floor(Math.random() * candidates.length)];
+                };
+
+                profile.leftClickPower = getTaggedFeature(profile.phenomenon);
+                profile.rightClickPower = getTaggedFeature(profile.phenomenon);
+                profile.ambientEvent = getTaggedFeature(profile.phenomenon);
+
+                // --- Apply Profile & Synergy Checks ---
                 const baseHue = Math.random() * 360;
-                setRandomGradient(baseHue, profile.isMonochrome);
+                setRandomGradient(baseHue, profile.phenomenon === 'Ethereal' || profile.phenomenon === 'Crystalline');
                 const particleColor = hslToHex((baseHue + 180) % 360, 80, 70);
                 pJS.particles.color.value = particleColor;
                 document.documentElement.style.setProperty('--particle-color', particleColor);
-                document.querySelector('#particles-js').classList.toggle('glow', !!profile.hasGlow);
-                
-                pJS.particles.number.value = Math.floor(Math.random() * (profile.particleCount[1] - profile.particleCount[0]) + profile.particleCount[0]);
-                pJS.particles.move.speed = Math.random() * (profile.speedRange[1] - profile.speedRange[0]) + profile.speedRange[0];
-                pJS.particles.opacity.value = profile.archetype === 'Ethereal' ? 0.3 : 0.6;
-                pJS.particles.line_linked.enable = profile.archetype === 'Teeming' && Math.random() < 0.5;
+                document.querySelector('#particles-js').classList.toggle('glow', ['Energy', 'Chaos', 'Ethereal'].includes(profile.phenomenon));
 
-                if (profile.ambientEvent === 'binaryStars') {
-                    gravityWells = [ { x: window.innerWidth * 0.25, y: window.innerHeight / 2, strength: 0.1 }, { x: window.innerWidth * 0.75, y: window.innerHeight / 2, strength: 0.1 } ];
-                } else {
-                    gravityWells = [];
-                }
-                
+                pJS.particles.move.attract.enable = profile.phenomenon === 'Gravity' && Math.random() < 0.5;
+                pJS.particles.number.value = profile.phenomenon === 'Teeming' ? 300 : 150;
+                pJS.particles.move.speed = 2 + Math.random() * 4;
+                pJS.particles.line_linked.enable = profile.phenomenon === 'Structure' || profile.phenomenon === 'Crystalline' || (features[profile.leftClickPower]?.requiresLinks) || (features[profile.rightClickPower]?.requiresLinks);
+
+                if (profile.phenomenon === 'Crystalline') { pJS.particles.shape.type = ['edge', 'triangle']; } 
+                else { pJS.particles.shape.type = ['circle', 'star']; }
+
+                // Reset state variables
+                symbioteParticles = [];
+                gravityWells = [];
+                orbitalPoint = null;
+                wormhole = { entry: null, exit: null };
+
+                universeProfile = profile;
                 pJS.fn.particlesRefresh();
             };
 
             particlesJS('particles-js', baseConfig);
             const pJS = window.pJSDom[0].pJS;
-            applyUniverseProfile(pJS, generateUniverseProfile());
+            generateUniverseProfile(pJS);
 
             const update = () => {
                 tick++;
                 
-                if (universeProfile.ambientEvent === 'pulsingCore' && tick % 180 === 0) {
-                    for(const p of pJS.particles.array) { const dx = p.x - window.innerWidth/2; const dy = p.y - window.innerHeight/2; const dist = Math.sqrt(dx*dx+dy*dy) || 1; p.vx += dx/dist * 5; p.vy += dy/dist * 5; }
-                }
-                if (universeProfile.ambientEvent === 'meteorShower' && tick % 240 === 0 && Math.random() > 0.5) {
-                    createMeteorShower(pJS);
-                }
-                if (universeProfile.ambientEvent === 'colorShift') {
-                    const newHue = (pJS.particles.color.h.value + 0.1) % 360;
-                    pJS.particles.color.h.value = newHue;
-                    const newHex = hslToHex(newHue, pJS.particles.color.s.value, pJS.particles.color.l.value);
-                    pJS.particles.color.value = newHex;
-                }
+                if (universeProfile.ambientEvent === 'phaseShift' && tick % 240 < 120) { pJS.canvas.ctx.globalAlpha = 0.5 + Math.sin(tick*0.05)*0.5; } else { pJS.canvas.ctx.globalAlpha = 1; }
+                if (universeProfile.ambientEvent === 'supercluster') { for(const p of pJS.particles.array) { p.vx += (offScreenTarget.x - p.x) * 0.000001; p.vy += (offScreenTarget.y - p.y) * 0.000001; } }
+                if (universeProfile.ambientEvent === 'pulsingCore' && tick % 180 === 0) { for(const p of pJS.particles.array) { const dx=p.x-window.innerWidth/2; const dy=p.y-window.innerHeight/2; const dist=Math.sqrt(dx*dx+dy*dy)||1; p.vx+=dx/dist*5; p.vy+=dy/dist*5; } }
+                if (universeProfile.ambientEvent === 'meteorShower' && tick % 240 === 0 && Math.random() > 0.5) { createMeteorShower(pJS); }
+                if (universeProfile.ambientEvent === 'binaryStars') { for(const well of gravityWells) { for(const p of pJS.particles.array) { const dx=well.x-p.x; const dy=well.y-p.y; p.vx+=dx*well.strength*0.1; p.vy+=dy*well.strength*0.1; } } }
 
                 for(let i = pJS.particles.array.length - 1; i >= 0; i--) {
                     const p = pJS.particles.array[i];
                     if (!p) continue;
-
-                    for (const well of gravityWells) { const dx = well.x - p.x; const dy = well.y - p.y; p.vx += dx * well.strength * 0.1; p.vy += dy * well.strength * 0.1; }
+                    
+                    if(orbitalPoint) { const dx = orbitalPoint.x - p.x; const dy = orbitalPoint.y - p.y; p.vx += dx * 0.005; p.vy += dy * 0.005; }
 
                     if (isLeftMouseDown) handleLeftClickPower(p, i, pJS);
                     if (isRightMouseDown) handleRightClickPower(p, pJS);
+                    
+                    if (universeProfile.phenomenon === 'Crystalline') { if(Math.abs(p.vx) > Math.abs(p.vy)) { p.vy *= 0.1; } else { p.vx *= 0.1; } }
 
                     p.vx *= friction; p.vy *= friction;
-
-                    if (wormhole.entry && wormhole.exit) { const dx = wormhole.entry.x - p.x; const dy = wormhole.entry.y - p.y; if (Math.sqrt(dx*dx+dy*dy) < 20) { p.x = wormhole.exit.x; p.y = wormhole.exit.y; p.vx = (Math.random()-0.5)*5; p.vy = (Math.random()-0.5)*5; } }
+                    
+                    if (wormhole.entry && wormhole.exit) { const dx=wormhole.entry.x-p.x; const dy=wormhole.entry.y-p.y; if (Math.sqrt(dx*dx+dy*dy)<20){p.x=wormhole.exit.x;p.y=wormhole.exit.y;p.vx=(Math.random()-0.5)*5;p.vy=(Math.random()-0.5)*5;} }
                 }
 
-                if (universeProfile.leftClickPower === 'symbiote' && isLeftMouseDown) {
-                    for(let j = 0; j < symbioteParticles.length; j++) { const sp = symbioteParticles[j]; if(!sp) continue; const target = j === 0 ? mouse : symbioteParticles[j-1]; sp.vx += (target.x - sp.x) * 0.1; sp.vy += (target.y - sp.y) * 0.1; }
-                }
-
+                if(universeProfile.leftClickPower === 'symbiote' && isLeftMouseDown) { for(let j=0; j<symbioteParticles.length; j++){ const sp = symbioteParticles[j]; if(!sp) continue; const target = j===0 ? mouse : symbioteParticles[j-1]; sp.vx += (target.x-sp.x)*0.1; sp.vy += (target.y-sp.y)*0.1;} }
+                
                 pJS.fn.particlesDraw();
                 requestAnimationFrame(update);
             };
@@ -197,31 +201,37 @@
                 switch(universeProfile.leftClickPower) {
                     case 'comet': p.vx += dx * 0.05; p.vy += dy * 0.05; break;
                     case 'void': if (dist < 200) { const force = -1 / dist; p.vx += dx * force; p.vy += dy * force; } break;
-                    case 'chainLightning': if(dist < 100 && Math.random() > 0.95) { const neighbor = pJS.particles.array[Math.floor(Math.random() * pJS.particles.array.length)]; if(!neighbor) return; pJS.canvas.ctx.beginPath(); pJS.canvas.ctx.moveTo(p.x,p.y); pJS.canvas.ctx.lineTo(neighbor.x,neighbor.y); pJS.canvas.ctx.strokeStyle=p.color.value; pJS.canvas.ctx.stroke(); } break;
+                    case 'forceField': if (dist < 100) { p.vx = dx/dist * 10; p.vy = dy/dist * 10; } break;
+                    case 'solarFlare': const angle=Math.atan2(dy,dx); const mouse_angle=Math.atan2(mouse.y-mouse.py, mouse.x-mouse.px)||0; if(Math.abs(angle-mouse_angle)<0.5){p.vx+=Math.cos(mouse_angle)*2; p.vy+=Math.sin(mouse_angle)*2;} break;
+                    case 'conductor': if(dist<200){pJS.particles.line_linked.opacity=Math.min(1,pJS.particles.line_linked.opacity+0.01);p.vx+=dx*0.01;}break;
+                    case 'chainLightning': if(dist < 100 && Math.random() > 0.95) { const n = pJS.particles.array[Math.floor(Math.random() * pJS.particles.array.length)]; if(!n) return; pJS.canvas.ctx.beginPath();pJS.canvas.ctx.moveTo(p.x,p.y);pJS.canvas.ctx.lineTo(n.x,n.y);pJS.canvas.ctx.strokeStyle=p.color.value;pJS.canvas.ctx.stroke(); } break;
                     case 'timeWarp': if(dist < 150) { p.vx *= 0.8; p.vy *= 0.8; } break;
                     case 'symbiote': if(dist < 50 && !symbioteParticles.includes(p)) symbioteParticles.push(p); break;
                     case 'blackHole': if(dist < 200) { p.vx += dx * 0.1; p.vy += dy * 0.1; } if (dist < 10) pJS.particles.array.splice(i, 1); break;
-                    case 'pulsar': if (tick % 30 === 0) { if(dist < 300) { const force = 20 / dist; p.vx -= dx * force; p.vy -= dy * force; } } break;
-                    case 'alchemist': if(dist < 100) { p.color.value = hslToHex(Math.random()*360, 80, 70); } break;
+                    case 'pulsar': if (tick % 30 === 0 && dist < 300) { const force = 20/dist; p.vx-=dx*force; p.vy-=dy*force; } break;
+                    case 'alchemist': if(dist < 100) p.color.value = hslToHex(Math.random()*360, 80, 70); break;
                 }
             }
 
             function handleRightClickPower(p, pJS) {
                 const dx = mouse.x - p.x; const dy = mouse.y - p.y; const dist = Math.sqrt(dx*dx+dy*dy) || 1;
+                if(rightClickUsed) return;
                 switch(universeProfile.rightClickPower) {
-                    case 'cycleShape': if(dist < 30) { const shapes = ['circle', 'edge', 'triangle', 'star']; p.shape = shapes[Math.floor(Math.random() * shapes.length)]; } break;
-                    case 'supernova': if(!p.exploded) { p.vx = (Math.random()-0.5)*50; p.vy = (Math.random()-0.5)*50; p.exploded = true; } break;
+                    case 'toggleLinks': pJS.particles.line_linked.enable = !pJS.particles.line_linked.enable; rightClickUsed = true; break;
+                    case 'supernova': if(!p.exploded) { p.vx=(Math.random()-0.5)*50; p.vy=(Math.random()-0.5)*50; p.exploded=true; } break;
                     case 'anchor': p.vx = 0; p.vy = 0; break;
                     case 'sculptor': if(dist < 100 && p.radius > 0.5) p.radius -= 0.1; break;
                 }
             }
             
-            window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; cursorGlow.style.left = `${e.clientX}px`; cursorGlow.style.top = `${e.clientY}px`; });
+            window.addEventListener('mousemove', e => { mouse.px = mouse.x; mouse.py = mouse.y; mouse.x = e.clientX; mouse.y = e.clientY; cursorGlow.style.left = `${e.clientX}px`; cursorGlow.style.top = `${e.clientY}px`; });
             window.addEventListener('contextmenu', e => e.preventDefault());
             window.addEventListener('mousedown', e => {
                 if (e.button === 0) { isLeftMouseDown = true; if (universeProfile.rightClickPower === 'wormhole') { wormhole.entry = { ...mouse }; } } 
-                else if (e.button === 2) { isRightMouseDown = true; 
+                else if (e.button === 2) { 
+                    isRightMouseDown = true; 
                     if (universeProfile.rightClickPower === 'supernova') for(const p of pJS.particles.array) p.exploded = false;
+                    if (universeProfile.rightClickPower === 'setOrbit') orbitalPoint = { ...mouse };
                     if (universeProfile.rightClickPower === 'wormhole') { wormhole.exit = { ...mouse }; wormhole.entry = null; }
                     if (universeProfile.rightClickPower === 'gravityWell') gravityWells.push({ x: mouse.x, y: mouse.y, strength: 0.1 });
                 }
@@ -230,18 +240,13 @@
                 cursorGlow.classList.add('active');
             });
             window.addEventListener('mouseup', e => {
-                if (e.button === 0) isLeftMouseDown = false;
-                else if (e.button === 2) isRightMouseDown = false;
+                if (e.button === 0) { isLeftMouseDown = false; if(universeProfile.leftClickPower === 'conductor') pJS.particles.line_linked.opacity = 0.4; }
+                else if (e.button === 2) { isRightMouseDown = false; rightClickUsed = false; }
                 cursorGlow.classList.remove('active');
                 symbioteParticles = [];
             });
 
-            function createMeteorShower(pJS) {
-                const count = 30; const angle = Math.random() * 2 * Math.PI; const speed = Math.random() * 20 + 20;
-                const startX = window.innerWidth / 2 - Math.cos(angle) * (window.innerWidth / 2 + 100);
-                const startY = window.innerHeight / 2 - Math.sin(angle) * (window.innerHeight / 2 + 100);
-                for (let i = 0; i < count; i++) { setTimeout(() => { let p = pJS.fn.modes.pushParticles(1, {x: startX + (Math.random()-0.5)*200, y: startY + (Math.random()-0.5)*200})[0]; if (p) { p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed; } }, i * 20); }
-            }
+            function createMeteorShower(pJS) { const count=30,angle=Math.random()*2*Math.PI,speed=Math.random()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){setTimeout(()=>{let p=pJS.fn.modes.pushParticles(1,{x:startX+(Math.random()-0.5)*200,y:startY+(Math.random()-0.5)*200})[0];if(p){p.vx=Math.cos(angle)*speed;p.vy=Math.sin(angle)*speed;}},i*20);} }
             function setRandomGradient(hue, isMonochrome) { const angle = Math.floor(Math.random() * 360); if(isMonochrome){ document.body.style.background = `linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`; } else { document.body.style.background = `linear-gradient(${angle}deg, hsl(${hue}, 80%, 30%), hsl(${(hue + 120) % 360}, 80%, 20%), hsl(${(hue + 240) % 360}, 80%, 25%))`; } document.body.style.backgroundSize = '400% 400%'; }
             function hslToHex(h, s, l) { s /= 100; l /= 100; let c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c/2, r = 0, g = 0, b = 0; if (h < 60) {r=c;g=x} else if (h < 120) {r=x;g=c} else if (h < 180) {g=c;b=x} else if (h < 240) {g=x;b=c} else if (h < 300) {r=x;b=c} else {r=c;b=x} r = Math.round((r + m) * 255).toString(16).padStart(2, '0'); g = Math.round((g + m) * 255).toString(16).padStart(2, '0'); b = Math.round((b + m) * 255).toString(16).padStart(2, '0'); return `#${r}${g}${b}`; }
         });

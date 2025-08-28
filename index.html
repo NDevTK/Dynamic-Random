@@ -107,17 +107,19 @@
             const canvasContainer = document.getElementById('canvas-container');
             const friction = 0.98;
             let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-            let isLeftMouseDown = false, isRightMouseDown = false, rightClickUsed = false;
+            let isLeftMouseDown = false, isRightMouseDown = false;
             let mouseDownTime = 0;
             let tick = 0;
             
             let universeState = { energy: 0, state: 'Stable' };
             let universeProfile = {};
-            let leftForce = {}, rightForce = {};
-            let symbioteParticles = [], gravityWells = [], voidPockets = [], persistentLinks = [];
-            let orbitalPoint = null, wormhole = { entry: null, exit: null };
+            let gravityWells = [], voidPockets = [];
+            let orbitalPoint = null;
             let currentSeed = '';
             let cataclysmInProgress = false;
+            let isInitialLoad = true;
+            let activeTimeouts = [];
+            let seedCopyTimeout;
 
             // --- Seeding Engine ---
             function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
@@ -150,12 +152,6 @@
                     cataclysm: blueprint.cataclysms[Math.floor(seededRandom() * blueprint.cataclysms.length)]
                 };
                 
-                // Procedural Force Generation
-                const coreTypes = ['Attractor', 'Repulsor', 'Shear', 'Stasis', 'Thermal', 'Void'];
-                const modifiers = ['Orbital', 'Pulsing', 'Crystalline', 'Chaotic'];
-                leftForce = { core: coreTypes[Math.floor(seededRandom() * 3)], modifier: modifiers[Math.floor(seededRandom() * modifiers.length)], strength: seededRandom()*0.5+0.5 };
-                rightForce = { core: coreTypes[Math.floor(seededRandom() * 3) + 3], modifier: modifiers[Math.floor(seededRandom() * modifiers.length)], strength: seededRandom()*0.5+0.5 };
-
                 // Apply Aesthetics & Physics
                 const baseHue = seededRandom() * 360;
                 setRandomGradient(baseHue, blueprint.aesthetic.monochrome, seededRandom);
@@ -178,7 +174,22 @@
                 
                 history.replaceState(null, '', `?seed=${currentSeed}`);
                 seedCaptureUI.textContent = `Seed: ${currentSeed}`;
+                seedCaptureUI.style.opacity = '0.8';
+                
                 pJS.fn.particlesRefresh();
+                tagParticles(pJS.particles.array);
+
+                if (isInitialLoad) {
+                    pJS.particles.array.forEach(p => {
+                        p.x = pJS.canvas.w / 2;
+                        p.y = pJS.canvas.h / 2;
+                        const angle = Math.random() * 2 * Math.PI;
+                        const force = Math.random() * 20 + 5;
+                        p.vx = Math.cos(angle) * force;
+                        p.vy = Math.sin(angle) * force;
+                    });
+                    isInitialLoad = false;
+                }
             };
 
             particlesJS('particles-js', baseConfig);
@@ -186,6 +197,18 @@
             
             const urlParams = new URLSearchParams(window.location.search);
             generateUniverse(pJS, urlParams.get('seed') || generateRandomSeed());
+            
+            function getMouseInWorldSpace() {
+                let worldMouse = { ...mouse };
+                if (universeProfile.ambientEvent === 'greatContraction') {
+                    const scale = 1 - (Math.sin(tick*0.001)*0.5 + 0.5)*0.1; 
+                    const translateX = pJS.canvas.w / 2 * (1 - scale);
+                    const translateY = pJS.canvas.h / 2 * (1 - scale);
+                    worldMouse.x = (mouse.x - translateX) / scale;
+                    worldMouse.y = (mouse.y - translateY) / scale;
+                }
+                return worldMouse;
+            }
 
             // --- Main Update Loop ---
             const update = () => {
@@ -208,59 +231,211 @@
                 pJS.particles.move.speed = (1 + energyRatio * 5);
                 document.querySelector('#particles-js').style.filter = universeState.state === 'Energized' ? `drop-shadow(0 0 5px ${pJS.particles.color.value})` : '';
 
-                pJS.canvas.ctx.clearRect(0, 0, pJS.canvas.w, pJS.canvas.h);
-                
-                if (universeProfile.ambientEvent === 'greatContraction') { const scale = 1 - (Math.sin(tick*0.001)*0.5 + 0.5)*0.1; pJS.canvas.ctx.save(); pJS.canvas.ctx.translate(pJS.canvas.w/2*(1-scale), pJS.canvas.h/2*(1-scale)); pJS.canvas.ctx.scale(scale, scale); }
-                if (universeProfile.ambientEvent === 'cosmicMessage' && tick === 300) { createMessage(pJS, ['CREATE','CHANGE','FEEL','BECOME'][Math.floor(Math.random()*4)]); }
-                if (universeProfile.ambientEvent === 'colorShift') { const newHue = (tick*0.1)%360; pJS.particles.color.value = hslToHex(newHue, 80, 70); }
-                if (universeProfile.ambientEvent === 'pulsingCore' && tick % 180 === 0) { for(const p of pJS.particles.array) { const dx=p.x-window.innerWidth/2; const dy=p.y-window.innerHeight/2; const dist=Math.sqrt(dx*dx+dy*dy)||1; p.vx+=dx/dist*5; p.vy+=dy/dist*5; } }
-                if (universeProfile.ambientEvent === 'meteorShower' && tick % 240 === 0 && Math.random() > 0.5) { createMeteorShower(pJS, mulberry32(stringToSeed(currentSeed))); }
+                try {
+                    // Handle canvas clearing for trails
+                    if (pJS.particles.move.trail.enable) {
+                        pJS.canvas.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                        pJS.canvas.ctx.fillRect(0, 0, pJS.canvas.w, pJS.canvas.h);
+                    } else {
+                        pJS.canvas.ctx.clearRect(0, 0, pJS.canvas.w, pJS.canvas.h);
+                    }
+                    
+                    const worldMouse = getMouseInWorldSpace();
+                    let scale = 1;
 
-                for(let i = pJS.particles.array.length - 1; i >= 0; i--) {
-                    const p = pJS.particles.array[i];
-                    if (!p) continue;
+                    // Handle Ambient Events
+                    if (universeProfile.ambientEvent === 'greatContraction') { 
+                        scale = 1 - (Math.sin(tick*0.001)*0.5 + 0.5)*0.1; 
+                        pJS.canvas.ctx.save(); 
+                        pJS.canvas.ctx.translate(pJS.canvas.w/2*(1-scale), pJS.canvas.h/2*(1-scale)); 
+                        pJS.canvas.ctx.scale(scale, scale); 
+                    }
+                    if (universeProfile.ambientEvent === 'cosmicMessage' && tick === 300) { createMessage(pJS, ['CREATE','CHANGE','FEEL','BECOME'][Math.floor(Math.random()*4)]); }
+                    if (universeProfile.ambientEvent === 'colorShift') { 
+                        const newHue = (tick*0.1)%360;
+                        const newHex = hslToHex(newHue, 80, 70);
+                        const newRgb = pJS.fn.vendors.convertHexToRgb(newHex);
+                        pJS.particles.color.value = newHex;
+                        for(const p of pJS.particles.array) {
+                            if (!p.colorLocked) { p.color = { rgb: newRgb }; }
+                        }
+                    }
+                    if (universeProfile.ambientEvent === 'pulsingCore' && tick % 180 === 0) { for(const p of pJS.particles.array) { const dx=p.x-window.innerWidth/2; const dy=p.y-window.innerHeight/2; const dist=Math.sqrt(dx*dx+dy*dy)||1; p.vx+=dx/dist*5; p.vy+=dy/dist*5; } }
+                    if (universeProfile.ambientEvent === 'meteorShower' && tick % 240 === 0 && Math.random() > 0.5) { createMeteorShower(pJS, mulberry32(stringToSeed(currentSeed))); }
+
+                    // Particle Physics Loop
+                    for(let i = pJS.particles.array.length - 1; i >= 0; i--) {
+                        const p = pJS.particles.array[i];
+                        if (!p) continue;
+                        
+                        let inVoidPocket = false;
+                        for(const pocket of voidPockets){ const dx=pocket.x-p.x; const dy=pocket.y-p.y; if(Math.sqrt(dx*dx+dy*dy)<pocket.r){ inVoidPocket=true; break; } }
+                        
+                        if(!inVoidPocket) {
+                            for(const well of gravityWells) { const dx=well.x-p.x; const dy=well.y-p.y; p.vx+=dx*well.strength*0.01; p.vy+=dy*well.strength*0.01; }
+                            if(orbitalPoint) { const dx = orbitalPoint.x - p.x; const dy = orbitalPoint.y - p.y; p.vx += dx * 0.005; p.vy += dy * 0.005; }
+                            if (isLeftMouseDown) handleActivePower(p, i, pJS, universeProfile.leftClickPower, worldMouse);
+                            if (isRightMouseDown) handleActivePower(p, i, pJS, universeProfile.rightClickPower, worldMouse);
+                        }
+                        
+                        if (p.radius > p.radius_initial) {
+                           p.radius -= 0.05;
+                        }
+
+                        p.vx *= friction;
+                        p.vy *= friction;
+                    }
                     
-                    let inVoidPocket = false;
-                    for(const pocket of voidPockets){ const dx=pocket.x-p.x; const dy=pocket.y-p.y; if(Math.sqrt(dx*dx+dy*dy)<pocket.r){ inVoidPocket=true; break; } }
-                    
-                    if(!inVoidPocket) {
-                        for(const well of gravityWells) { const dx=well.x-p.x; const dy=well.y-p.y; p.vx+=dx*well.strength*0.01; p.vy+=dy*well.strength*0.01; }
-                        if(orbitalPoint) { const dx = orbitalPoint.x - p.x; const dy = orbitalPoint.y - p.y; p.vx += dx * 0.005; p.vy += dy * 0.005; }
-                        if (isLeftMouseDown) handlePower(p, i, pJS, leftForce);
-                        if (isRightMouseDown) handlePower(p, i, pJS, rightForce);
+                    // Draw Visual Indicators for invisible powers
+                    const ctx = pJS.canvas.ctx;
+                    voidPockets.forEach(pocket => {
+                        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                        ctx.strokeStyle = `rgba(255,255,255,${0.1 + Math.sin(tick * 0.02 + pocket.x) * 0.05})`;
+                        ctx.lineWidth = 1 / scale;
+                        ctx.beginPath();
+                        ctx.arc(pocket.x, pocket.y, pocket.r, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    });
+                    gravityWells.forEach(well => {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                        ctx.lineWidth = 1 / scale;
+                        ctx.beginPath();
+                        ctx.arc(well.x, well.y, 20 + Math.sin(tick * 0.05 + well.x) * 5, 0, Math.PI * 2);
+                        ctx.stroke();
+                    });
+                    if (orbitalPoint) {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.beginPath();
+                        ctx.arc(orbitalPoint.x, orbitalPoint.y, 15, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(orbitalPoint.x, orbitalPoint.y, 2, 0, Math.PI * 2);
+                        ctx.fill();
                     }
 
-                    p.vx *= friction;
-                    p.vy *= friction;
+                    pJS.fn.particlesUpdate();
+                    pJS.fn.particlesDraw();
+                } finally {
+                    if (universeProfile.ambientEvent === 'greatContraction') {
+                        pJS.canvas.ctx.restore();
+                    }
                 }
-
-                pJS.fn.particlesUpdate();
-                pJS.fn.particlesDraw();
-                if (universeProfile.ambientEvent === 'greatContraction') { pJS.canvas.ctx.restore(); }
                 requestAnimationFrame(update);
             };
             requestAnimationFrame(update);
 
-            function handlePower(p, i, pJS, force) {
-                const dx=mouse.x-p.x; const dy=mouse.y-p.y; const dist=Math.sqrt(dx*dx+dy*dy)||1;
-                let fx=0, fy=0;
-                switch(force.core) {
-                    case 'Attractor': fx += dx * 0.1; fy += dy * 0.1; break;
-                    case 'Repulsor': if (dist < 200) { const f = -10/dist; fx += dx * f; fy += dy * f; } break;
-                    case 'Shear': if (dist < 150) { fx += dy * 0.1; fy -= dx * 0.1; } break;
-                    case 'Stasis': if (dist < 150) { p.vx *= 0.8; p.vy *= 0.8; } break;
-                    case 'Thermal': if (dist < 100 && p.radius < 10) p.radius += 0.1; break;
-                    case 'Void': if (dist < 100 && p.radius > 0.5) p.radius -= 0.1; if (p.radius <= 0.5) pJS.particles.array.splice(i, 1); break;
+            function handleActivePower(p, i, pJS, powerName, currentMouse) {
+                const dx = currentMouse.x - p.x, dy = currentMouse.y - p.y;
+                const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+                switch(powerName) {
+                    case 'comet': case 'symbiote': case 'blackHole':
+                        const attractStrength = powerName === 'blackHole' ? 0.3 : 0.1;
+                        p.vx += dx * attractStrength; p.vy += dy * attractStrength;
+                        if (powerName === 'blackHole' && dist < 150 && p.radius > 0.5) p.radius -= 0.1;
+                        break;
+                    case 'forceField': case 'sculptor':
+                        if (dist < 200) { const f = -10/dist; p.vx += dx * f; p.vy += dy * f; }
+                        break;
+                    case 'shaper':
+                        if (dist < 150) { p.vx += dy * 0.1; p.vy -= dx * 0.1; }
+                        break;
+                    case 'chainLightning':
+                         if (dist < 200) { p.vx += (Math.random()-0.5)*5; p.vy += (Math.random()-0.5)*5; }
+                        break;
+                    case 'void':
+                        if (dist < 100 && p.radius > 0.5) p.radius -= 0.1;
+                        if (p.radius <= 0.5) pJS.particles.array.splice(i, 1);
+                        break;
+                    case 'scribe':
+                        if (dist < 150) {
+                            const angle = Math.atan2(p.vy, p.vx);
+                            const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                            p.vx = Math.cos(snappedAngle) * speed;
+                            p.vy = Math.sin(snappedAngle) * speed;
+                        }
+                        break;
+                    case 'timeWarp': case 'anchor':
+                        const slowFactor = powerName === 'anchor' ? 0.7 : 0.9;
+                        if (dist < 150) { p.vx *= slowFactor; p.vy *= slowFactor; }
+                        break;
+                    case 'spotlight':
+                        if (dist < 100 && p.radius < 10) p.radius += 0.1;
+                        break;
+                    case 'alchemist':
+                        if (dist < 150) { 
+                            p.color = { rgb: { r: Math.random()*255, g: Math.random()*255, b: Math.random()*255 } };
+                            p.colorLocked = true;
+                        }
+                        break;
                 }
-                if(force.modifier === 'Pulsing' && tick % 20 < 10) { fx = 0; fy = 0; }
-                if(force.modifier === 'Chaotic') { fx += (Math.random()-0.5)*5; fy += (Math.random()-0.5)*5; }
-                if(force.modifier === 'Orbital') { fx -= dy * 0.1; fy += dx * 0.1; }
-                p.vx += fx * force.strength; p.vy += fy * force.strength;
-                if(force.modifier === 'Crystalline') { if(Math.abs(p.vx)>Math.abs(p.vy)) p.vy=0; else p.vx=0; }
+            }
+            
+            function handleClickPower(powerName, pJS, currentMouse) {
+                switch(powerName) {
+                    case 'supernova':
+                        for (const p of pJS.particles.array) {
+                            const dx=p.x - currentMouse.x, dy=p.y - currentMouse.y, dist = Math.sqrt(dx*dx+dy*dy)||1;
+                            if (dist < 250) { p.vx += dx/dist*30; p.vy += dy/dist*30; }
+                        }
+                        break;
+                    case 'gravityWell':
+                        let wellRemoved = false;
+                        for (let i = gravityWells.length - 1; i >= 0; i--) {
+                            const well = gravityWells[i];
+                            const dx = currentMouse.x - well.x;
+                            const dy = currentMouse.y - well.y;
+                            if (Math.sqrt(dx * dx + dy * dy) < 30) {
+                                gravityWells.splice(i, 1);
+                                wellRemoved = true;
+                                break;
+                            }
+                        }
+                        if (!wellRemoved) {
+                            gravityWells.push({x: currentMouse.x, y: currentMouse.y, strength: 0.2});
+                        }
+                        break;
+                    case 'setOrbit':
+                        if (orbitalPoint) {
+                            const dx = currentMouse.x - orbitalPoint.x;
+                            const dy = currentMouse.y - orbitalPoint.y;
+                            if (Math.sqrt(dx * dx + dy * dy) < 20) { // Clicked near the existing point
+                                orbitalPoint = null;
+                            } else { // Clicked elsewhere, so move it
+                                orbitalPoint = { x: currentMouse.x, y: currentMouse.y };
+                            }
+                        } else { // No point exists, create one
+                            orbitalPoint = { x: currentMouse.x, y: currentMouse.y };
+                        }
+                        break;
+                    case 'glitch':
+                        for (const p of pJS.particles.array) {
+                            const dx=p.x - currentMouse.x, dy=p.y - currentMouse.y, dist = Math.sqrt(dx*dx+dy*dy);
+                            if (dist < 200) { p.x += (Math.random()-0.5)*100; p.y += (Math.random()-0.5)*100; }
+                        }
+                        break;
+                    case 'toggleLinks':
+                        pJS.particles.line_linked.enable = !pJS.particles.line_linked.enable;
+                        break;
+                    case 'toggleTrails':
+                        pJS.particles.move.trail.enable = !pJS.particles.move.trail.enable;
+                        break;
+                    case 'invert':
+                        for (const p of pJS.particles.array) {
+                            const dx=p.x - currentMouse.x, dy=p.y - currentMouse.y, dist = Math.sqrt(dx*dx+dy*dy);
+                            if (dist < 200) { p.vx *= -1; p.vy *= -1; }
+                        }
+                        break;
+                }
             }
 
             function triggerCataclysm(pJS) {
                 cataclysmInProgress = true;
+                seedCaptureUI.style.opacity = '0';
                 const choice = universeProfile.cataclysm;
                 switch(choice) {
                     case 'The Great Collapse':
@@ -289,7 +464,19 @@
                 }
             }
             
-            seedCaptureUI.addEventListener('click', () => { navigator.clipboard.writeText(window.location.href).then(() => { seedCaptureUI.textContent = 'Copied!'; setTimeout(() => seedCaptureUI.textContent = `Seed: ${currentSeed}`, 2000); }); });
+            function clearActiveTimeouts() {
+                activeTimeouts.forEach(clearTimeout);
+                activeTimeouts = [];
+            }
+            
+            // Event Listeners
+            seedCaptureUI.addEventListener('click', () => { 
+                navigator.clipboard.writeText(window.location.href).then(() => { 
+                    seedCaptureUI.textContent = 'Copied!'; 
+                    clearTimeout(seedCopyTimeout);
+                    seedCopyTimeout = setTimeout(() => seedCaptureUI.textContent = `Seed: ${currentSeed}`, 2000); 
+                }); 
+            });
             window.addEventListener('mousemove', e => { mouse.x=e.clientX; mouse.y=e.clientY; cursorGlow.style.left=`${e.clientX}px`; cursorGlow.style.top=`${e.clientY}px`; });
             window.addEventListener('contextmenu', e => e.preventDefault());
             window.addEventListener('mousedown', e => {
@@ -297,20 +484,52 @@
                 mouseDownTime = Date.now();
                 if (e.button === 0) isLeftMouseDown = true;
                 else if (e.button === 2) isRightMouseDown = true;
+                cursorGlow.style.setProperty('--glow-color', `${pJS.particles.color.value}40`);
                 cursorGlow.classList.add('active');
             });
             window.addEventListener('mouseup', e => {
                 if (cataclysmInProgress) return;
                 const holdDuration = Date.now() - mouseDownTime;
-                if (holdDuration < 200) { pJS.fn.modes.pushParticles(4, mouse); }
+                
                 if (e.button === 0) isLeftMouseDown = false;
-                else if (e.button === 2) { isRightMouseDown = false; rightClickUsed = false; }
-                cursorGlow.classList.remove('active');
+                else if (e.button === 2) isRightMouseDown = false;
+                
+                const clickPowers = ['supernova', 'gravityWell', 'setOrbit', 'glitch', 'toggleLinks', 'invert', 'toggleTrails'];
+                const destructivePowers = ['void', 'blackHole'];
+                const powerName = e.button === 0 ? universeProfile.leftClickPower : universeProfile.rightClickPower;
+                const worldMouse = getMouseInWorldSpace();
+
+                if (clickPowers.includes(powerName)) {
+                    handleClickPower(powerName, pJS, worldMouse);
+                } else if (holdDuration < 200 && !destructivePowers.includes(powerName)) { // Only create particles on a short click for non-"click" and non-destructive powers
+                    const newParticles = pJS.fn.modes.pushParticles(4, worldMouse);
+                    tagParticles(newParticles);
+                }
+                
+                if(!isLeftMouseDown && !isRightMouseDown) cursorGlow.classList.remove('active');
+            });
+
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    if (pJS && currentSeed && !cataclysmInProgress) {
+                        generateUniverse(pJS, currentSeed);
+                    }
+                }, 250);
             });
             
-            function resetState(){ symbioteParticles=[]; gravityWells=[]; voidPockets=[]; orbitalPoint=null; wormhole={entry:null,exit:null}; document.body.style.filter=''; tick=0; cataclysmInProgress=false; }
-            function createMeteorShower(pJS, seededRandom) { const count=30,angle=seededRandom()*2*Math.PI,speed=seededRandom()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){setTimeout(()=>{let p=pJS.fn.modes.pushParticles(1,{x:startX+(seededRandom()-0.5)*200,y:startY+(seededRandom()-0.5)*200})[0];if(p){p.vx=Math.cos(angle)*speed;p.vy=Math.sin(angle)*speed;}},i*20);} }
-            function createMessage(pJS, message) { const fontSize=100,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'); ctx.font=`${fontSize}px Arial`; canvas.width=ctx.measureText(message).width; canvas.height=fontSize; ctx.font=`${fontSize}px Arial`; ctx.fillStyle="#FFF"; ctx.fillText(message,0,fontSize*0.8); const data=ctx.getImageData(0,0,canvas.width,canvas.height).data; const startX=window.innerWidth/2-canvas.width/2; const startY=window.innerHeight/2-canvas.height/2; pJS.fn.particlesEmpty(); for(let y=0;y<canvas.height;y+=4){for(let x=0;x<canvas.width;x+=4){if(data[(x+y*canvas.width)*4+3]>128){pJS.fn.modes.pushParticles(1,{x:startX+x,y:startY+y});}}} }
+            // Utility Functions
+            function resetState(){ clearActiveTimeouts(); clearTimeout(seedCopyTimeout); gravityWells=[]; voidPockets=[]; orbitalPoint=null; document.body.style.filter=''; tick=0; cataclysmInProgress=false; }
+            function tagParticles(particles) {
+                particles.forEach(p => {
+                    if (p && p.radius_initial === undefined) {
+                        p.radius_initial = p.radius;
+                    }
+                });
+            }
+            function createMeteorShower(pJS, seededRandom) { const count=30,angle=seededRandom()*2*Math.PI,speed=seededRandom()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){ const timeoutId = setTimeout(()=>{const newParticles=pJS.fn.modes.pushParticles(1,{x:startX+(seededRandom()-0.5)*200,y:startY+(seededRandom()-0.5)*200}); tagParticles(newParticles); if(newParticles[0]){newParticles[0].vx=Math.cos(angle)*speed;newParticles[0].vy=Math.sin(angle)*speed;}},i*20); activeTimeouts.push(timeoutId); } }
+            function createMessage(pJS, message) { clearActiveTimeouts(); const fontSize=100,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'); ctx.font=`${fontSize}px Arial`; canvas.width=ctx.measureText(message).width; canvas.height=fontSize; ctx.font=`${fontSize}px Arial`; ctx-fillStyle="#FFF"; ctx.fillText(message,0,fontSize*0.8); const data=ctx.getImageData(0,0,canvas.width,canvas.height).data; const startX=window.innerWidth/2-canvas.width/2; const startY=window.innerHeight/2-canvas.height/2; pJS.fn.particlesEmpty(); const newParticles = []; for(let y=0;y<canvas.height;y+=4){for(let x=0;x<canvas.width;x+=4){if(data[(x+y*canvas.width)*4+3]>128){newParticles.push(...pJS.fn.modes.pushParticles(1,{x:startX+x,y:startY+y}));}}} tagParticles(newParticles); const timeoutId = setTimeout(() => { pJS.fn.particlesRefresh(); tagParticles(pJS.particles.array); }, 5000); activeTimeouts.push(timeoutId); }
             function setRandomGradient(hue, isMonochrome, seededRandom) { const angle=Math.floor(seededRandom()*360); if(isMonochrome){document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;}else{document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue+120)%360},80%,20%), hsl(${(hue+240)%360},80%,25%))`;} canvasContainer.style.background = document.body.style.background; canvasContainer.style.backgroundSize = '400% 400%'; }
             function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
         });

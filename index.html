@@ -347,16 +347,109 @@
             function handleActivePower(p, i, pJS, powerName, worldMouse) {
                 const dx = worldMouse.x - p.x, dy = worldMouse.y - p.y;
                 const distSq = dx*dx + dy*dy;
+                const dist = Math.sqrt(distSq) || 1;
 
                 switch(powerName) {
-                    case 'comet': p.vx += dx * 0.01; p.vy += dy * 0.01; break;
+                    case 'comet':
+                    case 'symbiote':
+                    case 'blackHole':
+                        const attractStrength = powerName === 'blackHole' ? 0.03 : 0.01;
+                        p.vx += dx * attractStrength; p.vy += dy * attractStrength;
+                        if (powerName === 'blackHole' && distSq < 150*150 && p.radius > 0.5) p.radius -= 0.1;
+                        break;
+                    case 'forceField':
+                    case 'sculptor':
+                        if (distSq < 200*200) { const f = -10/dist; p.vx += dx * f * 0.1; p.vy += dy * f * 0.1; }
+                        break;
+                    case 'shaper':
+                        if (distSq < 150*150) { p.vx += dy * 0.01; p.vy -= dx * 0.01; }
+                        break;
+                    case 'chainLightning':
+                         if (distSq < 200*200) { p.vx += (Math.random()-0.5)*0.5; p.vy += (Math.random()-0.5)*0.5; }
+                        break;
+                    case 'void':
+                        if (distSq < 100*100 && p.radius > 0.5) p.radius -= 0.1;
+                        if (p.radius <= 0.5) pJS.particles.array.splice(i, 1);
+                        break;
+                    case 'scribe':
+                        if (distSq < 150*150) {
+                            const angle = Math.atan2(p.vy, p.vx);
+                            const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                            p.vx = Math.cos(snappedAngle) * speed;
+                            p.vy = Math.sin(snappedAngle) * speed;
+                        }
+                        break;
+                    case 'timeWarp':
+                    case 'anchor':
+                        const slowFactor = powerName === 'anchor' ? 0.7 : 0.9;
+                        if (distSq < 150*150) { p.vx *= slowFactor; p.vy *= slowFactor; }
+                        break;
+                    case 'spotlight':
+                    case 'glaze':
+                        if (distSq < 100*100 && p.radius < 10) p.radius += 0.1;
+                        break;
+                    case 'alchemist':
+                        if (distSq < 150*150) { 
+                            p.color = { rgb: { r: Math.random()*255, g: Math.random()*255, b: Math.random()*255 } };
+                            p.colorLocked = true;
+                        }
+                        break;
+                    case 'shatter':
+                        if (distSq < 150*150 && Math.random() > 0.9) { p.vx += (Math.random()-0.5)*1.5; p.vy += (Math.random()-0.5)*1.5; if (p.radius > 1) p.radius *= 0.95; }
+                        break;
+                    case 'refractor':
+                        if (distSq < 200*200) { p.vx += (dy / dist) * 0.2; p.vy -= (dx / dist) * 0.2; }
+                        break;
+                    case 'vortex':
+                        if (distSq < 300*300) { p.vx += dx/dist * 0.5 - dy/dist * 0.2; p.vy += dy/dist * 0.5 + dx/dist * 0.2; }
+                        break;
+                    case 'school':
+                        if (distSq < 250*250) { p.vx += dx * 0.005; p.vy += dy * 0.005; }
+                        break;
+                    case 'infect': if (distSq < 150*150) { p.isInfected = true; p.color = {rgb:{r:255,g:50,b:50}}; } break;
+                    case 'tendril': if (distSq < 20*20 && pJS.particles.array.length < pJS.particles.number.value_max) { pJS.fn.modes.pushParticles(1, worldMouse); const newP = pJS.particles.array[pJS.particles.array.length-1]; newP.vx = p.vx; newP.vy = p.vy; } break;
+                    case 'accelerate': if (distSq < 150*150) { p.vx *= 1.01; p.vy *= 1.01; } break;
+                    case 'voidRift': if (distSq < 150*150) { p.radius -= 0.05; p.vx += dx/dist * 0.05; p.vy += dy/dist * 0.05; if(p.radius <= 0) pJS.particles.array.splice(i,1); } break;
                 }
             }
             
             function handleClickPower(powerName, pJS, worldMouse) {
                 switch(powerName) {
-                    case 'echoPulse': echoPulses.push({x: worldMouse.x, y: worldMouse.y, radiusSq: 250*250, maxLife: 120, life: 120}); break;
-                    case 'phaseZone': phaseZones.push({x: worldMouse.x, y: worldMouse.y, radiusSq: 150*150, maxLife: 300, life: 300}); break;
+                    case 'supernova':
+                        for (const p of pJS.particles.array) {
+                            const dx=p.x-worldMouse.x, dy=p.y-worldMouse.y, dist = Math.sqrt(dx*dx+dy*dy)||1;
+                            if (dist < 250) { p.vx += dx/dist*30; p.vy += dy/dist*30; }
+                        }
+                        break;
+                    case 'gravityWell':
+                        if (!gravityWells.some((w,i)=>{const dSq=Math.pow(w.x-worldMouse.x,2)+Math.pow(w.y-worldMouse.y,2); if(dSq<30*30){gravityWells.splice(i,1);return true;} return false;})) { gravityWells.push({x: worldMouse.x, y: worldMouse.y, strength: 0.2}); }
+                        break;
+                    case 'toggleLinks':
+                        pJS.particles.line_linked.enable = !pJS.particles.line_linked.enable;
+                        break;
+                    case 'harvest':
+                        for(let i=pJS.particles.array.length-1; i>=0; i--){
+                            const p = pJS.particles.array[i];
+                            const distSq = Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2);
+                            if(distSq < 100*100){ pJS.particles.array.splice(i,1); pJS.fn.modes.pushParticles(1,worldMouse); }
+                        }
+                        break;
+                    case 'stasisField':
+                        stasisFields.push({x: worldMouse.x, y: worldMouse.y, r: 150, maxLife: 180, life: 180});
+                        break;
+                    case 'unravel':
+                        for(let i=pJS.particles.array.length-1; i>=0; i--){
+                            const p = pJS.particles.array[i];
+                            if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.unravelling = 120; }
+                        }
+                        break;
+                    case 'echoPulse':
+                        echoPulses.push({x: worldMouse.x, y: worldMouse.y, radiusSq: 250*250, maxLife: 120, life: 120});
+                        break;
+                    case 'phaseZone':
+                        phaseZones.push({x: worldMouse.x, y: worldMouse.y, radiusSq: 150*150, maxLife: 300, life: 300});
+                        break;
                 }
             }
 
@@ -366,8 +459,24 @@
                 ui.canvasContainer.classList.remove('shake');
                 const choice = universeProfile.cataclysm;
                 switch(choice) {
-                    case 'Causality Collapse': let collapseInterval = setInterval(() => { for(const p of pJS.particles.array) { p.vx += (p.startX - p.x) * 0.01; p.vy += (p.startY - p.y) * 0.01; if(p.radius > 0.1) p.radius -= 0.1; } }, 50); setTimeout(() => { clearInterval(collapseInterval); generateUniverse(pJS, generateRandomSeed()); }, 4000); break;
-                    case 'Supernova': for(const p of pJS.particles.array) { p.vx = (Math.random()-0.5)*50; p.vy = (Math.random()-0.5)*50; } setTimeout(() => generateUniverse(pJS, generateRandomSeed()), 2500); break;
+                    case 'Supernova':
+                        for(const p of pJS.particles.array) { p.vx = (Math.random()-0.5)*50; p.vy = (Math.random()-0.5)*50; }
+                        setTimeout(() => generateUniverse(pJS, generateRandomSeed()), 2500);
+                        break;
+                    case 'Time Collapse':
+                        pJS.particles.array.forEach(p => { p.vx = -p.vx * 0.5; p.vy = -p.vy * 0.5; });
+                        let collapseIntervalTC = setInterval(() => { for(const p of pJS.particles.array) { const dx = p.startX-p.x; const dy=p.startY-p.y; p.vx += dx * 0.01; p.vy += dy * 0.01; if(p.radius > 0.1) p.radius -= 0.1; } }, 50);
+                        setTimeout(() => { clearInterval(collapseIntervalTC); generateUniverse(pJS, generateRandomSeed()); }, 4000);
+                        break;
+                    case 'Total Annihilation':
+                        ui.canvasContainer.style.transition = 'filter 4s ease';
+                        ui.canvasContainer.style.filter = 'brightness(0)';
+                        setTimeout(() => generateUniverse(pJS, generateRandomSeed()), 4500);
+                        break;
+                    case 'Causality Collapse':
+                        let collapseIntervalCC = setInterval(() => { for(const p of pJS.particles.array) { p.vx += (p.startX - p.x) * 0.01; p.vy += (p.startY - p.y) * 0.01; if(p.radius > 0.1) p.radius -= 0.1; } }, 50);
+                        setTimeout(() => { clearInterval(collapseIntervalCC); generateUniverse(pJS, generateRandomSeed()); }, 4000);
+                        break;
                 }
             }
             
@@ -378,7 +487,7 @@
             window.addEventListener('mouseup', e => {
                 if (cataclysmInProgress) return;
                 const powerName = e.button === 0 ? universeProfile.leftClickPower : universeProfile.rightClickPower;
-                const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'echoPulse', 'phaseZone'];
+                const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'echoPulse', 'phaseZone', 'harvest', 'toggleLinks'];
                 
                 if (clickPowers.includes(powerName)) {
                     handleClickPower(powerName, pJS, mouse);

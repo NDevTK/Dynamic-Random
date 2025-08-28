@@ -502,7 +502,9 @@
                 if (clickPowers.includes(powerName)) {
                     handleClickPower(powerName, pJS, worldMouse);
                 } else if (holdDuration < 200 && !destructivePowers.includes(powerName)) { // Only create particles on a short click for non-"click" and non-destructive powers
-                    const newParticles = pJS.fn.modes.pushParticles(4, worldMouse);
+                    const oldLength = pJS.particles.array.length;
+                    pJS.fn.modes.pushParticles(4, worldMouse);
+                    const newParticles = pJS.particles.array.slice(oldLength);
                     tagParticles(newParticles);
                 }
                 
@@ -522,13 +524,14 @@
             // Utility Functions
             function resetState(){ clearActiveTimeouts(); clearTimeout(seedCopyTimeout); gravityWells=[]; voidPockets=[]; orbitalPoint=null; document.body.style.filter=''; tick=0; cataclysmInProgress=false; }
             function tagParticles(particles) {
+                if (!particles) return;
                 particles.forEach(p => {
                     if (p && p.radius_initial === undefined) {
                         p.radius_initial = p.radius;
                     }
                 });
             }
-            function createMeteorShower(pJS, seededRandom) { const count=30,angle=seededRandom()*2*Math.PI,speed=seededRandom()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){ const timeoutId = setTimeout(()=>{const newParticles=pJS.fn.modes.pushParticles(1,{x:startX+(seededRandom()-0.5)*200,y:startY+(seededRandom()-0.5)*200}); tagParticles(newParticles); if(newParticles[0]){newParticles[0].vx=Math.cos(angle)*speed;newParticles[0].vy=Math.sin(angle)*speed;}},i*20); activeTimeouts.push(timeoutId); } }
+            function createMeteorShower(pJS, seededRandom) { const count=30,angle=seededRandom()*2*Math.PI,speed=seededRandom()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){ const timeoutId = setTimeout(()=>{ const oldLength = pJS.particles.array.length; pJS.fn.modes.pushParticles(1,{x:startX+(seededRandom()-0.5)*200,y:startY+(seededRandom()-0.5)*200}); const newParticle = pJS.particles.array[oldLength]; if(newParticle){ tagParticles([newParticle]); newParticle.vx=Math.cos(angle)*speed;newParticle.vy=Math.sin(angle)*speed;}},i*20); activeTimeouts.push(timeoutId); } }
             function createMessage(pJS, message) { 
                 clearActiveTimeouts(); 
                 const fontSize=100, canvas=document.createElement('canvas'), ctx=canvas.getContext('2d'); 
@@ -546,7 +549,10 @@
                 for(let y=0; y < canvas.height; y += 4) {
                     for(let x=0; x < canvas.width; x += 4) {
                         if (data[(x + y * canvas.width) * 4 + 3] > 128) {
-                            newParticles.push(...pJS.fn.modes.pushParticles(1, { x: startX + x, y: startY + y }));
+                            const oldLength = pJS.particles.array.length;
+                            pJS.fn.modes.pushParticles(1, { x: startX + x, y: startY + y });
+                            const newParticle = pJS.particles.array[oldLength];
+                            if(newParticle) newParticles.push(newParticle);
                         }
                     }
                 } 

@@ -101,7 +101,7 @@
             let tick = 0;
             
             let universeProfile = {};
-            let symbioteParticles = [], gravityWells = [], voidPockets = [], persistentLinks = [];
+            let symbioteParticles = [], gravityWells = [], voidPockets = [];
             let orbitalPoint = null, wormhole = { entry: null, exit: null };
             let currentSeed = '';
 
@@ -111,11 +111,11 @@
             function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','GALAXY','NEBULA','QUANTUM']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','CHAOS','VORTEX']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
 
             const universeBlueprints = {
-                Classical: { left:['comet','void'], right:['supernova','gravityWell'], events:['binaryStars','meteorShower'], aesthetic:{glow:true, trails:false, shape:['circle','star']} },
-                Organic: { left:['symbiote','forceField'], right:['sculptor','setOrbit'], events:['pulsingCore'], aesthetic:{glow:false, trails:true, shape:['circle']} },
-                Digital: { left:['chainLightning','shaper','scribe'], right:['glitch','toggleLinks'], events:['cosmicMessage'], aesthetic:{glow:true, trails:false, shape:['character'], chars:['0','1','<','>','/','?']} },
-                CosmicHorror: { left:['blackHole','symbiote'], right:['invert','anchor'], events:['greatContraction','voidPockets'], aesthetic:{glow:true, trails:false, shape:['edge'], monochrome:true} },
-                Painterly: { left:['alchemist','timeWarp'], right:['toggleTrails','spotlight'], events:['colorShift'], aesthetic:{glow:false, trails:true, shape:['circle']} }
+                Classical: { left:['comet','void'], right:['supernova','gravityWell'], events:['binaryStars','meteorShower'], aesthetic:{glow:true, trails:false, shape:['circle','star'], physics:{attract:true, straight:false, random:true}} },
+                Organic: { left:['symbiote','forceField'], right:['sculptor','setOrbit'], events:['pulsingCore'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:true, straight:false, random:true}} },
+                Digital: { left:['chainLightning','shaper','scribe'], right:['glitch','toggleLinks'], events:['cosmicMessage'], aesthetic:{glow:true, trails:false, shape:['character'], chars:['0','1','<','>','/','?'], physics:{attract:false, straight:true, random:false}} },
+                CosmicHorror: { left:['blackHole','symbiote'], right:['invert','anchor'], events:['greatContraction','voidPockets'], aesthetic:{glow:true, trails:false, shape:['edge'], monochrome:true, physics:{attract:false, straight:true, random:false}} },
+                Painterly: { left:['alchemist','timeWarp'], right:['toggleTrails','spotlight'], events:['colorShift'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, random:true}} }
             };
 
             const generateUniverseProfile = (pJS, seededRandom) => {
@@ -142,7 +142,10 @@
 
                 pJS.particles.number.value = blueprintName === 'Teeming' ? 300 : 150;
                 pJS.particles.move.speed = 2 + seededRandom() * 4;
-                pJS.particles.line_linked.enable = blueprintName === 'Digital' || profile.leftClickPower === 'chainLightning' || profile.leftClickPower === 'weaver';
+                pJS.particles.move.attract.enable = blueprint.aesthetic.physics.attract && seededRandom() < 0.5;
+                pJS.particles.move.straight = blueprint.aesthetic.physics.straight;
+                pJS.particles.move.random = blueprint.aesthetic.physics.random;
+                pJS.particles.line_linked.enable = blueprintName === 'Digital' || profile.leftClickPower === 'chainLightning' || profile.leftClickPower === 'conductor';
                 
                 if (profile.ambientEvent === 'voidPockets') { for(let i=0;i<3;i++) voidPockets.push({x:seededRandom()*window.innerWidth, y:seededRandom()*window.innerHeight, r:100+seededRandom()*100}); }
                 if (profile.ambientEvent === 'binaryStars') { gravityWells.push({x:window.innerWidth*0.25, y:window.innerHeight*0.5, strength:0.1}, {x:window.innerWidth*0.75, y:window.innerHeight*0.5, strength:0.1}); }
@@ -192,9 +195,6 @@
                     if (wormhole.entry && wormhole.exit) { const dx=wormhole.entry.x-p.x; const dy=wormhole.entry.y-p.y; if (Math.sqrt(dx*dx+dy*dy)<20){p.x=wormhole.exit.x;p.y=wormhole.exit.y;p.vx=(seededRandom()-0.5)*5;p.vy=(seededRandom()-0.5)*5;} }
                 }
                 
-                pJS.canvas.ctx.strokeStyle = pJS.particles.color.value;
-                pJS.canvas.ctx.lineWidth = 0.5;
-                for(const link of persistentLinks) { if (link.p1 && link.p2) { pJS.canvas.ctx.beginPath(); pJS.canvas.ctx.moveTo(link.p1.x, link.p1.y); pJS.canvas.ctx.lineTo(link.p2.x, link.p2.y); pJS.canvas.ctx.stroke(); } }
                 if(universeProfile.leftClickPower === 'symbiote' && isLeftMouseDown) { for(let j=0; j<symbioteParticles.length; j++){ const sp = symbioteParticles[j]; if(!sp) continue; const target = j===0 ? mouse : symbioteParticles[j-1]; sp.vx += (target.x-sp.x)*0.1; sp.vy += (target.y-sp.y)*0.1;} }
 
                 pJS.fn.particlesUpdate();
@@ -210,9 +210,9 @@
                     case 'comet': p.vx += dx * 0.05; p.vy += dy * 0.05; break;
                     case 'void': if (dist < 200) { const force = -1 / dist; p.vx += dx * force; p.vy += dy * force; } break;
                     case 'blackHole': if(dist < 200) { p.vx += dx * 0.1; p.vy += dy * 0.1; } if (dist < 10) pJS.particles.array.splice(i, 1); break;
-                    case 'scribe': if(dist < 50 && Math.random() > 0.8) { const pNew = pJS.fn.modes.pushParticles(1, mouse)[0]; if(pNew) pNew.shape = 'character'; } break;
+                    case 'scribe': if(dist < 50 && Math.random() > 0.8) { const pNew = pJS.fn.modes.pushParticles(1, mouse)[0]; if(pNew) { pNew.shape='character'; pNew.character = pJS.particles.shape.character; } } break;
                     case 'shaper': if(dist < 150) { const angle=Math.atan2(dy,dx); p.vx += Math.cos(angle+1.57)*2 - dx*0.01; p.vy += Math.sin(angle+1.57)*2 - dy*0.01; } break;
-                    case 'weaver': if(dist < 100 && Math.random() > 0.95) { const n = pJS.particles.array[Math.floor(Math.random()*pJS.particles.array.length)]; if(n && p !== n) persistentLinks.push({p1:p, p2:n}); } break;
+                    case 'conductor': if(dist<200){pJS.particles.line_linked.opacity=Math.min(1,pJS.particles.line_linked.opacity+0.01);p.vx+=dx*0.01;}break;
                     case 'forceField': if (dist < 100) { p.vx = dx/dist * 10; p.vy = dy/dist * 10; } break;
                     case 'solarFlare': const angle=Math.atan2(dy,dx); const mouse_angle=Math.atan2(mouse.y-mouse.py, mouse.x-mouse.px)||0; if(Math.abs(angle-mouse_angle)<0.5 && dist < 300){p.vx+=Math.cos(mouse_angle)*2; p.vy+=Math.sin(mouse_angle)*2;} break;
                     case 'chainLightning': if(dist < 100 && Math.random() > 0.95) { const n = pJS.particles.array[Math.floor(Math.random()*pJS.particles.array.length)]; if(!n) return; pJS.canvas.ctx.beginPath();pJS.canvas.ctx.moveTo(p.x,p.y);pJS.canvas.ctx.lineTo(n.x,n.y);pJS.canvas.ctx.strokeStyle=p.color.value;pJS.canvas.ctx.stroke(); } break;

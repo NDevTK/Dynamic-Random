@@ -45,11 +45,7 @@
         #cursor-glow.active {
             width: 800px;
             height: 800px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
-        }
-        
-        #cursor-glow.repulse {
-             background: radial-gradient(circle, rgba(200, 0, 0, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
+            background: radial-gradient(circle, var(--glow-color, rgba(255, 255, 255, 0.15)) 0%, rgba(255, 255, 255, 0) 50%);
         }
 
         #particles-js {
@@ -79,13 +75,22 @@
             const friction = 0.98;
             let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2, vx: 0, vy: 0 };
             let isMouseDown = false;
+            let mouseDownTime = 0;
             let initialSpeed = 4;
-            let activeMouseMode = 'comet';
+            let powerProfile = {};
 
-            const mouseModes = ['comet', 'repulsor', 'gravityWell', 'creator'];
+            const generateRandomPowerProfile = () => {
+                powerProfile = {
+                    force: (Math.random() * 2) - 1,
+                    orbital: Math.random() * 0.2,
+                    stableOrbitDist: Math.random() < 0.2 ? Math.random() * 150 + 50 : 0,
+                    creatorChance: Math.random() < 0.1 ? Math.random() * 0.15 : 0
+                };
+            };
 
             const generateRandomScene = (pJS) => {
                 setRandomGradient();
+                generateRandomPowerProfile();
                 const particleColor = hslToHex(Math.random() * 360, 70 + Math.random() * 30, 60 + Math.random() * 30);
                 pJS.particles.color.value = particleColor; pJS.particles.line_linked.color = particleColor;
                 pJS.particles.number.value = Math.floor(Math.random() * 150) + 75;
@@ -94,21 +99,15 @@
                 const shapes = ['circle', 'edge', 'triangle', 'polygon', 'star'];
                 pJS.particles.shape.type = shapes[Math.floor(Math.random() * shapes.length)];
                 if (['polygon', 'star'].includes(pJS.particles.shape.type)) { pJS.particles.shape.polygon.nb_sides = Math.floor(Math.random() * 6) + 5; }
-                
                 const physicsChoice = Math.random();
                 if (physicsChoice < 0.33) { pJS.particles.move.direction = ["top", "bottom", "left", "right"][Math.floor(Math.random() * 4)]; pJS.particles.move.out_mode = "out"; initialSpeed = Math.random() * 2 + 0.5;
                 } else if (physicsChoice < 0.66) { pJS.particles.move.direction = "none"; pJS.particles.move.out_mode = "bounce"; initialSpeed = Math.random() * 4 + 2;
                 } else { pJS.particles.move.direction = "none"; pJS.particles.move.out_mode = "out"; initialSpeed = Math.random() * 5 + 1; }
                 pJS.particles.move.speed = initialSpeed;
-
                 const isLinked = Math.random() < 0.3;
                 pJS.particles.line_linked.enable = isLinked;
                 pJS.interactivity.events.onhover.enable = true;
                 if (isLinked) { pJS.interactivity.events.onhover.mode = 'grab'; } else { pJS.interactivity.events.onhover.mode = ['bubble', 'repulse'][Math.floor(Math.random() * 2)]; }
-                
-                // --- Choose the user's power for this session ---
-                activeMouseMode = mouseModes[Math.floor(Math.random() * mouseModes.length)];
-
                 pJS.fn.particlesRefresh();
             };
 
@@ -119,37 +118,19 @@
             const update = () => {
                 for(const particle of pJS.particles.array) {
                     if (isMouseDown) {
-                        const dx = mouse.x - particle.x;
-                        const dy = mouse.y - particle.y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-
-                        switch(activeMouseMode) {
-                            case 'comet':
-                                particle.vx += (dx * 0.05) - (dy * 0.01);
-                                particle.vy += (dy * 0.05) + (dx * 0.01);
-                                break;
-                            case 'repulsor':
-                                const force = -100 / (dist * dist);
-                                if (dist < 150) {
-                                    particle.vx += dx * force;
-                                    particle.vy += dy * force;
-                                }
-                                break;
-                            case 'gravityWell':
-                                const orbitDist = 100;
-                                const pullForce = 0.05 * (dist - orbitDist) / orbitDist;
-                                particle.vx += dx * pullForce - dy * 0.01;
-                                particle.vy += dy * pullForce + dx * 0.01;
-                                break;
-                            case 'creator':
-                                if(Math.random() > 0.9) { // Add particles intermittently
-                                    pJS.fn.modes.pushParticles(1, mouse);
-                                }
-                                break;
+                        const dx = mouse.x - particle.x; const dy = mouse.y - particle.y;
+                        let forceX = 0; let forceY = 0;
+                        forceX += dx * powerProfile.force * 0.05; forceY += dy * powerProfile.force * 0.05;
+                        forceX -= dy * powerProfile.orbital; forceY += dx * powerProfile.orbital;
+                        if (powerProfile.stableOrbitDist > 0) {
+                            const dist = Math.sqrt(dx*dx + dy*dy);
+                            const orbitForce = (dist - powerProfile.stableOrbitDist) * 0.001 * powerProfile.force;
+                            forceX -= dx * orbitForce; forceY -= dy * orbitForce;
                         }
+                        particle.vx += forceX; particle.vy += forceY;
+                        if (powerProfile.creatorChance > 0 && Math.random() < powerProfile.creatorChance) { pJS.fn.modes.pushParticles(1, mouse); }
                     }
-                    particle.vx *= friction;
-                    particle.vy *= friction;
+                    particle.vx *= friction; particle.vy *= friction;
                 }
                 pJS.fn.particlesDraw();
                 requestAnimationFrame(update);
@@ -164,30 +145,41 @@
 
             window.addEventListener('mousedown', () => {
                 isMouseDown = true;
-                pJS.particles.move.speed = 0;
+                mouseDownTime = Date.now(); // Record time of click
                 pJS.interactivity.events.onhover.enable = false;
-                cursorGlow.classList.add('active');
-                if (activeMouseMode === 'repulsor') {
-                    cursorGlow.classList.add('repulse');
-                }
+                
+                // Delay showing active state to differentiate click from hold
+                setTimeout(() => {
+                    if(isMouseDown) { // Only show if still holding
+                        if (powerProfile.force < 0) { document.documentElement.style.setProperty('--glow-color', `rgba(255, 100, 100, ${Math.abs(powerProfile.force * 0.2)})`);
+                        } else { document.documentElement.style.setProperty('--glow-color', `rgba(255, 255, 255, ${powerProfile.force * 0.2})`); }
+                        cursorGlow.classList.add('active');
+                        pJS.particles.move.speed = 0; // Stop particles only on a true hold
+                    }
+                }, 100);
             });
 
             window.addEventListener('mouseup', () => {
-                isMouseDown = false;
-                cursorGlow.classList.remove('active');
-                cursorGlow.classList.remove('repulse');
-                pJS.particles.move.speed = initialSpeed;
-                pJS.interactivity.events.onhover.enable = true;
+                const holdDuration = Date.now() - mouseDownTime;
                 
-                if (activeMouseMode === 'comet' || activeMouseMode === 'repulsor') {
-                    const mouseSpeed = Math.min(30, Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy));
-                    for(const particle of pJS.particles.array) {
-                        const angle = Math.random() * 2 * Math.PI;
-                        const explosionSpeed = Math.random() * 20 + mouseSpeed;
-                        particle.vx = (Math.cos(angle) * explosionSpeed) + (mouse.vx * 0.5);
-                        particle.vy = (Math.sin(angle) * explosionSpeed) + (mouse.vy * 0.5);
+                if (holdDuration < 200) { // It's a CLICK
+                    pJS.fn.modes.pushParticles(4, mouse); // Add 4 particles
+                } else { // It's a HOLD
+                    pJS.particles.move.speed = initialSpeed;
+                    if (powerProfile.force > 0.1) {
+                        const mouseSpeed = Math.min(30, Math.sqrt(mouse.vx * mouse.vx + mouse.vy * mouse.vy));
+                        for(const particle of pJS.particles.array) {
+                            const angle = Math.random() * 2 * Math.PI;
+                            const explosionSpeed = Math.random() * 20 + mouseSpeed;
+                            particle.vx = (Math.cos(angle) * explosionSpeed) + (mouse.vx * 0.5);
+                            particle.vy = (Math.sin(angle) * explosionSpeed) + (mouse.vy * 0.5);
+                        }
                     }
                 }
+                
+                isMouseDown = false;
+                cursorGlow.classList.remove('active');
+                pJS.interactivity.events.onhover.enable = true;
             });
         });
     </script>

@@ -4,9 +4,6 @@
 
 Use your mouse to shape the cosmos, trigger celestial events, and push your universe towards a spectacular, world-ending cataclysm.
 
-
-*(Image is a representative animated GIF of the experience)*
-
 ## ✨ Key Features
 
 *   **Infinitely Generative:** Every universe is created from a unique, shareable seed. Reload the page for a new experience, or share a URL with a specific seed to show others what you've found.

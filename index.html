@@ -529,7 +529,31 @@
                 });
             }
             function createMeteorShower(pJS, seededRandom) { const count=30,angle=seededRandom()*2*Math.PI,speed=seededRandom()*20+20; const startX=window.innerWidth/2-Math.cos(angle)*(window.innerWidth/2+100); const startY=window.innerHeight/2-Math.sin(angle)*(window.innerHeight/2+100); for(let i=0;i<count;i++){ const timeoutId = setTimeout(()=>{const newParticles=pJS.fn.modes.pushParticles(1,{x:startX+(seededRandom()-0.5)*200,y:startY+(seededRandom()-0.5)*200}); tagParticles(newParticles); if(newParticles[0]){newParticles[0].vx=Math.cos(angle)*speed;newParticles[0].vy=Math.sin(angle)*speed;}},i*20); activeTimeouts.push(timeoutId); } }
-            function createMessage(pJS, message) { clearActiveTimeouts(); const fontSize=100,canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'); ctx.font=`${fontSize}px Arial`; canvas.width=ctx.measureText(message).width; canvas.height=fontSize; ctx.font=`${fontSize}px Arial`; ctx-fillStyle="#FFF"; ctx.fillText(message,0,fontSize*0.8); const data=ctx.getImageData(0,0,canvas.width,canvas.height).data; const startX=window.innerWidth/2-canvas.width/2; const startY=window.innerHeight/2-canvas.height/2; pJS.fn.particlesEmpty(); const newParticles = []; for(let y=0;y<canvas.height;y+=4){for(let x=0;x<canvas.width;x+=4){if(data[(x+y*canvas.width)*4+3]>128){newParticles.push(...pJS.fn.modes.pushParticles(1,{x:startX+x,y:startY+y}));}}} tagParticles(newParticles); const timeoutId = setTimeout(() => { pJS.fn.particlesRefresh(); tagParticles(pJS.particles.array); }, 5000); activeTimeouts.push(timeoutId); }
+            function createMessage(pJS, message) { 
+                clearActiveTimeouts(); 
+                const fontSize=100, canvas=document.createElement('canvas'), ctx=canvas.getContext('2d'); 
+                ctx.font = `${fontSize}px Arial`; 
+                canvas.width = ctx.measureText(message).width; 
+                canvas.height = fontSize; 
+                ctx.font = `${fontSize}px Arial`; 
+                ctx.fillStyle = "#FFF"; 
+                ctx.fillText(message, 0, fontSize * 0.8); 
+                const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data; 
+                const startX = window.innerWidth / 2 - canvas.width / 2; 
+                const startY = window.innerHeight / 2 - canvas.height / 2; 
+                pJS.fn.particlesEmpty(); 
+                const newParticles = []; 
+                for(let y=0; y < canvas.height; y += 4) {
+                    for(let x=0; x < canvas.width; x += 4) {
+                        if (data[(x + y * canvas.width) * 4 + 3] > 128) {
+                            newParticles.push(...pJS.fn.modes.pushParticles(1, { x: startX + x, y: startY + y }));
+                        }
+                    }
+                } 
+                tagParticles(newParticles); 
+                const timeoutId = setTimeout(() => { pJS.fn.particlesRefresh(); tagParticles(pJS.particles.array); }, 5000); 
+                activeTimeouts.push(timeoutId); 
+            }
             function setRandomGradient(hue, isMonochrome, seededRandom) { const angle=Math.floor(seededRandom()*360); if(isMonochrome){document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;}else{document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue+120)%360},80%,20%), hsl(${(hue+240)%360},80%,25%))`;} canvasContainer.style.background = document.body.style.background; canvasContainer.style.backgroundSize = '400% 400%'; }
             function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
         });

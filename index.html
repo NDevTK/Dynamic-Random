@@ -143,7 +143,20 @@
             color: #ccc;
             margin-top: 5px;
         }
-
+        #energy-bar-container {
+            width: 100%;
+            height: 3px;
+            background-color: rgba(255,255,255,0.1);
+            margin-top: 8px;
+            border-radius: 3px;
+        }
+        #energy-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #ff8a8a;
+            border-radius: 3px;
+            transition: width 0.2s ease-out, background-color 0.5s ease;
+        }
     </style>
 </head>
 <body>
@@ -157,6 +170,9 @@
         <div id="seed-capture" title="Click to copy shareable URL"></div>
         <div id="mutator-display"></div>
         <div id="anomaly-display"></div>
+        <div id="energy-bar-container">
+            <div id="energy-bar"></div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
@@ -173,7 +189,8 @@
                 seed: document.getElementById('seed-capture'),
                 mutators: document.getElementById('mutator-display'),
                 anomaly: document.getElementById('anomaly-display'),
-                canvasContainer: document.getElementById('canvas-container')
+                canvasContainer: document.getElementById('canvas-container'),
+                energyBar: document.getElementById('energy-bar')
             };
             let friction = 0.98;
             let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
@@ -183,8 +200,8 @@
             // Universe State
             let universeState = { energy: 0, state: 'Stable' };
             let universeProfile = {};
-            let gravityWells = [], stasisFields = [], phaseZones = [], echoPulses = [], wormholes = [];
-            let pulsars = [], nebulas = [], blackHoles = [], whiteHoles = [], cosmicStrings = [];
+            let gravityWells = [], stasisFields = [], phaseZones = [], echoPulses = [], wormholes = [], activeChords = [];
+            let pulsars = [], nebulas = [], blackHoles = [], whiteHoles = [], cosmicStrings = [], quasars = [], spacetimeRifts = [];
             let gravityPockets = [], timeDilationZones = [], entangledGroups = [];
             let currentSeed = '', cataclysmInProgress = false, isInitialLoad = true;
             let activeIntervals = [], seedCopyTimeout;
@@ -192,7 +209,7 @@
             // --- Seeding Engine ---
             function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
             function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0} return h; }
-            function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER', 'SONIC', 'QUANTUM']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL', 'HUM', 'FOAM', 'INK']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
+            function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER', 'SONIC', 'QUANTUM', 'GARDEN', 'MELODY']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL', 'HUM', 'FOAM', 'INK', 'BLOOM', 'NOTE']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
 
             // --- Blueprint & Mutator Systems ---
             const universeBlueprints = {
@@ -202,12 +219,16 @@
                 Crystalline: { left: ['shatter', 'refractor'], right: ['crystalize', 'glaze'], events: ['crystalGrowth'], cataclysms: ['Resonance Cascade'], aesthetic:{glow:true, trails:false, shape:['triangle', 'edge'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
                 BioMechanical: { left: ['infect', 'tendril'], right: ['harvest', 'toggleLinks'], events: ['neuronPulse', 'sporeRelease'], cataclysms: ['Overgrowth'], aesthetic:{glow:true, trails:true, shape:['polygon'], physics:{attract:true, straight:false, bounce:true, friction:0.96}} },
                 ChronoVerse: { left: ['accelerate'], right: ['stasisField'], events: ['temporalEchoes'], cataclysms: ['Time Collapse'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
-                VoidTouched: { left: ['voidRift','void'], right: ['unravel'], events: ['flickeringReality'], cataclysms: ['Total Annihilation'], aesthetic:{glow:true, trails:false, shape:['circle', 'edge'], monochrome:true, physics:{attract:true, straight:true, bounce:false, friction:0.98}} },
+                VoidTouched: { left: ['voidRift','void'], right: ['unravel'], events: ['flickeringReality'], cataclysms: ['Total Annihilation', 'Entropic Heat Death'], aesthetic:{glow:true, trails:false, shape:['circle', 'edge'], monochrome:true, physics:{attract:true, straight:true, bounce:false, friction:0.98}} },
                 PhantomEcho: { left: ['echoPulse'], right: ['phaseZone'], events: ['dejaVu'], cataclysms: ['Causality Collapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
                 Aetherial: { left: ['whisper', 'fade'], right: ['paint', 'wormhole'], events: ['aurora'], cataclysms: ['Great Fading'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.3, physics:{attract:false, straight:false, bounce:false, friction:0.99}}},
                 QuantumFoam: { left: ['observe', 'quantumTunnel'], right: ['entangle', 'decohere'], events: ['probabilityFlux'], cataclysms: ['False Vacuum Decay'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} },
                 SonicScapes: { left: ['resonate', 'dampen'], right: ['shockwave', 'silence'], events: ['ambientHum'], cataclysms: ['The Great Silence'], aesthetic:{glow:true, trails:true, shape:['edge'], opacity: 0.6, physics:{attract:false, straight:false, bounce:true, friction:0.97}} },
-                LivingInk: { left: ['smudge', 'draw'], right: ['splatter', 'blot'], events: ['inkSeep'], cataclysms: ['The Bleed'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.92}} }
+                LivingInk: { left: ['smudge', 'draw'], right: ['splatter', 'blot'], events: ['inkSeep'], cataclysms: ['The Bleed'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.92}} },
+                CosmicGarden: { left: ['tendril', 'spore'], right: ['bloom', 'harvest'], events: ['pollination'], cataclysms: ['Overgrowth', 'The Grand Bloom'], aesthetic:{glow:false, trails:true, shape:['circle', 'polygon'], physics:{attract:true, straight:false, bounce:false, friction:0.94}} },
+                MelodyVerse: { left: ['resonate', 'sing'], right: ['shockwave', 'chord'], events: ['ambientHum'], cataclysms: ['The Great Silence', 'The Final Chord'], aesthetic:{glow:true, trails:false, shape:['triangle', 'edge'], physics:{attract:false, straight:false, bounce:true, friction:0.98}} },
+                TemporalTapestry: { left: ['accelerate', 'rewind'], right: ['stasisField', 'snapshot'], events: ['temporalEchoes', 'dejaVu'], cataclysms: ['Time Collapse', 'Causality Collapse'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.96}} },
+                ChromaticAberration: { left: ['refractor', 'dampen'], right: ['glitch', 'paint'], events: ['flickeringReality'], cataclysms: ['Glitch Storm'], aesthetic:{glow:true, trails:false, shape:['circle', 'edge'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} }
             };
 
             const mutators = {
@@ -218,7 +239,9 @@
                 'Rainbow': (pJS) => { /* Handled in update loop */ }, 'Pulsing Particles': (pJS) => { /* Handled in update loop */ },
                 'Torus Field': (pJS) => { pJS.particles.move.out_mode = 'out'; /* Custom handling */ }, 'Flickering': (pJS) => { /* Handled in update loop */ },
                 'Inertialess': (pJS) => { friction = 0.6; }, 'Gravity Pockets': (pJS) => { /* Handled in generateUniverse */ },
-                'Time Dilation Fields': (pJS) => { /* Handled in generateUniverse */ }
+                'Time Dilation Fields': (pJS) => { /* Handled in generateUniverse */ },
+                'Swarm Behavior': (pJS) => { /* Handled in update loop */ }, 'Color Shifting': (pJS) => { /* Handled in update loop */ },
+                'Phase Shifted': (pJS) => { /* Handled in update loop */ }
             };
             
             const anomalies = { 
@@ -226,7 +249,9 @@
                 'Nebula': (pJS, r) => { const hue = r()*360; nebulas.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), radius: 250 + r()*150, color: `hsla(${hue}, 70%, 50%, 0.15)`, baseColor: {h: hue, s: 70, l: 50} }); },
                 'Black Hole': (pJS, r) => { blackHoles.push({ x: pJS.canvas.w * (0.2 + r()*0.6), y: pJS.canvas.h * (0.2 + r()*0.6), mass: 150 + r()*150, eventHorizon: 15 + r()*10 }); },
                 'White Hole': (pJS, r) => { whiteHoles.push({ x: pJS.canvas.w * (0.2 + r()*0.6), y: pJS.canvas.h * (0.2 + r()*0.6), strength: 5 + r()*5, spawnRate: 0.1 + r()*0.1, tick: 0 }); },
-                'Cosmic String': (pJS, r) => { cosmicStrings.push({ x1: pJS.canvas.w * r(), y1: pJS.canvas.h * r(), x2: pJS.canvas.w * r(), y2: pJS.canvas.h * r(), strength: 5 + r()*5 }); }
+                'Cosmic String': (pJS, r) => { cosmicStrings.push({ x1: pJS.canvas.w * r(), y1: pJS.canvas.h * r(), x2: pJS.canvas.w * r(), y2: pJS.canvas.h * r(), strength: 5 + r()*5 }); },
+                'Quasar': (pJS, r) => { quasars.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), angle: r()*Math.PI*2, strength: 40 + r()*40, rotationSpeed: 0.02 + r()*0.03, spawnRate: 0.5 + r()*0.5, tick: 0 }); },
+                'Spacetime Rift': (pJS, r) => { const rift = { points: [], strength: 0.5 + r() }; let x = pJS.canvas.w * (0.1 + r()*0.8), y = pJS.canvas.h * (0.1 + r()*0.8); for(let i=0; i<10; i++) { rift.points.push({x,y}); x += (r()-0.5)*100; y += (r()-0.5)*100; } spacetimeRifts.push(rift); }
             };
 
             const generateUniverse = (pJS, seed) => {
@@ -252,6 +277,7 @@
                 const baseHue = seededRandom() * 360;
                 setRandomGradient(baseHue, blueprint.aesthetic.monochrome, seededRandom, blueprintName === 'VoidTouched');
                 pJS.particles.color.value = hslToHex((baseHue + 180) % 360, 80, 70);
+                if (blueprintName === 'CosmicGarden') pJS.particles.color.value = hslToHex(120 + (seededRandom()-0.5)*40, 70, 60);
                 pJS.particles.opacity.value = blueprint.aesthetic.opacity || 0.5;
                 pJS.particles.number.value = 150; pJS.particles.number.value_max = 400;
                 pJS.particles.move.speed = 1 + seededRandom() * 3;
@@ -278,7 +304,7 @@
                 }
                 
                 // Spawn Anomaly
-                if (seededRandom() > 0.6) {
+                if (seededRandom() > 0.5) {
                     const anomalyKeys = Object.keys(anomalies);
                     const anomalyName = anomalyKeys[Math.floor(seededRandom() * anomalyKeys.length)];
                     universeProfile.anomaly = anomalyName;
@@ -319,13 +345,17 @@
                 if (cataclysmInProgress) { requestAnimationFrame(update); return; }
 
                 // --- State & Energy Management ---
-                if (isLeftMouseDown || isRightMouseDown) { universeState.energy += 10; } 
-                else { universeState.energy = Math.max(0, universeState.energy - 5); }
+                const energyDelta = isLeftMouseDown || isRightMouseDown ? 10 : -5;
+                universeState.energy = Math.max(0, universeState.energy + energyDelta);
+                ui.energyBar.style.width = `${(universeState.energy / universeState.maxEnergy) * 100}%`;
+                if (universeState.energy > universeState.maxEnergy * 0.95) ui.energyBar.style.backgroundColor = '#ff4242';
+                else if (universeState.energy > universeState.maxEnergy * 0.7) ui.energyBar.style.backgroundColor = '#ff9e42';
+                else ui.energyBar.style.backgroundColor = '#ffffff';
 
-                if (universeState.energy > universeState.maxEnergy && universeState.state !== 'Unstable') {
+                if (universeState.energy >= universeState.maxEnergy && universeState.state !== 'Unstable') {
                     universeState.state = 'Unstable';
                     triggerCataclysm(pJS);
-                } else if (universeState.energy > universeState.maxEnergy * 0.95) {
+                } else if (universeState.energy > universeState.maxEnergy * 0.9) {
                     ui.canvasContainer.classList.add('shake');
                 } else {
                     ui.canvasContainer.classList.remove('shake');
@@ -342,6 +372,9 @@
                     const p = pJS.particles.array[i];
                     if (!p) continue;
                     
+                    if (p.phasedFrames > 0) p.phasedFrames--;
+                    let isPhased = p.phasedFrames > 0;
+
                     let timeFactor = 1.0;
                     for (const zone of timeDilationZones) { if (Math.pow(p.x-zone.x,2)+Math.pow(p.y-zone.y,2) < zone.radiusSq) { timeFactor = zone.timeFactor; break; } }
                     
@@ -349,7 +382,7 @@
                     for(let step=0; step < updateSteps; step++) {
                         if (timeFactor < 1 && Math.random() > timeFactor) continue;
                     
-                        let isPhased = false, isStasis = false;
+                        let isStasis = false;
                         for (const zone of phaseZones) { if (Math.pow(p.x - zone.x, 2) + Math.pow(p.y - zone.y, 2) < zone.radiusSq) { isPhased = true; break; } }
                         for (const field of stasisFields) { if (Math.pow(p.x - field.x, 2) + Math.pow(p.y - field.y, 2) < field.r*field.r) { isStasis = true; break; } }
 
@@ -357,10 +390,13 @@
                         if(p.unravelling > 0) { p.unravelling--; p.radius *= 0.98; if (p.unravelling <= 0) { pJS.particles.array.splice(i,1); continue; } }
                         if(p.isCrystalized || isStasis) { p.vx = 0; p.vy = 0; }
                         if (p.fading > 0) { p.fading--; p.opacity.value = Math.max(0, p.opacity.value - 0.01); if(p.opacity.value <= 0) {pJS.particles.array.splice(i,1); continue;}}
+                        if (p.blooming > 0) { p.blooming--; p.radius += 0.2; if (p.blooming <= 0) { pJS.particles.array.splice(i,1); pJS.fn.modes.pushParticles(2 + Math.floor(Math.random()*2), {x:p.x,y:p.y}); continue; }}
+
 
                         // Apply Anomalies
                         for (const nebula of nebulas) { const dSq = Math.pow(p.x - nebula.x, 2) + Math.pow(p.y - nebula.y, 2); if (dSq < nebula.radius*nebula.radius) { p.vx *= 0.95; p.vy *= 0.95; if(!p.colorLocked) { const pColor = p.color.rgb; p.color.rgb = { r: (pColor.r*9+nebula.baseColor.h/360*255)/10, g: (pColor.g*9+nebula.baseColor.s/100*255)/10, b: (pColor.b*9+nebula.baseColor.l/100*255)/10 }; } } }
                         for (const pulsar of pulsars) { const angleToP = Math.atan2(p.y-pulsar.y, p.x-pulsar.x); const angleDiff = Math.abs(pulsar.angle - angleToP) % Math.PI; if (angleDiff < 0.1) { p.vx += Math.cos(pulsar.angle) * pulsar.strength * 0.1; p.vy += Math.sin(pulsar.angle) * pulsar.strength * 0.1; }}
+                        for (const q of quasars) { const angleToP = Math.atan2(p.y-q.y, p.x-q.x); const angleDiff = Math.abs(q.angle-angleToP)%(Math.PI); if(angleDiff < 0.15){ p.vx += Math.cos(q.angle)*q.strength*0.1; p.vy += Math.sin(q.angle)*q.strength*0.1; } }
                         for (const hole of blackHoles) { const dx = hole.x - p.x, dy = hole.y - p.y, distSq = dx*dx+dy*dy; if(distSq < hole.eventHorizon*hole.eventHorizon) {pJS.particles.array.splice(i,1); continue;} if(distSq < 40000){const force = hole.mass / distSq; p.vx += dx * force; p.vy += dy * force;} }
                         for (const hole of whiteHoles) { const dx = hole.x-p.x, dy = hole.y-p.y, distSq = dx*dx+dy*dy; if (distSq < 90000) { const force = hole.strength / Math.sqrt(distSq); p.vx -= dx*force*0.1; p.vy -= dy*force*0.1; } }
 
@@ -370,9 +406,11 @@
                         if (universeProfile.mutators.includes('Repulsive Field') && !isPhased) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, distSq=dx*dx+dy*dy; if(distSq < 2500) { p.vx += dx/distSq*2; p.vy += dy/distSq*2; } } }
                         if (universeProfile.mutators.includes('Erratic')) { p.vx += (Math.random()-0.5)*0.3; p.vy += (Math.random()-0.5)*0.3; }
                         if (universeProfile.mutators.includes('Rainbow') && !p.colorLocked) { p.color = { rgb: { r: 127*(1+Math.sin(tick*0.05 + p.x*0.01)), g: 127*(1+Math.sin(tick*0.05 + p.y*0.01)), b: 127*(1+Math.sin(tick*0.05)) } }; }
+                        if (universeProfile.mutators.includes('Color Shifting') && !p.colorLocked) { const speed = Math.min(1, Math.sqrt(p.vx*p.vx + p.vy*p.vy) / 10); const hue = (tick + p.seed)%360; p.color.rgb = hexToRgb(hslToHex(hue, 80, 50 + speed*25)); }
+                        if (universeProfile.mutators.includes('Phase Shifted') && Math.random() < 0.0002) { p.phasedFrames = 60 + Math.floor(Math.random()*60); }
                         if (universeProfile.mutators.includes('Flickering')) { if(tick % Math.floor(20+p.seed*20) === 0) p.opacity.value = p.opacity.value > 0 ? 0 : pJS.particles.opacity.value; }
                         for (const pocket of gravityPockets) { const dx=pocket.x-p.x, dy=pocket.y-p.y; if(dx*dx+dy*dy < pocket.radiusSq) { p.vx += dx * pocket.strength * 0.01; p.vy += dy * pocket.strength * 0.01; } }
-
+                        
                         // Apply Player Interaction & Global Forces
                         if (!isPhased && !isStasis && !p.isCrystalized && !p.isEntangled) {
                             if (isLeftMouseDown) handleActivePower(p, i, pJS, universeProfile.leftClickPower, worldMouse);
@@ -399,8 +437,9 @@
                     group.particles.forEach((p, pIndex) => { const initialVec = group.initialVectors[pIndex]; if(!initialVec) return; const targetX = currentCX + initialVec.x, targetY = currentCY + initialVec.y; p.vx += (targetX - p.x) * 0.05; p.vy += (targetY - p.y) * 0.05; });
                 });
                 
-                // Spawn new particles from white holes
+                // Spawn new particles from white holes & quasars
                 whiteHoles.forEach(h => { h.tick++; if (h.tick * h.spawnRate > 1 && pJS.particles.array.length < pJS.particles.number.value_max) { h.tick=0; pJS.fn.modes.pushParticles(1, {x:h.x, y:h.y}); } });
+                quasars.forEach(q => { q.tick++; if (q.tick * q.spawnRate > 1 && pJS.particles.array.length < pJS.particles.number.value_max) { q.tick=0; pJS.fn.modes.pushParticles(2, {x:q.x, y:q.y}); const newPs = pJS.particles.array.slice(-2); newPs.forEach(p => { p.vx=Math.cos(q.angle)*q.strength*0.5; p.vy=Math.sin(q.angle)*q.strength*0.5; }); } });
 
                 if (pJS.particles.array.length > pJS.particles.number.value_max) { pJS.particles.array.splice(0, pJS.particles.array.length - pJS.particles.number.value_max); }
                 
@@ -408,11 +447,22 @@
                 const ctx = pJS.canvas.ctx;
                 nebulas.forEach(n => { const grad = ctx.createRadialGradient(n.x, n.y, n.radius/4, n.x, n.y, n.radius); grad.addColorStop(0, n.color.replace('0.15', '0.3')); grad.addColorStop(1, n.color.replace('0.15', '0')); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2*Math.PI); ctx.fill(); });
                 pulsars.forEach(p => { p.angle += 0.05; ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 2*Math.PI); ctx.fill(); for(let i=0; i<2; i++) { const angle = p.angle + i*Math.PI; const grad = ctx.createLinearGradient(p.x, p.y, p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); grad.addColorStop(0, 'rgba(255,255,255,0.2)'); grad.addColorStop(1, 'rgba(255,255,255,0)'); ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); ctx.stroke(); } });
+                quasars.forEach(q => { q.angle += q.rotationSpeed; ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(q.x, q.y, 10, 0, 2*Math.PI); ctx.fill(); for(let i=0; i<2; i++) { const angle = q.angle + i*Math.PI; const grad = ctx.createLinearGradient(q.x, q.y, q.x+Math.cos(angle)*1500, q.y+Math.sin(angle)*1500); grad.addColorStop(0, 'rgba(255,255,200,0.4)'); grad.addColorStop(1, 'rgba(255,255,200,0)'); ctx.strokeStyle=grad; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x+Math.cos(angle)*1500, q.y+Math.sin(angle)*1500); ctx.stroke(); } });
+                spacetimeRifts.forEach(r => { ctx.strokeStyle = `rgba(200,180,255,${0.5 + Math.sin(tick*0.05)*0.2})`; ctx.lineWidth=2; ctx.shadowColor = 'magenta'; ctx.shadowBlur = 15; ctx.beginPath(); r.points.forEach((p, i) => { if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x + (Math.random()-0.5)*5, p.y + (Math.random()-0.5)*5); }); ctx.stroke(); ctx.shadowBlur = 0; });
                 blackHoles.forEach(h => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(h.x, h.y, h.eventHorizon, 0, 2*Math.PI); ctx.fill(); const grad = ctx.createRadialGradient(h.x,h.y,h.eventHorizon,h.x,h.y,h.eventHorizon+5); grad.addColorStop(0, 'rgba(255,200,100,0.8)'); grad.addColorStop(1, 'rgba(255,200,100,0)'); ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.stroke(); });
                 whiteHoles.forEach(h => { ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.5*Math.sin(tick*0.1)})`; ctx.beginPath(); ctx.arc(h.x, h.y, 10, 0, 2*Math.PI); ctx.fill(); });
                 wormholes.forEach((w,i) => { w.life--; if(w.life <= 0) { wormholes.splice(i,1); return; } ctx.strokeStyle=`rgba(150, 100, 255, ${w.life/120})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(w.entry.x,w.entry.y,15,0,2*Math.PI); ctx.stroke(); ctx.beginPath(); ctx.arc(w.exit.x,w.exit.y,15,0,2*Math.PI); ctx.stroke(); });
                 phaseZones.forEach((z, i) => { z.life--; if (z.life <= 0) { phaseZones.splice(i, 1); } ctx.strokeStyle=`rgba(180, 200, 255, ${0.1 + (z.life / z.maxLife)*0.3})`; ctx.setLineDash([15, 10]); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(z.x,z.y,Math.sqrt(z.radiusSq),0,2*Math.PI); ctx.stroke(); ctx.setLineDash([]); });
                 stasisFields.forEach((f, i) => { f.life--; if (f.life <= 0) { stasisFields.splice(i, 1); } ctx.strokeStyle=`rgba(255, 255, 150, ${0.1 + (f.life / f.maxLife)*0.4})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.95 + 0.05 * Math.sin(tick*0.1)), 0, 2*Math.PI); ctx.stroke(); });
+                activeChords.forEach((c, i) => { c.life--; if(c.life <= 0) { activeChords.splice(i,1); return; } ctx.strokeStyle=`rgba(200,255,200,${c.life/c.maxLife})`; ctx.lineWidth=1; c.particles.forEach(p => { p.vx+=(Math.random()-0.5)*0.2; p.vy+=(Math.random()-0.5)*0.2; }); for(let j=0; j<c.particles.length; j++) { for (let k=j+1; k<c.particles.length; k++) { ctx.beginPath(); ctx.moveTo(c.particles[j].x, c.particles[j].y); ctx.lineTo(c.particles[k].x, c.particles[k].y); ctx.stroke(); }} });
+
+                if (universeProfile.blueprintName === 'ChromaticAberration') {
+                    const shift = Math.min(10, universeState.energy / 500);
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.drawImage(pJS.canvas.el, shift, 0);
+                    ctx.drawImage(pJS.canvas.el, -shift, 0);
+                    ctx.globalCompositeOperation = 'source-over';
+                }
 
                 pJS.fn.particlesUpdate();
                 pJS.fn.particlesDraw();
@@ -452,6 +502,9 @@
                     case 'dampen': if(distSq < 150*150){ p.vx *= 0.95; p.vy *= 0.95; } break;
                     case 'smudge': if(distSq < 150*150){ if(p.radius < 15) p.radius += 0.05; p.opacity.value = Math.max(0.1, p.opacity.value*0.99); } break;
                     case 'draw': if(distSq < 20*20 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = {...p, x: worldMouse.x+(Math.random()-0.5)*5, y: worldMouse.y+(Math.random()-0.5)*5}; pJS.particles.array.push(newP); tagParticles([newP]); } break;
+                    case 'spore': if(distSq < 150*150 && pJS.particles.array.length < pJS.particles.number.value_max && Math.random()>0.95) { pJS.fn.modes.pushParticles(1, {x:p.x, y:p.y}); } break;
+                    case 'sing': if (distSq < 150*150) { p.radius = p.radius_initial * (1 + 0.8 * Math.sin(tick * 0.5 + p.seed)); p.colorLocked = false; } break;
+                    case 'rewind': if (distSq < 150*150) { p.vx *= -0.05; p.vy *= -0.05; } break;
                 }
             }
             
@@ -472,6 +525,9 @@
                     case 'silence': for (const p of pJS.particles.array) { if (Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.vx = 0; p.vy = 0; } } break;
                     case 'splatter': pJS.fn.modes.pushParticles(15, worldMouse); const newParticles = pJS.particles.array.slice(-15); newParticles.forEach(p => { p.color = { rgb: {r: Math.random()*255, g: Math.random()*255, b: Math.random()*255 } }; tagParticles([p]); p.radius *= 1.5; }); break;
                     case 'blot': for(let i=pJS.particles.array.length-1; i>=0; i--){ const p = pJS.particles.array[i]; if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 100) pJS.particles.array.splice(i,1); } break;
+                    case 'bloom': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.blooming = 60; } } break;
+                    case 'chord': { const group = []; for (const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { group.push(p); if (group.length >= 5) break; } } if(group.length>1) activeChords.push({particles: group, maxLife: 180, life: 180}); break; }
+                    case 'snapshot': stasisFields.push({x: worldMouse.x, y: worldMouse.y, r: 150, maxLife: 150, life: 150}); break;
                 }
             }
 
@@ -495,6 +551,9 @@
                     case 'False Vacuum Decay': let decayBubble = {x: pJS.canvas.w/2, y: pJS.canvas.h/2, r: 0}; let decayInterval = setInterval(() => { decayBubble.r += pJS.canvas.w * 0.01; pJS.particles.array.forEach(p => { if(Math.pow(p.x-decayBubble.x,2)+Math.pow(p.y-decayBubble.y,2) < decayBubble.r*decayBubble.r) { p.vx*=-0.5; p.vy*=-0.5; p.color = {rgb:{r:255,g:100,b:255}};} }); if (decayBubble.r > pJS.canvas.w) { clearInterval(decayInterval); regen(1000); } }, 50); activeIntervals.push(decayInterval); break;
                     case 'The Great Silence': let silenceInterval = setInterval(() => { friction += 0.01; if (friction >= 1.2) { pJS.particles.array.forEach(p=>{p.vx=0;p.vy=0;}); clearInterval(silenceInterval); regen(2000); }}, 50); activeIntervals.push(silenceInterval); break;
                     case 'The Bleed': ui.body.classList.add('cataclysm-bleed'); pJS.particles.color.value = '#000000'; pJS.particles.move.trail.enable = true; pJS.fn.particlesRefresh(); regen(5000); break;
+                    case 'The Grand Bloom': let bloomI = setInterval(() => { for(let i=pJS.particles.array.length-1; i>=0; i--){ const p = pJS.particles.array[i]; p.radius += 0.8; p.vx*=0.9; p.vy*=0.9; if(p.radius > 50){ pJS.particles.array.splice(i,1); if(pJS.particles.array.length < pJS.particles.number.value_max) pJS.fn.modes.pushParticles(5, {x:p.x,y:p.y}); }} if(pJS.particles.array.length === 0) {clearInterval(bloomI); regen(1000);}}, 50); activeIntervals.push(bloomI); break;
+                    case 'The Final Chord': pJS.particles.array.forEach(p=>{p.vx=0;p.vy=0;}); ui.body.style.transition = 'background-color 2s'; ui.body.style.backgroundColor = '#fff'; setTimeout(() => regen(2000), 2000); break;
+                    case 'Entropic Heat Death': let heatDeathI = setInterval(() => { friction = Math.min(1, friction + 0.001); pJS.particles.array.forEach(p=>p.opacity.value *= 0.99); if(pJS.particles.array[0] && pJS.particles.array[0].opacity.value < 0.01) { clearInterval(heatDeathI); regen(1000); } }, 50); activeIntervals.push(heatDeathI); break;
                 }
             }
             
@@ -505,7 +564,7 @@
             window.addEventListener('mouseup', e => {
                 if (cataclysmInProgress) return;
                 const powerName = e.button === 0 ? universeProfile.leftClickPower : universeProfile.rightClickPower;
-                const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole', 'entangle', 'decohere', 'shockwave', 'silence', 'splatter', 'blot'];
+                const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole', 'entangle', 'decohere', 'shockwave', 'silence', 'splatter', 'blot', 'bloom', 'chord', 'snapshot'];
                 if (clickPowers.includes(powerName)) { handleClickPower(powerName, pJS, mouse); }
                 if (e.button === 0) isLeftMouseDown = false;
                 else if (e.button === 2) isRightMouseDown = false;
@@ -513,10 +572,11 @@
             });
             window.addEventListener('resize', () => { let resizeTimeout; clearTimeout(resizeTimeout); resizeTimeout = setTimeout(() => { if (pJS && currentSeed && !cataclysmInProgress) { isInitialLoad = true; generateUniverse(pJS, currentSeed); } }, 250); });
 
-            function resetState(){ activeIntervals.forEach(clearInterval); clearTimeout(seedCopyTimeout); activeIntervals=[]; gravityWells=[]; stasisFields=[]; phaseZones=[]; echoPulses=[]; pulsars=[]; nebulas=[]; wormholes=[]; blackHoles=[]; whiteHoles=[]; cosmicStrings=[]; gravityPockets=[]; timeDilationZones=[]; entangledGroups=[]; ui.canvasContainer.style.filter=''; ui.canvasContainer.style.transition = 'filter 1s ease'; ui.canvasContainer.classList.remove('shake'); ui.body.classList.remove('cataclysm-bleed'); tick=0; cataclysmInProgress=false; }
-            function tagParticles(particles) { if (!particles) return; particles.forEach(p => { if (p) { if(p.radius_initial === undefined || isInitialLoad) p.radius_initial = p.radius; if(p.startX === undefined || isInitialLoad) { p.startX = p.x; p.startY = p.y; } if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = Math.random() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); } p.seed = Math.random() * 1000; p.isCrystalized = false; p.isInfected = false; p.unravelling = 0; p.fading = 0; p.colorLocked = false; p.isEntangled = false; } }); }
+            function resetState(){ activeIntervals.forEach(clearInterval); clearTimeout(seedCopyTimeout); activeIntervals=[]; gravityWells=[]; stasisFields=[]; phaseZones=[]; echoPulses=[]; pulsars=[]; nebulas=[]; wormholes=[]; blackHoles=[]; whiteHoles=[]; cosmicStrings=[]; quasars=[]; spacetimeRifts=[]; gravityPockets=[]; timeDilationZones=[]; entangledGroups=[]; activeChords=[]; ui.canvasContainer.style.filter=''; ui.canvasContainer.style.transition = 'filter 1s ease'; ui.canvasContainer.classList.remove('shake'); ui.body.classList.remove('cataclysm-bleed'); ui.body.style.transition = ''; ui.body.style.backgroundColor = '#000'; tick=0; cataclysmInProgress=false; }
+            function tagParticles(particles) { if (!particles) return; particles.forEach(p => { if (p) { if(p.radius_initial === undefined || isInitialLoad) p.radius_initial = p.radius; if(p.startX === undefined || isInitialLoad) { p.startX = p.x; p.startY = p.y; } if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = Math.random() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); } p.seed = Math.random() * 1000; p.isCrystalized = false; p.isInfected = false; p.unravelling = 0; p.fading = 0; p.colorLocked = false; p.isEntangled = false; p.blooming = 0; p.phasedFrames = 0; } }); }
             function setRandomGradient(hue, isMonochrome, seededRandom, isVoid) { const angle=Math.floor(seededRandom()*360); if(isVoid){ document.body.style.background=`linear-gradient(${angle}deg, #000000, #120510, #000000)`; } else if(isMonochrome){document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;}else{document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue+120)%360},80%,20%), hsl(${(hue+240)%360},80%,25%))`;} ui.canvasContainer.style.background = document.body.style.background; ui.canvasContainer.style.backgroundSize = '400% 400%'; }
             function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
+            function hexToRgb(hex) { var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null; }
         });
     </script>
 </body>

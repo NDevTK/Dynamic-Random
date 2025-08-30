@@ -98,9 +98,14 @@
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
             border: 1px solid rgba(255,255,255,0.1);
-            transition: opacity 0.5s;
+            transition: opacity 0.5s, transform 0.5s;
             opacity: 0;
+            transform: translateY(20px);
             min-width: 220px;
+        }
+        #ui-container.visible {
+            opacity: 0.8;
+            transform: translateY(0);
         }
         #ui-container:hover {
             opacity: 1 !important;
@@ -159,15 +164,14 @@
             let universeState = { energy: 0, state: 'Stable' };
             let universeProfile = {};
             let gravityWells = [], stasisFields = [], phaseZones = [], echoPulses = [], wormholes = [];
-            let pulsars = [], nebulas = [];
+            let pulsars = [], nebulas = [], blackHoles = [], cosmicStrings = [];
             let currentSeed = '', cataclysmInProgress = false, isInitialLoad = true;
             let activeIntervals = [], seedCopyTimeout;
-            let lastVelocities = [];
 
             // --- Seeding Engine ---
             function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
             function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0} return h; }
-            function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
+            function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER','QUANTUM']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL','TUNE']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
 
             // --- Blueprint & Mutator Systems ---
             const universeBlueprints = {
@@ -179,7 +183,9 @@
                 ChronoVerse: { left: ['accelerate'], right: ['stasisField'], events: ['temporalEchoes'], cataclysms: ['Time Collapse'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
                 VoidTouched: { left: ['voidRift','void'], right: ['unravel'], events: ['flickeringReality'], cataclysms: ['Total Annihilation'], aesthetic:{glow:true, trails:false, shape:['circle', 'edge'], monochrome:true, physics:{attract:true, straight:true, bounce:false, friction:0.98}} },
                 PhantomEcho: { left: ['echoPulse'], right: ['phaseZone'], events: ['dejaVu'], cataclysms: ['Causality Collapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
-                Aetherial: { left: ['whisper', 'fade'], right: ['paint', 'wormhole'], events: ['aurora'], cataclysms: ['Great Fading'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.3, physics:{attract:false, straight:false, bounce:false, friction:0.99}}}
+                Aetherial: { left: ['whisper', 'fade'], right: ['paint', 'wormhole'], events: ['aurora'], cataclysms: ['Great Fading'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.3, physics:{attract:false, straight:false, bounce:false, friction:0.99}}},
+                MelodicVerse: { left: ['resonate', 'dissonance'], right: ['harmony', 'crescendo'], events: ['cosmicHum'], cataclysms: ['Sonic Boom'], aesthetic:{glow:true, trails:false, shape:['character'], chars:['♪','♫','♭','♯'], physics:{attract:false, straight:false, bounce:false, friction:0.99}} },
+                QuantumRealm: { left: ['entangle', 'tunnel'], right: ['superposition', 'observe'], events: ['realityFlicker'], cataclysms: ['Decoherence'], aesthetic:{glow:true, trails:false, shape:['circle', 'edge'], physics:{attract:false, straight:true, bounce:false, friction:0.98}} }
             };
 
             const mutators = {
@@ -193,10 +199,19 @@
                 'Erratic': (pJS) => { /* Handled in update loop */ },
                 'Rainbow': (pJS) => { /* Handled in update loop */ },
                 'Pulsing Particles': (pJS) => { /* Handled in update loop */ },
-                'Torus Field': (pJS) => { pJS.particles.move.out_mode = 'out'; /* Custom handling */ }
+                'Torus Field': (pJS) => { pJS.particles.move.out_mode = 'out'; /* Custom handling */ },
+                'Comet Tails': (pJS) => { /* Handled in update loop */ },
+                'Ephemeral': (pJS) => { /* Handled in update loop */ },
+                'Glass Cannon': (pJS) => { pJS.particles.move.out_mode = 'bounce'; /* Custom handling in update loop */ },
+                'Elastic Collisions': (pJS) => { /* Handled in update loop */ }
             };
             
-            const anomalies = { 'Pulsar': (pJS, r) => { pulsars.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), angle: 0, period: 100 + Math.floor(r()*100), strength: 20 + r()*20 }); }, 'Nebula': (pJS, r) => { const hue = r()*360; nebulas.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), radius: 250 + r()*150, color: `hsla(${hue}, 70%, 50%, 0.15)`, baseColor: {h: hue, s: 70, l: 50} }); } };
+            const anomalies = { 
+                'Pulsar': (pJS, r) => { pulsars.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), angle: 0, period: 100 + Math.floor(r()*100), strength: 20 + r()*20 }); }, 
+                'Nebula': (pJS, r) => { const hue = r()*360; nebulas.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), radius: 250 + r()*150, color: `hsla(${hue}, 70%, 50%, 0.15)`, baseColor: {h: hue, s: 70, l: 50} }); },
+                'Black Hole': (pJS, r) => { blackHoles.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), strength: 0.5 + r()*0.5, radius: 15 }); },
+                'Cosmic String': (pJS, r) => { cosmicStrings.push({ x1: pJS.canvas.w * r(), y1: pJS.canvas.h * r(), x2: pJS.canvas.w * r(), y2: pJS.canvas.h * r(), strength: 0.1 + r()*0.2 }); }
+            };
 
             const generateUniverse = (pJS, seed) => {
                 resetState();
@@ -223,15 +238,15 @@
                 pJS.particles.color.value = hslToHex((baseHue + 180) % 360, 80, 70);
                 pJS.particles.opacity.value = blueprint.aesthetic.opacity || 0.5;
                 pJS.particles.number.value = 150; pJS.particles.number.value_max = 400;
-                pJS.particles.move.speed = 1 + seededRandom() * 3;
+                pJS.particles.move.speed = (1 + seededRandom() * 3) * (0.8 + seededRandom()*0.4);
                 pJS.particles.move.trail.enable = !!blueprint.aesthetic.trails;
                 pJS.particles.shape.type = blueprint.aesthetic.shape;
-                if (blueprintName === 'Digital') pJS.particles.shape.character.value = blueprint.aesthetic.chars;
+                if (blueprint.aesthetic.chars) pJS.particles.shape.character.value = blueprint.aesthetic.chars;
                 pJS.particles.line_linked.enable = blueprintName === 'BioMechanical' || blueprintName === 'Digital';
                 pJS.particles.move.attract.enable = blueprint.aesthetic.physics.attract;
                 pJS.particles.move.straight = blueprint.aesthetic.physics.straight;
                 pJS.particles.move.out_mode = blueprint.aesthetic.physics.bounce ? 'bounce' : 'out';
-                friction = blueprint.aesthetic.physics.friction;
+                friction = blueprint.aesthetic.physics.friction * (0.98 + seededRandom()*0.04);
                 
                 // Apply Mutators
                 const mutatorKeys = Object.keys(mutators);
@@ -248,6 +263,12 @@
                     universeProfile.anomaly = anomalyName;
                     anomalies[anomalyName](pJS, seededRandom);
                 }
+                if (seededRandom() > 0.98 && universeProfile.anomaly) {
+                    const anomalyKeys = Object.keys(anomalies);
+                    const anomalyName = anomalyKeys[Math.floor(seededRandom() * anomalyKeys.length)];
+                    if (anomalyName !== universeProfile.anomaly) { universeProfile.anomaly += ` & ${anomalyName}`; anomalies[anomalyName](pJS, seededRandom); }
+                }
+                if (universeProfile.ambientEvent === 'binaryStars') { gravityWells.push({x: pJS.canvas.w/2 - 150, y: pJS.canvas.h/2, strength: 0.15, permanent: true}); gravityWells.push({x: pJS.canvas.w/2 + 150, y: pJS.canvas.h/2, strength: 0.15, permanent: true}); }
 
                 universeState = { energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 };
                 
@@ -257,7 +278,7 @@
                 ui.seed.innerText = `Seed: ${currentSeed}`;
                 ui.mutators.innerText = universeProfile.mutators.length ? `Mutators: ${universeProfile.mutators.join(', ')}` : 'Mutators: None';
                 ui.anomaly.innerText = universeProfile.anomaly ? `Anomaly: ${universeProfile.anomaly}` : 'Anomaly: None';
-                setTimeout(() => { ui.container.style.opacity = '0.8'; }, 500);
+                setTimeout(() => { ui.container.classList.add('visible'); }, 500);
 
                 pJS.fn.particlesRefresh();
                 tagParticles(pJS.particles.array);
@@ -301,6 +322,16 @@
                     
                 const worldMouse = { ...mouse };
 
+                // --- Ambient Events ---
+                if (tick % 300 === 1 && !isLeftMouseDown && !isRightMouseDown) {
+                    switch(universeProfile.ambientEvent) {
+                        case 'meteorShower':
+                            const startEdge=Math.floor(Math.random()*4); for(let i=0;i<30;i++){ let pos; if(startEdge===0)pos={x:Math.random()*pJS.canvas.w,y:-20};else if(startEdge===1)pos={x:pJS.canvas.w+20,y:Math.random()*pJS.canvas.h};else if(startEdge===2)pos={x:Math.random()*pJS.canvas.w,y:pJS.canvas.h+20};else pos={x:-20,y:Math.random()*pJS.canvas.h}; pJS.fn.modes.pushParticles(1,{x:pos.x,y:pos.y}); const p=pJS.particles.array[pJS.particles.array.length-1]; if(p){ const target={x:pJS.canvas.w/2+(Math.random()-.5)*400,y:pJS.canvas.h/2+(Math.random()-.5)*400}, angle=Math.atan2(target.y-p.y,target.x-p.x), speed=5+Math.random()*5; p.vx=Math.cos(angle)*speed; p.vy=Math.sin(angle)*speed; } } break;
+                        case 'pulsingCore': for(const p of pJS.particles.array){const dx=p.x-pJS.canvas.w/2,dy=p.y-pJS.canvas.h/2,dist=Math.sqrt(dx*dx+dy*dy)||1; p.vx+=dx/dist*5;p.vy+=dy/dist*5;} break;
+                        case 'realityFlicker': ui.canvasContainer.style.opacity='0.8'; setTimeout(() => { if(!cataclysmInProgress) ui.canvasContainer.style.opacity='1'; }, 100); break;
+                    }
+                }
+
                 // --- Main Particle Loop ---
                 for(let i = pJS.particles.array.length - 1; i >= 0; i--) {
                     const p = pJS.particles.array[i];
@@ -310,23 +341,24 @@
                     for (const zone of phaseZones) { if (Math.pow(p.x - zone.x, 2) + Math.pow(p.y - zone.y, 2) < zone.radiusSq) { isPhased = true; break; } }
                     for (const field of stasisFields) { if (Math.pow(p.x - field.x, 2) + Math.pow(p.y - field.y, 2) < field.r*field.r) { isStasis = true; break; } }
 
-                    // Apply ongoing effects
                     if(p.unravelling > 0) { p.unravelling--; p.radius *= 0.98; if (p.unravelling <= 0) { pJS.particles.array.splice(i,1); continue; } }
                     if(p.isCrystalized || isStasis) { p.vx = 0; p.vy = 0; }
                     if (p.fading > 0) { p.fading--; p.opacity.value = Math.max(0, p.opacity.value - 0.01); if(p.opacity.value <= 0) {pJS.particles.array.splice(i,1); continue;}}
 
-                    // Apply Anomalies
                     for (const nebula of nebulas) { const dSq = Math.pow(p.x - nebula.x, 2) + Math.pow(p.y - nebula.y, 2); if (dSq < nebula.radius*nebula.radius) { p.vx *= 0.95; p.vy *= 0.95; if(!p.colorLocked) { const pColor = p.color.rgb; p.color.rgb = { r: (pColor.r*9+nebula.baseColor.h/360*255)/10, g: (pColor.g*9+nebula.baseColor.s/100*255)/10, b: (pColor.b*9+nebula.baseColor.l/100*255)/10 }; } } }
                     for (const pulsar of pulsars) { const angleToP = Math.atan2(p.y-pulsar.y, p.x-pulsar.x); const angleDiff = Math.abs(pulsar.angle - angleToP) % Math.PI; if (angleDiff < 0.1) { p.vx += Math.cos(pulsar.angle) * pulsar.strength * 0.1; p.vy += Math.sin(pulsar.angle) * pulsar.strength * 0.1; }}
+                    for (const bh of blackHoles) { const dx = bh.x - p.x, dy = bh.y - p.y, dSq = dx*dx+dy*dy; if(dSq < Math.pow(bh.radius*15,2)) { const force = 1 - (dSq / Math.pow(bh.radius*15,2)); p.vx += dx/Math.sqrt(dSq) * bh.strength * force; p.vy += dy/Math.sqrt(dSq) * bh.strength * force; } if (dSq < bh.radius*bh.radius) { pJS.particles.array.splice(i,1); continue; } }
+                    if(p.entangledWith) { const p2 = p.entangledWith; if(p2){ p.vx += (p2.x - p.x) * 0.0001; p.vy += (p2.y - p.y) * 0.0001;} else {p.entangledWith = null;} }
 
-                    // Apply Mutators
                     if (universeProfile.mutators.includes('Pulsing Particles')) { p.radius = p.radius_initial * (1 + 0.5 * Math.sin(tick * 0.05 + p.seed)); }
                     if (universeProfile.mutators.includes('Unstable Particles') && Math.random() < 0.0005) { if (Math.random() > 0.5 && pJS.particles.array.length < pJS.particles.number.value_max) { pJS.fn.modes.pushParticles(1, {x:p.x, y:p.y}); } else { pJS.particles.array.splice(i,1); continue; } }
                     if (universeProfile.mutators.includes('Repulsive Field') && !isPhased) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, distSq=dx*dx+dy*dy; if(distSq < 2500) { p.vx += dx/distSq*2; p.vy += dy/distSq*2; } } }
                     if (universeProfile.mutators.includes('Erratic')) { p.vx += (Math.random()-0.5)*0.3; p.vy += (Math.random()-0.5)*0.3; }
                     if (universeProfile.mutators.includes('Rainbow') && !p.colorLocked) { p.color = { rgb: { r: 127*(1+Math.sin(tick*0.05 + p.x*0.01)), g: 127*(1+Math.sin(tick*0.05 + p.y*0.01)), b: 127*(1+Math.sin(tick*0.05)) } }; }
-
-                    // Apply Player Interaction & Global Forces
+                    if (universeProfile.mutators.includes('Comet Tails') && Math.random() > 0.95 && pJS.particles.array.length < pJS.particles.number.value_max) { pJS.fn.modes.pushParticles(1, {x:p.x, y:p.y}); const tail = pJS.particles.array[pJS.particles.array.length - 1]; if(tail) { tail.radius = p.radius * 0.4; tail.fading = 30; tail.vx = p.vx * -0.2; tail.vy = p.vy * -0.2; } }
+                    if (universeProfile.mutators.includes('Ephemeral')) { if(!p.targetOpacity) p.targetOpacity = p.opacity.value; if(Math.random() > 0.99) p.targetOpacity = Math.random() * p.opacity_bubble; p.opacity.value += (p.targetOpacity - p.opacity.value) * 0.1; }
+                    if (universeProfile.mutators.includes('Elastic Collisions') && tick%3===0) { for(let j=i+1; j<pJS.particles.array.length; j++){ const p2 = pJS.particles.array[j]; if(!p2) continue; const dx = p2.x - p.x, dy = p2.y - p.y, dSq = dx*dx + dy*dy, minDist = p.radius+p2.radius; if(dSq < minDist*minDist){ const tempVx=p.vx, tempVy=p.vy; p.vx=p2.vx; p.vy=p2.vy; p2.vx=tempVx; p2.vy=tempVy; } } }
+                    
                     if (!isPhased && !isStasis && !p.isCrystalized) {
                         if (isLeftMouseDown) handleActivePower(p, i, pJS, universeProfile.leftClickPower, worldMouse);
                         if (isRightMouseDown) handleActivePower(p, i, pJS, universeProfile.rightClickPower, worldMouse);
@@ -337,21 +369,17 @@
                     if (p.radius > p.radius_initial && !universeProfile.mutators.includes('Pulsing Particles')) { p.radius -= 0.05; }
                     p.vx *= friction; p.vy *= friction;
 
-                    // Torus Field boundary check
-                    if (universeProfile.mutators.includes('Torus Field')) {
-                        if (p.x < 0) p.x = pJS.canvas.w;
-                        if (p.x > pJS.canvas.w) p.x = 0;
-                        if (p.y < 0) p.y = pJS.canvas.h;
-                        if (p.y > pJS.canvas.h) p.y = 0;
-                    }
+                    if (universeProfile.mutators.includes('Torus Field')) { if (p.x < 0) p.x = pJS.canvas.w; if (p.x > pJS.canvas.w) p.x = 0; if (p.y < 0) p.y = pJS.canvas.h; if (p.y > pJS.canvas.h) p.y = 0; }
+                    else if (p.x<0||p.x>pJS.canvas.w||p.y<0||p.y>pJS.canvas.h) { if(universeProfile.mutators.includes('Glass Cannon')&&pJS.particles.move.out_mode==='bounce'){pJS.particles.array.splice(i,1);continue;} }
                 }
 
                 if (pJS.particles.array.length > pJS.particles.number.value_max) { pJS.particles.array.splice(0, pJS.particles.array.length - pJS.particles.number.value_max); }
                 
-                // --- Drawing & Final Update ---
                 const ctx = pJS.canvas.ctx;
                 nebulas.forEach(n => { const grad = ctx.createRadialGradient(n.x, n.y, n.radius/4, n.x, n.y, n.radius); grad.addColorStop(0, n.color.replace('0.15', '0.3')); grad.addColorStop(1, n.color.replace('0.15', '0')); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2*Math.PI); ctx.fill(); });
                 pulsars.forEach(p => { p.angle += 0.05; ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 2*Math.PI); ctx.fill(); for(let i=0; i<2; i++) { const angle = p.angle + i*Math.PI; const grad = ctx.createLinearGradient(p.x, p.y, p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); grad.addColorStop(0, 'rgba(255,255,255,0.2)'); grad.addColorStop(1, 'rgba(255,255,255,0)'); ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); ctx.stroke(); } });
+                blackHoles.forEach(bh => { const grad = ctx.createRadialGradient(bh.x,bh.y,0,bh.x,bh.y,bh.radius*2); grad.addColorStop(0,'#000'); grad.addColorStop(0.5,'#200530'); grad.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(bh.x,bh.y,bh.radius*2,0,2*Math.PI); ctx.fill(); ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(bh.x,bh.y,bh.radius,0,2*Math.PI); ctx.fill(); });
+                cosmicStrings.forEach(s => { ctx.strokeStyle='rgba(200,220,255,0.5)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke(); });
                 wormholes.forEach((w,i) => { w.life--; if(w.life <= 0) { wormholes.splice(i,1); return; } ctx.strokeStyle=`rgba(150, 100, 255, ${w.life/120})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(w.entry.x,w.entry.y,15,0,2*Math.PI); ctx.stroke(); ctx.beginPath(); ctx.arc(w.exit.x,w.exit.y,15,0,2*Math.PI); ctx.stroke(); });
                 phaseZones.forEach((z, i) => { z.life--; if (z.life <= 0) { phaseZones.splice(i, 1); } ctx.strokeStyle=`rgba(180, 200, 255, ${0.1 + (z.life / z.maxLife)*0.3})`; ctx.setLineDash([15, 10]); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(z.x,z.y,Math.sqrt(z.radiusSq),0,2*Math.PI); ctx.stroke(); ctx.setLineDash([]); });
                 stasisFields.forEach((f, i) => { f.life--; if (f.life <= 0) { stasisFields.splice(i, 1); } ctx.strokeStyle=`rgba(255, 255, 150, ${0.1 + (f.life / f.maxLife)*0.4})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.95 + 0.05 * Math.sin(tick*0.1)), 0, 2*Math.PI); ctx.stroke(); });
@@ -388,13 +416,17 @@
                     case 'whisper': if (distSq < 200*200) { p.vx += dx * 0.001; p.vy += dy * 0.001; } break;
                     case 'fade': if (distSq < 150*150) { p.fading = 100; } break;
                     case 'paint': if (distSq < 150*150) { p.color = { rgb: {r: Math.random()*255, g: Math.random()*255, b: Math.random()*255 } }; p.colorLocked = true; } break;
+                    case 'resonate': if (distSq < 150*150) { p.radius = p.radius_initial * (1 + 0.8 * Math.sin(tick * 0.2 + dist * 0.05)); } break;
+                    case 'dissonance': if (distSq < 200*200) { p.vx -= dx/dist*0.3; p.vy -= dy/dist*0.3; } break;
+                    case 'entangle': if(!p.entangledWith&&Math.random()>0.99){const p2=pJS.particles.array[Math.floor(Math.random()*pJS.particles.array.length)];if(p!==p2&&!p2.entangledWith){p.entangledWith=p2;p2.entangledWith=p;}} break;
+                    case 'tunnel': if(distSq<20*20&&!p.isTunnelling){p.isTunnelling=true;setTimeout(()=>{p.x=worldMouse.x+(Math.random()-.5)*300;p.y=worldMouse.y+(Math.random()-.5)*300;p.isTunnelling=false;},50);} break;
                 }
             }
             
             function handleClickPower(powerName, pJS, worldMouse) {
                 switch(powerName) {
                     case 'supernova': for (const p of pJS.particles.array) { const dx=p.x-worldMouse.x, dy=p.y-worldMouse.y, dist = Math.sqrt(dx*dx+dy*dy)||1; if (dist < 250) { p.vx += dx/dist*30; p.vy += dy/dist*30; } } break;
-                    case 'gravityWell': if (!gravityWells.some((w,i)=>{const dSq=Math.pow(w.x-worldMouse.x,2)+Math.pow(w.y-worldMouse.y,2); if(dSq<30*30){gravityWells.splice(i,1);return true;} return false;})) { gravityWells.push({x: worldMouse.x, y: worldMouse.y, strength: 0.2}); } break;
+                    case 'gravityWell': if (!gravityWells.some((w,i)=>{const dSq=Math.pow(w.x-worldMouse.x,2)+Math.pow(w.y-worldMouse.y,2); if(dSq<30*30 && !w.permanent){gravityWells.splice(i,1);return true;} return false;})) { gravityWells.push({x: worldMouse.x, y: worldMouse.y, strength: 0.2}); } break;
                     case 'toggleLinks': pJS.particles.line_linked.enable = !pJS.particles.line_linked.enable; pJS.fn.particlesRefresh(); break;
                     case 'harvest': for(let i=pJS.particles.array.length-1; i>=0; i--){ const p = pJS.particles.array[i], distSq = Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2); if(distSq < 100*100){ pJS.particles.array.splice(i,1); pJS.fn.modes.pushParticles(1,worldMouse); } } break;
                     case 'stasisField': stasisFields.push({x: worldMouse.x, y: worldMouse.y, r: 150, maxLife: 300, life: 300}); break;
@@ -402,12 +434,16 @@
                     case 'glitch': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 100) { p.x = Math.random() * pJS.canvas.w; p.y = Math.random() * pJS.canvas.h; break; } } break;
                     case 'crystalize': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.isCrystalized = true; p.color = {rgb:{r:200, g:220, b:255}}; } } break;
                     case 'wormhole': const exitPoint = { x: Math.random() * pJS.canvas.w, y: Math.random() * pJS.canvas.h }; wormholes.push({entry: {...worldMouse}, exit: exitPoint, life: 120}); for(const p of pJS.particles.array){ if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 100) { p.x = exitPoint.x + (Math.random()-0.5)*50; p.y = exitPoint.y + (Math.random()-0.5)*50; } } break;
+                    case 'harmony': for(const p of pJS.particles.array){const dx=worldMouse.x-p.x,dy=worldMouse.y-p.y;p.vx+=dx*.005;p.vy+=dy*.005;} break;
+                    case 'crescendo': for (const p of pJS.particles.array) { p.vx *= 1.5; p.vy *= 1.5; } break;
+                    case 'superposition': if (pJS.particles.array.length < pJS.particles.number.value_max - 5) { for(let i=0;i<5;i++) pJS.fn.modes.pushParticles(1, worldMouse); } break;
+                    case 'observe': for(const p of pJS.particles.array){if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2))<150){p.isCrystalized=true;}} break;
                 }
             }
 
             function triggerCataclysm(pJS) {
                 cataclysmInProgress = true;
-                ui.container.style.opacity = '0';
+                ui.container.classList.remove('visible');
                 ui.canvasContainer.classList.remove('shake');
                 const choice = universeProfile.cataclysm;
                 const regen = (delay) => setTimeout(() => generateUniverse(pJS, generateRandomSeed()), delay);
@@ -422,6 +458,8 @@
                     case 'Total Annihilation': ui.canvasContainer.style.transition = 'filter 4s ease'; ui.canvasContainer.style.filter = 'brightness(0)'; regen(4500); break;
                     case 'Causality Collapse': let ccInterval = setInterval(() => { for(const p of pJS.particles.array) { p.vx += (p.startX - p.x) * 0.02; p.vy += (p.startY - p.y) * 0.02; if(p.radius > 0.1) p.radius -= 0.1; } }, 50); activeIntervals.push(ccInterval); setTimeout(() => { clearInterval(ccInterval); regen(1000); }, 4000); break;
                     case 'Great Fading': let fadeInterval = setInterval(() => { pJS.particles.array.forEach(p => p.opacity.value *= 0.95); }, 50); activeIntervals.push(fadeInterval); setTimeout(() => { clearInterval(fadeInterval); regen(1000);}, 4000); break;
+                    case 'Sonic Boom': const boomCenter={x:pJS.canvas.w/2,y:pJS.canvas.h/2};let boomRadius=0;const boomInt=setInterval(()=>{boomRadius+=40;for(const p of pJS.particles.array){const dx=p.x-boomCenter.x,dy=p.y-boomCenter.y,dist=Math.sqrt(dx*dx+dy*dy);if(Math.abs(dist-boomRadius)<30){p.vx+=dx/dist*20;p.vy+=dy/dist*20;}} if(boomRadius>pJS.canvas.w){clearInterval(boomInt);regen(1000);}},50);activeIntervals.push(boomInt);break;
+                    case 'Decoherence': pJS.particles.array.forEach(p=>p.isCrystalized=true);let decInt=setInterval(()=>{if(pJS.particles.array.length>0){pJS.particles.array.splice(Math.floor(Math.random()*pJS.particles.array.length),1);}else{clearInterval(decInt);regen(500);}},10);activeIntervals.push(decInt);break;
                 }
             }
             
@@ -432,7 +470,7 @@
             window.addEventListener('mouseup', e => {
                 if (cataclysmInProgress) return;
                 const powerName = e.button === 0 ? universeProfile.leftClickPower : universeProfile.rightClickPower;
-                const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole'];
+                const clickPowers = ['supernova','gravityWell','stasisField','unravel','harvest','toggleLinks','glitch','crystalize','wormhole','harmony','crescendo','superposition','observe'];
                 if (clickPowers.includes(powerName)) { handleClickPower(powerName, pJS, mouse); }
                 if (e.button === 0) isLeftMouseDown = false;
                 else if (e.button === 2) isRightMouseDown = false;
@@ -440,8 +478,8 @@
             });
             window.addEventListener('resize', () => { let resizeTimeout; clearTimeout(resizeTimeout); resizeTimeout = setTimeout(() => { if (pJS && currentSeed && !cataclysmInProgress) { isInitialLoad = true; generateUniverse(pJS, currentSeed); } }, 250); });
 
-            function resetState(){ activeIntervals.forEach(clearInterval); clearTimeout(seedCopyTimeout); activeIntervals=[]; gravityWells=[]; stasisFields=[]; phaseZones=[]; echoPulses=[]; pulsars=[]; nebulas=[]; wormholes=[]; ui.canvasContainer.style.filter=''; ui.canvasContainer.style.transition = 'filter 1s ease'; ui.canvasContainer.classList.remove('shake'); tick=0; cataclysmInProgress=false; }
-            function tagParticles(particles) { if (!particles) return; particles.forEach(p => { if (p) { if(p.radius_initial === undefined || isInitialLoad) p.radius_initial = p.radius; if(p.startX === undefined || isInitialLoad) { p.startX = p.x; p.startY = p.y; } if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = Math.random() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); } p.seed = Math.random() * 1000; p.isCrystalized = false; p.isInfected = false; p.unravelling = 0; p.fading = 0; p.colorLocked = false; } }); }
+            function resetState(){ activeIntervals.forEach(clearInterval); clearTimeout(seedCopyTimeout); activeIntervals=[]; gravityWells=[]; stasisFields=[]; phaseZones=[]; echoPulses=[]; pulsars=[]; nebulas=[]; wormholes=[]; blackHoles=[]; cosmicStrings=[]; ui.canvasContainer.style.filter=''; ui.canvasContainer.style.transition = 'filter 1s ease'; ui.canvasContainer.classList.remove('shake'); tick=0; cataclysmInProgress=false; }
+            function tagParticles(particles) { if (!particles) return; particles.forEach(p => { if (p) { if(p.radius_initial === undefined || isInitialLoad) p.radius_initial = p.radius; if(p.startX === undefined || isInitialLoad) { p.startX = p.x; p.startY = p.y; } if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = Math.random() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); } p.seed = Math.random() * 1000; p.isCrystalized=false; p.isInfected=false; p.unravelling=0; p.fading=0; p.colorLocked=false; p.entangledWith=null; p.isTunnelling=false; p.targetOpacity=null; } }); }
             function setRandomGradient(hue, isMonochrome, seededRandom, isVoid) { const angle=Math.floor(seededRandom()*360); if(isVoid){ document.body.style.background=`linear-gradient(${angle}deg, #000000, #120510, #000000)`; } else if(isMonochrome){document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;}else{document.body.style.background=`linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue+120)%360},80%,20%), hsl(${(hue+240)%360},80%,25%))`;} ui.canvasContainer.style.background = document.body.style.background; ui.canvasContainer.style.backgroundSize = '400% 400%'; }
             function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
         });

@@ -1,67 +1,66 @@
-# Celestial Canvas
+# ✨ Celestial Canvas
 
-**Celestial Canvas** is an interactive generative art project that creates unique, mesmerizing particle universes right in your browser. Each universe is procedurally generated from a shareable seed, giving it a distinct set of physical laws, aesthetics, and interactive powers.
+**An interactive, generative cosmic sandbox built in a single HTML file.**
 
-Use your mouse to shape the cosmos, trigger celestial events, and push your universe towards a spectacular, world-ending cataclysm.
+Celestial Canvas is a browser-based generative art experience where you can create and interact with unique, miniature universes. Each universe is procedurally generated from a shareable seed, complete with its own aesthetic, physical laws, interactive powers, and cosmic events.
 
-## ✨ Key Features
+Use your mouse as a cosmic force to attract, repel, warp, shatter, and paint the particles that inhabit your canvas. But be careful—pushing the universe too hard will build up energy, leading to a world-ending **Cataclysm** that births a new reality.
 
-*   **Infinitely Generative:** Every universe is created from a unique, shareable seed. Reload the page for a new experience, or share a URL with a specific seed to show others what you've found.
-*   **Universe Blueprints:** The core of each universe is its blueprint, which defines its theme, physics, and available powers. Blueprints include:
-    *   `Classical`: A standard space simulation with gravity and supernovae.
-    *   `Organic`: A fluid, biological world with trails and symbiotic forces.
-    *   `Digital`: A world of bits and glitches with straight-line physics.
-    *   `Crystalline`: A rigid, bouncing universe of sharp edges and resonance.
-    *   `BioMechanical`: A hybrid world of networked particles and infectious tendrils.
-    *   `ChronoVerse`: A universe where time can be bent, accelerated, or frozen.
-    *   `VoidTouched`: A stark, monochrome universe on the brink of annihilation.
-    *   `PhantomEcho`: A ghostly world of repeating events and intangible zones.
-    *   `Aetherial`: A soft, ethereal plane with gentle forces and fading particles.
-*   **Game-Changing Mutators:** Each universe can have random mutators that dramatically alter its behavior:
-    *   `Pulsing Particles`: Particles gently grow and shrink in a hypnotic rhythm.
-    *   `Torus Field`: The universe wraps around! Exiting one edge teleports you to the opposite side.
-    *   `Erratic`: Particles move with a chaotic, unpredictable jitter.
-    *   `Rainbow`: Particles shift through the color spectrum over time.
-    *   `Hyperspeed`, `Viscous`, `Low-Gravity`, and more!
-*   **Rare Cosmic Anomalies:** There is a chance for a universe to spawn with a persistent, rare anomaly that reshapes the entire simulation:
-    *   **Pulsar:** A rapidly spinning star that periodically emits powerful beams of energy, sweeping particles across the canvas.
-    *   **Nebula:** A vast, colorful gas cloud that slows down and tints any particles that drift through it.
-*   **Dynamic Mouse Powers:** Your mouse is the prime mover. Hold the left and right buttons to wield powers determined by the universe's blueprint. Attract, repel, freeze, infect, teleport, paint, and shatter the particles around you.
-*   **Cataclysm System:** Interacting with the universe builds up energy. Push it too far, and you will trigger a spectacular, universe-ending **Cataclysm**, after which a new universe is born from the ashes.
+**(A vibrant, animated GIF of the sandbox in action would go here, showcasing different blueprints, mouse interactions, and perhaps the start of a cataclysm.)**
+
+---
+
+## 🚀 Features
+
+*   **Procedural Universe Generation:** Every universe is generated from a unique, shareable seed string (e.g., `ASTRAL-WARP-4271`). No two universes are exactly alike.
+*   **Deeply Interactive Physics:** Your mouse isn't just a pointer; it's an extension of your will. Left and right clicks unleash unique powers determined by the universe's blueprint.
+*   **The Universe Engine:** A complex system of interlocking, randomized components ensures immense variety:
+    *   🌌 **Blueprints:** Each universe is based on one of 12 fundamental themes (like `Classical`, `Organic`, `Digital`, `VoidTouched`, or `LivingInk`) that define its core aesthetic, physics, and available powers.
+    *   🔀 **Mutators:** Universes can be warped by one or more mutators, like `Hyperspeed`, `Rainbow Particles`, `Repulsive Field`, or a `Torus Field` (where particles wrap around the screen).
+    *   🌠 **Anomalies:** Discover persistent cosmic features that dramatically alter the simulation, such as `Pulsars`, `Black Holes`, `Nebulae`, or reality-bending `Cosmic Strings`.
+    *   💥 **Cataclysm System:** Constant interaction builds energy. When the universe becomes unstable, it triggers a spectacular, blueprint-specific cataclysm (e.g., `Supernova`, `Glitch Storm`, `False Vacuum Decay`, `The Bleed`) before regenerating into a new, random universe.
+*   **Share Your Creations:** The current universe's seed is stored in the URL. Simply copy the URL to share your exact cosmic discovery with others.
+*   **Zero Dependencies:** Everything is self-contained in a single `index.html` file. It leverages the `particles.js` library, but fetches it from a CDN, requiring no local setup.
+
+---
 
 ## 🎮 How to Use
 
-The experience is designed to be intuitive and discovery-based.
+### Running Locally
+1.  Download the `index.html` file.
+2.  Open it in a modern web browser (like Chrome, Firefox, or Edge).
 
-*   **Move Mouse:** Controls a glowing cursor that influences particles.
-*   **Hold Left Mouse Button:** Activates the primary power (e.g., `Comet`, `Infect`, `Whisper`).
-*   **Hold Right Mouse Button:** Activates the secondary power (e.g., `Set Orbit`, `Paint`, `Phase Zone`).
-*   **Click Right Mouse Button:** Some secondary powers are instantaneous (e.g., `Supernova`, `Wormhole`, `Stasis Field`).
+That's it! The simulation will start immediately.
 
-The UI in the bottom-left corner provides all the information about your current universe:
-*   **Blueprint:** The fundamental theme of the universe.
-*   **Seed:** The unique identifier for this universe. **Click it to copy a shareable URL!**
-*   **Mutators:** Any special physics modifiers in effect.
-*   **Anomaly:** If a rare cosmic anomaly is present.
+### Controls
+*   **Move Mouse:** A passive glow follows your cursor, influencing particles in some universes.
+*   **Left-Click (Hold):** Activates your primary power (e.g., attract particles, create tendrils, accelerate time).
+*   **Right-Click (Hold or Click):** Activates your secondary power (e.g., unleash a supernova, create a stasis field, entangle particles).
+*   **UI (Bottom Left):**
+    *   Displays the current `Blueprint`, `Mutators`, and `Anomaly`.
+    *   Click on the **Seed** text to copy the shareable URL to your clipboard.
 
-## ⚙️ How It Works
+---
 
-Celestial Canvas is built with vanilla **HTML, CSS, and JavaScript**, with no external frameworks. It leverages the lightweight **`particles.js`** library as a foundation for rendering, but all generative logic, physics modifications, and interactive features are custom-built.
+## 🛠️ Technology Stack
 
-1.  **Seeding:** On load, a seed is either read from the URL (`?seed=...`) or randomly generated.
-2.  **PRNG Initialization:** This seed is used to initialize a `mulberry32` pseudo-random number generator (PRNG). This ensures that the same seed will *always* produce the exact same sequence of random numbers.
-3.  **Universe Generation:** The PRNG is used to determine every aspect of the new universe:
-    *   The Blueprint is chosen.
-    *   The left and right mouse powers are selected from the Blueprint's pool.
-    *   Colors, base physics, and particle shapes are set.
-    *   Mutators are rolled for and applied.
-    *   A rare Anomaly is rolled for and spawned.
-4.  **Real-time Simulation:** The main `requestAnimationFrame` loop continuously updates and draws the simulation, handling:
-    *   Particle physics and movement.
-    *   User mouse input and power activation.
-    *   The logic for Anomalies, Mutators, and other special fields.
-    *   The energy level and triggering of the Cataclysm.
+*   **HTML5 / CSS3:** For the structure and vibrant visual styling.
+*   **Vanilla JavaScript (ES6):** Powers the entire simulation logic, from the seeding engine to the physics and cataclysm events.
+*   **particles.js:** Used as the base rendering engine for the particle system, which is then heavily modified and extended by the custom simulation loop.
 
-## 🚀 Running Locally
+---
 
-This project is a single, self-contained `index.html` file. To run it, simply download the file and open it in any modern web browser. No web server is required.
+## 🔮 Future Ideas
+
+This project is a sandbox for creative coding. Potential future additions could include:
+
+*   **Soundscapes:** Procedurally generated ambient audio that reacts to the universe's state and user interaction.
+*   **More Blueprints, Mutators, and Anomalies:** The system is designed to be easily expandable with new and crazier ideas.
+*   **Mobile/Touch Controls:** Adapting the experience for touch devices.
+*   **A "Saved Seeds" Gallery:** A way to bookmark and revisit favorite universes.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.

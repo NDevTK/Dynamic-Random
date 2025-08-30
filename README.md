@@ -6,8 +6,6 @@ Celestial Canvas is a browser-based generative art experience where you can crea
 
 Use your mouse as a cosmic force to attract, repel, warp, shatter, and paint the particles that inhabit your canvas. But be careful—pushing the universe too hard will build up energy, leading to a world-ending **Cataclysm** that births a new reality.
 
-**(A vibrant, animated GIF of the sandbox in action would go here, showcasing different blueprints, mouse interactions, and perhaps the start of a cataclysm.)**
-
 ---
 
 ## 🚀 Features

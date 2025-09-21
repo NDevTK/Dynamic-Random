@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Apply ongoing effects
                 if(p.unravelling > 0) { p.unravelling--; p.radius *= 0.98; if (p.unravelling <= 0) { pJS.particles.array.splice(i,1); continue; } }
-                if(p.isCrystalized || isStasis) { p.vx = 0; p.vy = 0; }
+                if(p.isCrystalized || isStasis || p.isCoral) { p.vx = 0; p.vy = 0; }
                 if (p.fading > 0) { p.fading--; p.opacity.value = Math.max(0, p.opacity.value - 0.01); if(p.opacity.value <= 0) {pJS.particles.array.splice(i,1); continue;}}
                 if (p.isConsumed > 0) { p.radius *= 0.97; p.isConsumed--; if(p.isConsumed <= 0) { pJS.particles.array.splice(i,1); continue; } }
 
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (universeProfile.mutators.includes('Pulsing Particles')) { p.radius = p.radius_initial * (1 + 0.5 * Math.sin(tick * 0.05 + p.seed)); }
                 if (universeProfile.mutators.includes('Unstable Particles') && Math.random() < 0.0005) { if (Math.random() > 0.5 && pJS.particles.array.length < pJS.particles.number.value_max) { pJS.fn.modes.pushParticles(1, {x:p.x, y:p.y}); } else { pJS.particles.array.splice(i,1); continue; } }
                 if (universeProfile.mutators.includes('Repulsive Field') && !isPhased) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, distSq=dx*dx+dy*dy; if(distSq < 2500) { p.vx += dx/distSq*2; p.vy += dy/distSq*2; } } }
-                if (universeProfile.mutators.includes('Clustering') && !isPhased) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, distSq=dx*dx+dy*dy; if(distSq < 10000 && distSq > 100) { p.vx -= dx/distSq*1.5; p.vy -= dy/distSq*1.5; } } }
+                if (universeProfile.mutators.includes('Clustering') && !isPhased) { const pulse = 1.0 + 0.5 * Math.sin(tick * 0.01); for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, distSq=dx*dx+dy*dy; if(distSq < 15000 && distSq > 100) { p.vx -= dx/distSq * 1.5 * pulse; p.vy -= dy/distSq * 1.5 * pulse; } } }
                 if (universeProfile.mutators.includes('Erratic')) { p.vx += (Math.random()-0.5)*0.3; p.vy += (Math.random()-0.5)*0.3; }
                 if (universeProfile.mutators.includes('Rainbow') && !p.colorLocked) { p.color = { rgb: { r: 127*(1+Math.sin(tick*0.05 + p.x*0.01)), g: 127*(1+Math.sin(tick*0.05 + p.y*0.01)), b: 127*(1+Math.sin(tick*0.05)) } }; }
                 if (universeProfile.mutators.includes('Flickering')) { if(tick % Math.floor(20+p.seed*20) === 0) p.opacity.value = p.opacity.value > 0 ? 0 : pJS.particles.opacity.value; }
@@ -204,6 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (p.isHeavy) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, dSq=dx*dx+dy*dy; if(dSq < 10000) { p2.vx += dx/dSq*p.radius; p2.vy += dy/dSq*p.radius; } } }
                 if (universeProfile.mutators.includes('Choral')) { const avg_vx = pJS.particles.array.reduce((acc,p) => acc+p.vx, 0) / pJS.particles.array.length; const avg_vy = pJS.particles.array.reduce((acc,p) => acc+p.vy, 0) / pJS.particles.array.length; p.vx += (avg_vx - p.vx) * 0.001; p.vy += (avg_vy - p.vy) * 0.001; }
                 if (universeProfile.mutators.includes('Carnival') && tick % 10 === 0) { p.color = {rgb:{r:Math.random()*255, g:Math.random()*255, b:Math.random()*255}}; p.radius = p.radius_initial * (0.5 + Math.random()); }
+                if (universeProfile.mutators.includes('ParticleChains')) { if (!p.chainChild) { for (const p2 of pJS.particles.array) { if (p === p2 || p2.chainParent) continue; const dSq = Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2); if (dSq < 20*20 && !p.chainParent) { p.chainChild = p2; p2.chainParent = p; break; } } } if (p.chainChild) { const dx = p.chainChild.x - p.x; const dy = p.chainChild.y - p.y; const dist = Math.sqrt(dx*dx+dy*dy); if (dist > 50) { p.chainChild.chainParent = null; p.chainChild = null; } else { const restingDist = 20; const force = (dist - restingDist) * 0.01; p.vx += dx / dist * force; p.vy += dy / dist * force; p.chainChild.vx -= dx / dist * force; p.chainChild.vy -= dy / dist * force; pJS.canvas.ctx.strokeStyle = 'rgba(200, 200, 255, 0.2)'; pJS.canvas.ctx.lineWidth = 1; pJS.canvas.ctx.beginPath(); pJS.canvas.ctx.moveTo(p.x, p.y); pJS.canvas.ctx.lineTo(p.chainChild.x, p.chainChild.y); pJS.canvas.ctx.stroke(); } } }
+
+                for (const river of activeEffects.cosmicRivers) { for (let t = 0; t < 1; t += 0.05) { const pt = getBezierXY(t, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2); const dSq = Math.pow(p.x - pt.x, 2) + Math.pow(p.y - pt.y, 2); if (dSq < river.width * river.width) { const nextPt = getBezierXY(t + 0.01, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2); const riverAngle = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x); p.vx += Math.cos(riverAngle) * river.strength * 0.05; p.vy += Math.sin(riverAngle) * river.strength * 0.05; break; } } }
 
                 // Apply Player Interaction & Global Forces
                 if (!isPhased && !isStasis && !p.isCrystalized && !p.isEntangled) {
@@ -281,6 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
         activeEffects.spacetimeFoam.forEach(f => { ctx.fillStyle=`rgba(200, 200, 255, ${0.05 + (f.life/f.maxLife)*0.1})`; ctx.beginPath(); ctx.arc(f.x,f.y,f.radius,0,2*Math.PI); ctx.fill(); });
         activeEffects.echoingVoids.forEach(e => { e.history.forEach((h,i) => { ctx.fillStyle=`rgba(${h.color.r}, ${h.color.g}, ${h.color.b}, ${i/e.history.length*0.5})`; ctx.beginPath(); ctx.arc(h.x,h.y,2,0,2*Math.PI); ctx.fill(); }); });
         activeEffects.cosmicNurseries.forEach(n => { const grad = ctx.createRadialGradient(n.x, n.y, n.radius/2, n.x, n.y, n.radius); grad.addColorStop(0, 'rgba(255, 200, 255, 0.2)'); grad.addColorStop(1, 'rgba(255, 200, 255, 0)'); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2*Math.PI); ctx.fill(); });
+        activeEffects.coralConnections.forEach(conn => { if (conn.p1 && conn.p2) { ctx.strokeStyle = 'rgba(200, 255, 220, 0.5)'; ctx.lineWidth = conn.p1.radius/2; ctx.beginPath(); ctx.moveTo(conn.p1.x, conn.p1.y); ctx.lineTo(conn.p2.x, conn.p2.y); ctx.stroke(); } });
+        activeEffects.cosmicRivers.forEach(river => { ctx.strokeStyle = 'rgba(150, 200, 255, 0.1)'; ctx.lineWidth = river.width; ctx.beginPath(); ctx.moveTo(river.x1, river.y1); ctx.bezierCurveTo(river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2); ctx.stroke(); ctx.lineWidth = river.width/4; ctx.strokeStyle = 'rgba(200, 220, 255, 0.1)'; ctx.stroke(); });
     }
 
     // --- Player Interaction ---
@@ -348,6 +353,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'stirGoo': if (distSq < 200*200) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const d2Sq=Math.pow(p.x-p2.x,2)+Math.pow(p.y-p2.y,2); if(d2Sq < 2500) { p.vx -= (p2.x-p.x)*0.005; p.vy -= (p2.y-p.y)*0.005; } } } break;
             // HauntedRealm
             case 'exorcise': if (distSq < 150*150) { p.vx += dx/dist * 0.5; p.vy += dy/dist * 0.5; p.opacity.value = Math.min(1, p.opacity.value + 0.01); } break;
+            // CoralReef
+            case 'growCoral': if (distSq < 100 * 100 && !p.isCoral) { p.isCoral = true; let closestCoral = null; let closestDistSq = Infinity; activeEffects.coral.forEach(coralP => { if (!coralP) return; const dSq = Math.pow(p.x - coralP.x, 2) + Math.pow(p.y - coralP.y, 2); if (dSq < 150*150 && dSq < closestDistSq) { closestDistSq = dSq; closestCoral = coralP; } }); activeEffects.coral.push(p); if (closestCoral) { activeEffects.coralConnections.push({ p1: p, p2: closestCoral }); } } break;
+            case 'schooling': if (distSq < 300 * 300) { const force = 1 / dist; p.vx += dx * force * 0.03; p.vy += dy * force * 0.03; } break;
         }
     }
 
@@ -434,6 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'BigRip': let rip = 0; const ripInterval = setInterval(() => { rip++; pJS.particles.array.forEach(p => { p.vx *= 1.05; p.vy *= 1.05; p.radius *= 0.99; if(p.radius < 0.1) pJS.particles.array.splice(pJS.particles.array.indexOf(p), 1); }); if(rip > 150 || pJS.particles.array.length === 0) { clearInterval(ripInterval); regen(1000); } }, 20); activeIntervals.push(ripInterval); break;
             case 'Homogenization': let homo = 0; const homoInterval = setInterval(() => { homo++; const avg_c = pJS.particles.array.reduce((acc, p) => { acc.r += p.color.rgb.r; acc.g += p.color.rgb.g; acc.b += p.color.rgb.b; return acc; }, {r:0,g:0,b:0}); avg_c.r /= pJS.particles.array.length; avg_c.g /= pJS.particles.array.length; avg_c.b /= pJS.particles.array.length; pJS.particles.array.forEach(p => { p.vx *= 0.95; p.vy *= 0.95; p.color.rgb.r = (p.color.rgb.r*9 + avg_c.r)/10; p.color.rgb.g = (p.color.rgb.g*9 + avg_c.g)/10; p.color.rgb.b = (p.color.rgb.b*9 + avg_c.b)/10; }); if(homo > 200) { clearInterval(homoInterval); regen(1000); } }, 20); activeIntervals.push(homoInterval); break;
             case 'Banishing': pJS.particles.array.forEach(p => { p.vx = (Math.random()-0.5)*5; p.vy = (Math.random()-0.5)*5 - 20; p.opacity.value = 1; }); regen(4000); break;
+            case 'TidalWave': let wavePos = -100; const waveInterval = setInterval(() => { wavePos += 20; pJS.particles.array.forEach(p => { if (p.x < wavePos && p.x > wavePos - 40) { p.vx += 15; p.vy += (Math.random() - 0.5) * 5; } }); if (wavePos > pJS.canvas.w + 100) { clearInterval(waveInterval); regen(1000); } }, 20); activeIntervals.push(waveInterval); break;
         }
     }
 
@@ -450,7 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // New effects arrays
             photonSails: [], tidalForces: [], cosmicGeysers: [], crystallineFields: [], temporalRifts: [],
             negativeSpaces: [], stellarWinds: [], microwaveBackgrounds: [],
-            silkThreads: [], solarFlares: [], particleAccelerators: [], spacetimeFoam: [], echoingVoids: [], cosmicNurseries: []
+            silkThreads: [], solarFlares: [], particleAccelerators: [], spacetimeFoam: [], echoingVoids: [], cosmicNurseries: [],
+            coral: [], coralConnections: [], cosmicRivers: []
         };
         ui.canvasContainer.style.filter='';
         ui.canvasContainer.style.transition = 'filter 1s ease';
@@ -477,6 +487,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 p.isEntangled = false;
                 p.isConsumed = 0;
                 p.bondPartner = null; // For Pair Bonding mutator
+                p.isCoral = false;
+                p.isStatic = false;
+                p.chainParent = null;
+                p.chainChild = null;
             }
         });
     }
@@ -495,6 +509,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
+
+    function getBezierXY(t, sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey) {
+        const invT = (1 - t);
+        const x = invT * invT * invT * sx + 3 * invT * invT * t * cp1x + 3 * invT * t * t * cp2x + t * t * t * ex;
+        const y = invT * invT * invT * sy + 3 * invT * invT * t * cp1y + 3 * invT * t * t * cp2y + t * t * t * ey;
+        return { x: x, y: y };
+    }
 
     // --- Event Listeners ---
     ui.seed.addEventListener('click', () => { navigator.clipboard.writeText(window.location.href).then(() => { ui.seed.innerText = 'Copied!'; clearTimeout(seedCopyTimeout); seedCopyTimeout = setTimeout(() => ui.seed.innerText = `Seed: ${currentSeed}`, 2000); }); });

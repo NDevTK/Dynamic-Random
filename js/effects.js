@@ -17,7 +17,14 @@ export const universeBlueprints = {
     ArcaneCodex: { left:['runeScribe'], right:['polymorph'], events:['nonEuclideanShift'], cataclysms:['ForbiddenRitual'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 5, physics:{attract:false, straight:false, bounce:true, friction:0.97}} },
     MoltenHeart: { left:['lavaJet'], right:['cool'], events:['meteorShower'], cataclysms:['CoreEruption'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.85}} },
     GlacialDrift: { left:['glacier'], right:['flashFreeze'], events:['crystalGrowth'], cataclysms:['DeepFreeze'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} },
-    SentientSwarm: { left:['swarmFollow'], right:['disperse'], events:['neuronPulse'], cataclysms:['HiveCollapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.95}} }
+    SentientSwarm: { left:['swarmFollow'], right:['disperse'], events:['neuronPulse'], cataclysms:['HiveCollapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.95}} },
+    StellarNursery: { left:['gatherDust', 'ignite'], right:['supernova', 'whiteHoleSpawn'], events:['binaryStars', 'meteorShower'], cataclysms:['ProtoStarCollapse', 'Supernova'], aesthetic:{glow:true, trails:true, shape:['star', 'circle'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
+    AbyssalZone: { left:['lure', 'crush'], right:['pressureWave', 'silence'], events:['bioluminescence'], cataclysms:['BenthicStorm', 'TheGreatSilence'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides:8, monochrome:true, physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
+    TechnoUtopia: { left:['align', 'regrid'], right:['glitch', 'toggleLinks'], events:['cosmicMessage'], cataclysms:['SystemCrash', 'GlitchStorm'], aesthetic:{glow:true, trails:false, shape:['edge', 'character'], chars:['|','_','[',']','{','}'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
+    FungalForest: { left:['sporeBurst', 'tangle'], right:['overgrow', 'decompose'], events:['sporeRelease', 'neuronPulse'], cataclysms:['Decomposition', 'Overgrowth'], aesthetic:{glow:false, trails:true, shape:['circle', 'polygon'], sides:3, physics:{attract:true, straight:false, bounce:false, friction:0.92}} },
+    GlassySea: { left:['ripple', 'freeze'], right:['shatter', 'focus'], events:['aurora'], cataclysms:['Shattering', 'DeepFreeze'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], opacity:0.4, physics:{attract:false, straight:false, bounce:true, friction:0.99}} },
+    Papercraft: { left:['fold', 'crease'], right:['paperTear', 'smooth'], events:['ambientHum'], cataclysms:['PaperTearCataclysm', 'CanvasWipe'], aesthetic:{glow:false, trails:false, shape:['edge'], physics:{attract:false, straight:true, bounce:false, friction:0.94}} },
+    ChromaticAberration: { left:['prism', 'focus'], right:['aberrate', 'wash'], events:['colorBleed'], cataclysms:['ColorBurn', 'PhaseShift'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} }
 };
 
 export const mutators = {
@@ -35,6 +42,15 @@ export const mutators = {
     'Clustering': () => { /* Handled in update loop */ },
     'Phase Shift': () => { /* Handled in update loop */ },
     'Gravity Waves': (pJS, seededRandom, { gravityWaves }) => { gravityWaves.push({ angle: seededRandom() * 2 * Math.PI, strength: 0.1 + seededRandom() * 0.2, frequency: 0.01 + seededRandom() * 0.02 }); },
+    'Pair Bonding': () => { /* Handled in update loop */ },
+    'Fragmenting': () => { /* Handled in update loop */ },
+    'Photon Sails': (pJS, seededRandom, { photonSails }) => { photonSails.push({ angle: seededRandom() * Math.PI * 2, strength: 0.01 + seededRandom() * 0.03 }); },
+    'Chaotic Orbits': (pJS) => { pJS.particles.move.attract.enable = true; /* Custom logic */ },
+    'Inertial Dampening': (pJS, r, ae, physics) => { physics.friction = Math.min(1, physics.friction * 1.2); },
+    'Tidal Forces': (pJS, seededRandom, { tidalForces }) => { tidalForces.push({ y: seededRandom() * pJS.canvas.h, strength: 0.05 + seededRandom() * 0.1 }); },
+    'Self-Propelled': () => { /* Handled in update loop */ },
+    'Phase Scattering': () => { /* Handled in update loop */ },
+    'Reflective Edges': (pJS) => { pJS.particles.move.out_mode = 'bounce'; },
 
     // ### VISUAL & AESTHETIC MUTATORS ###
     'Unstable Particles': () => { /* Handled in update loop */ },
@@ -95,5 +111,23 @@ export const anomalies = {
     },
     'Supergiant Star': (pJS, r, { supergiantStars }) => {
         supergiantStars.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 50 + r()*30, mass: 200 + r()*200, lastSpawn: 0, period: 50 + r()*50 });
+    },
+    'Cosmic Geyser': (pJS, r, { cosmicGeysers }) => {
+        cosmicGeysers.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h, strength: 5 + r()*10, period: 200 + r()*200, tick: 0, width: 50 + r()*50 });
+    },
+    'Crystalline Field': (pJS, r, { crystallineFields }) => {
+        crystallineFields.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 150 + r()*150, strength: 0.1 + r()*0.2 });
+    },
+    'Temporal Rift': (pJS, r, { temporalRifts }) => {
+        temporalRifts.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 100 + r()*50, life: 600, maxLife: 600 });
+    },
+    'Negative Space': (pJS, r, { negativeSpaces }) => {
+        negativeSpaces.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 80 + r()*80 });
+    },
+    'Stellar Wind': (pJS, r, { stellarWinds }) => {
+        stellarWinds.push({ angle: r() * Math.PI*2, strength: 0.05 + r()*0.1 });
+    },
+    'Microwave Background': (pJS, r, { microwaveBackgrounds }) => {
+        microwaveBackgrounds.push({ noise: 0.05 + r()*0.1 });
     }
 };

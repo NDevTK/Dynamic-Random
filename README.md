@@ -1,8 +1,8 @@
 # ✨ Celestial Canvas
 
-**An interactive, generative cosmic sandbox built in a single HTML file.**
+**An interactive, generative cosmic sandbox for your browser.**
 
-Celestial Canvas is a browser-based generative art experience where you can create and interact with unique, miniature universes. Each universe is procedurally generated from a shareable seed, complete with its own aesthetic, physical laws, interactive powers, and cosmic events.
+Celestial Canvas is a generative art experience where you can create and interact with unique, miniature universes. Each universe is procedurally generated from a shareable seed, complete with its own aesthetic, physical laws, interactive powers, and cosmic events.
 
 Use your mouse as a cosmic force to attract, repel, warp, shatter, and paint the particles that inhabit your canvas. But be careful—pushing the universe too hard will build up energy, leading to a world-ending **Cataclysm** that births a new reality.
 
@@ -12,23 +12,30 @@ Use your mouse as a cosmic force to attract, repel, warp, shatter, and paint the
 
 *   **Procedural Universe Generation:** Every universe is generated from a unique, shareable seed string (e.g., `ASTRAL-WARP-4271`). No two universes are exactly alike.
 *   **Deeply Interactive Physics:** Your mouse isn't just a pointer; it's an extension of your will. Left and right clicks unleash unique powers determined by the universe's blueprint.
-*   **The Universe Engine:** A complex system of interlocking, randomized components ensures immense variety:
-    *   🌌 **Blueprints:** Each universe is based on one of 12 fundamental themes (like `Classical`, `Organic`, `Digital`, `VoidTouched`, or `LivingInk`) that define its core aesthetic, physics, and available powers.
-    *   🔀 **Mutators:** Universes can be warped by one or more mutators, like `Hyperspeed`, `Rainbow Particles`, `Repulsive Field`, or a `Torus Field` (where particles wrap around the screen).
-    *   🌠 **Anomalies:** Discover persistent cosmic features that dramatically alter the simulation, such as `Pulsars`, `Black Holes`, `Nebulae`, or reality-bending `Cosmic Strings`.
+*   **Ever-Expanding Universe Engine:** A complex system of interlocking, randomized components ensures immense variety:
+    *   🌌 **Blueprints:** Each universe is based on one of **14+** fundamental themes (like `Classical`, `Organic`, `Digital`, `Eldritch`, or the new `Painterly`) that define its core aesthetic, physics, and available powers.
+    *   🔀 **Mutators:** Universes can be warped by one or more mutators, like `Hyperspeed`, `Rainbow Particles`, `Clustering`, or the new `Gravity Waves`.
+    *   🌠 **Anomalies:** Discover persistent cosmic features that dramatically alter the simulation, such as `Pulsars`, `Black Holes`, `Cosmic Web`, or the powerful new `Quasar`.
     *   💥 **Cataclysm System:** Constant interaction builds energy. When the universe becomes unstable, it triggers a spectacular, blueprint-specific cataclysm (e.g., `Supernova`, `Glitch Storm`, `False Vacuum Decay`, `The Bleed`) before regenerating into a new, random universe.
 *   **Share Your Creations:** The current universe's seed is stored in the URL. Simply copy the URL to share your exact cosmic discovery with others.
-*   **Zero Dependencies:** Everything is self-contained in a single `index.html` file. It leverages the `particles.js` library, but fetches it from a CDN, requiring no local setup.
+*   **Modular Codebase:** The project is now organized into separate HTML, CSS, and JavaScript files for easier maintenance and contribution.
 
 ---
 
 ## 🎮 How to Use
 
 ### Running Locally
-1.  Download the `index.html` file.
-2.  Open it in a modern web browser (like Chrome, Firefox, or Edge).
+Because the project now uses JavaScript modules (`import`/`export`), you need to run it from a local web server to avoid CORS errors.
 
-That's it! The simulation will start immediately.
+1.  Clone or download the repository.
+2.  Navigate to the project directory in your terminal.
+3.  Start a simple web server. If you have Python 3, you can run:
+    ```bash
+    python -m http.server
+    ```
+4.  Open your browser and go to `http://localhost:8000`.
+
+The simulation will start immediately.
 
 ### Controls
 *   **Move Mouse:** A passive glow follows your cursor, influencing particles in some universes.
@@ -43,7 +50,7 @@ That's it! The simulation will start immediately.
 ## 🛠️ Technology Stack
 
 *   **HTML5 / CSS3:** For the structure and vibrant visual styling.
-*   **Vanilla JavaScript (ES6):** Powers the entire simulation logic, from the seeding engine to the physics and cataclysm events.
+*   **Vanilla JavaScript (ES6 Modules):** Powers the entire simulation logic, from the seeding engine to the physics and cataclysm events. The code is now split into logical modules (`main.js`, `effects.js`).
 *   **particles.js:** Used as the base rendering engine for the particle system, which is then heavily modified and extended by the custom simulation loop.
 
 ---

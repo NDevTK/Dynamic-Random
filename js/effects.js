@@ -24,7 +24,13 @@ export const universeBlueprints = {
     FungalForest: { left:['sporeBurst', 'tangle'], right:['overgrow', 'decompose'], events:['sporeRelease', 'neuronPulse'], cataclysms:['Decomposition', 'Overgrowth'], aesthetic:{glow:false, trails:true, shape:['circle', 'polygon'], sides:3, physics:{attract:true, straight:false, bounce:false, friction:0.92}} },
     GlassySea: { left:['ripple', 'freeze'], right:['shatter', 'focus'], events:['aurora'], cataclysms:['Shattering', 'DeepFreeze'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], opacity:0.4, physics:{attract:false, straight:false, bounce:true, friction:0.99}} },
     Papercraft: { left:['fold', 'crease'], right:['paperTear', 'smooth'], events:['ambientHum'], cataclysms:['PaperTearCataclysm', 'CanvasWipe'], aesthetic:{glow:false, trails:false, shape:['edge'], physics:{attract:false, straight:true, bounce:false, friction:0.94}} },
-    ChromaticAberration: { left:['prism', 'focus'], right:['aberrate', 'wash'], events:['colorBleed'], cataclysms:['ColorBurn', 'PhaseShift'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} }
+    ChromaticAberration: { left:['prism', 'focus'], right:['aberrate', 'wash'], events:['colorBleed'], cataclysms:['ColorBurn', 'PhaseShift'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
+    // New Blueprints
+    SilkWeaver: { left:['weaveThread'], right:['pullThreads'], events:['neuronPulse'], cataclysms:['WebCollapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:false, straight:false, bounce:true, friction:0.99}} },
+    VolcanicForge: { left:['stokeFire'], right:['quench', 'lavaJet'], events:['meteorShower'], cataclysms:['GrandCooling', 'CoreEruption'], aesthetic:{glow:false, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.9}} },
+    LivingConstellation: { left:['createStar'], right:['connectConstellation'], events:['binaryStars'], cataclysms:['BigRip'], aesthetic:{glow:true, trails:false, shape:['star'], physics:{attract:false, straight:false, bounce:true, friction:0.98}} },
+    GooeyMess: { left:['stirGoo'], right:['dissolveGoo'], events:['sporeRelease'], cataclysms:['Homogenization'], aesthetic:{glow:false, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
+    HauntedRealm: { left:['exorcise'], right:['materialize', 'phaseZone'], events:['flickeringReality', 'dejaVu'], cataclysms:['Banishing'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.2, physics:{attract:false, straight:true, bounce:false, friction:0.99}} }
 };
 
 export const mutators = {
@@ -68,6 +74,11 @@ export const mutators = {
     'Supermassive': (pJS) => { pJS.particles.size.value *= 2; pJS.particles.move.speed *= 0.7; },
     'Synchronized': () => { /* Handled in update loop */ },
     'Event Horizon': () => { /* Handled in update loop */ },
+    'Noctilucent': (pJS) => { pJS.particles.move.trail.enable = true; pJS.particles.move.trail.length = 40; },
+    'BrownianMotion': () => { /* Handled in update loop */ },
+    'SupernovaRemains': () => { /* Handled in tagParticles */ },
+    'Choral': () => { /* Handled in update loop */ },
+    'Carnival': () => { /* Handled in update loop */ },
 };
 
 export const anomalies = {
@@ -129,5 +140,22 @@ export const anomalies = {
     },
     'Microwave Background': (pJS, r, { microwaveBackgrounds }) => {
         microwaveBackgrounds.push({ noise: 0.05 + r()*0.1 });
+    },
+    'Solar Flare': (pJS, r, { solarFlares }) => {
+        solarFlares.push({ angle: r() * Math.PI*2, strength: 10 + r()*10, period: 200 + r()*200, tick: 0 });
+    },
+    'Particle Accelerator': (pJS, r, { particleAccelerators }) => {
+        particleAccelerators.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 100 + r()*100, strength: 1.05 + r()*0.1 });
+    },
+    'Spacetime Foam': (pJS, r, { spacetimeFoam }) => {
+        for(let i=0; i<10; i++) {
+            spacetimeFoam.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 20 + r()*20, life: 100 + r()*200 });
+        }
+    },
+    'Echoing Void': (pJS, r, { echoingVoids }) => {
+        echoingVoids.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 150 + r()*100, history: [], tick: 0 });
+    },
+    'Cosmic Nursery': (pJS, r, { cosmicNurseries }) => {
+        cosmicNurseries.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 100 + r()*100, period: 100 + r()*100, tick: 0 });
     }
 };

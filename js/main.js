@@ -173,6 +173,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const space of activeEffects.negativeSpaces) { if(Math.pow(p.x-space.x,2)+Math.pow(p.y-space.y,2) < space.radius*space.radius) { pJS.particles.array.splice(i,1); continue; } }
                 for (const wind of activeEffects.stellarWinds) { p.vx += Math.cos(wind.angle) * wind.strength; p.vy += Math.sin(wind.angle) * wind.strength; }
                 for (const noise of activeEffects.microwaveBackgrounds) { p.vx += (Math.random()-0.5)*noise.noise; p.vy += (Math.random()-0.5)*noise.noise; }
+                for (const acc of activeEffects.particleAccelerators) { const dSq = Math.pow(p.x-acc.x,2)+Math.pow(p.y-acc.y,2); if(dSq > (acc.radius-10)*(acc.radius-10) && dSq < (acc.radius+10)*(acc.radius+10)) { p.vx *= acc.strength; p.vy *= acc.strength; } }
+                for (const foam of activeEffects.spacetimeFoam) { const dSq = Math.pow(p.x-foam.x,2)+Math.pow(p.y-foam.y,2); if(dSq < foam.radius*foam.radius) { p.vx += (Math.random()-0.5)*0.5; p.vy += (Math.random()-0.5)*0.5; } }
+                for (const evoid of activeEffects.echoingVoids) { const dSq = Math.pow(p.x-evoid.x,2)+Math.pow(p.y-evoid.y,2); if(dSq < evoid.radius*evoid.radius) { evoid.history.push({x:p.x, y:p.y, color:p.color.rgb}); if(evoid.history.length > 200) evoid.history.shift(); } }
 
                 // Apply Mutators
                 if (universeProfile.mutators.includes('Pulsing Particles')) { p.radius = p.radius_initial * (1 + 0.5 * Math.sin(tick * 0.05 + p.seed)); }
@@ -197,6 +200,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 for(const tide of activeEffects.tidalForces) { const pull = (p.y - tide.y) * 0.0001 * tide.strength; p.vx += pull; }
                 if (universeProfile.mutators.includes('Self-Propelled')) { const angle = p.seed; p.vx += Math.cos(angle)*0.05; p.vy += Math.sin(angle)*0.05; }
                 if (universeProfile.mutators.includes('Phase Scattering') && Math.random() < 0.001) { p.opacity.value = Math.random(); }
+                if (universeProfile.mutators.includes('BrownianMotion')) { p.vx += (Math.random()-0.5)*0.8; p.vy += (Math.random()-0.5)*0.8; }
+                if (p.isHeavy) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, dSq=dx*dx+dy*dy; if(dSq < 10000) { p2.vx += dx/dSq*p.radius; p2.vy += dy/dSq*p.radius; } } }
+                if (universeProfile.mutators.includes('Choral')) { const avg_vx = pJS.particles.array.reduce((acc,p) => acc+p.vx, 0) / pJS.particles.array.length; const avg_vy = pJS.particles.array.reduce((acc,p) => acc+p.vy, 0) / pJS.particles.array.length; p.vx += (avg_vx - p.vx) * 0.001; p.vy += (avg_vy - p.vy) * 0.001; }
+                if (universeProfile.mutators.includes('Carnival') && tick % 10 === 0) { p.color = {rgb:{r:Math.random()*255, g:Math.random()*255, b:Math.random()*255}}; p.radius = p.radius_initial * (0.5 + Math.random()); }
 
                 // Apply Player Interaction & Global Forces
                 if (!isPhased && !isStasis && !p.isCrystalized && !p.isEntangled) {
@@ -237,6 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if(s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn=0; const newP = pJS.fn.modes.pushParticles(1, {x:s.x, y:s.y})[0]; if(newP){newP.vx=(Math.random()-0.5)*5; newP.vy=(Math.random()-0.5)*5; tagParticles([newP]);} } });
         activeEffects.cosmicGeysers.forEach(g => { g.tick++; if(g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick=0; const newP = pJS.fn.modes.pushParticles(1, {x: g.x + (Math.random()-0.5)*g.width, y: g.y})[0]; if(newP) { newP.vy = -g.strength; tagParticles([newP]); } } });
         activeEffects.temporalRifts.forEach((r, i) => { r.life--; if(r.life <= 0) { activeEffects.temporalRifts.splice(i,1); return; } if(Math.random() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, {x: r.x, y: r.y})[0]; if(newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP]); } } });
+        activeEffects.solarFlares.forEach(f => { f.tick++; if(f.tick > f.period) { f.tick=0; for(let i=0; i<30; i++) { if(pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, {x:pJS.canvas.w/2, y:pJS.canvas.h/2})[0]; if(newP) { newP.vx = Math.cos(f.angle)*f.strength; newP.vy = Math.sin(f.angle)*f.strength; tagParticles([newP]); } } } } });
+        activeEffects.spacetimeFoam.forEach((f,i) => { f.life--; if(f.life <= 0) activeEffects.spacetimeFoam.splice(i,1); });
+        activeEffects.cosmicNurseries.forEach(n => { n.tick++; if(n.tick > n.period && pJS.particles.array.length < pJS.particles.number.value_max) { n.tick=0; const newP = pJS.fn.modes.pushParticles(1, {x: n.x + (Math.random()-0.5)*n.radius, y: n.y + (Math.random()-0.5)*n.radius})[0]; if(newP) { newP.vx = (Math.random()-0.5)*2; newP.vy = (Math.random()-0.5)*2; tagParticles([newP]); } } });
+
 
         if (pJS.particles.array.length > pJS.particles.number.value_max) { pJS.particles.array.splice(0, pJS.particles.array.length - pJS.particles.number.value_max); }
 
@@ -266,6 +277,10 @@ document.addEventListener('DOMContentLoaded', () => {
         activeEffects.crystallineFields.forEach(f => { ctx.strokeStyle=`rgba(180, 220, 255, 0.1)`; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(f.x,f.y,f.radius,0,2*Math.PI); ctx.stroke(); });
         activeEffects.temporalRifts.forEach(r => { ctx.strokeStyle=`rgba(255, 100, 100, ${0.1 + (r.life / r.maxLife)*0.2})`; ctx.setLineDash([5, 5]); ctx.lineWidth=1; ctx.beginPath(); ctx.arc(r.x,r.y,r.radius,0,2*Math.PI); ctx.stroke(); ctx.setLineDash([]); });
         activeEffects.negativeSpaces.forEach(s => { ctx.fillStyle=`#000`; ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, 2*Math.PI); ctx.fill(); });
+        activeEffects.particleAccelerators.forEach(a => { ctx.strokeStyle=`rgba(255, 255, 100, 0.3)`; ctx.lineWidth=20; ctx.beginPath(); ctx.arc(a.x,a.y,a.radius,0,2*Math.PI); ctx.stroke(); });
+        activeEffects.spacetimeFoam.forEach(f => { ctx.fillStyle=`rgba(200, 200, 255, ${0.05 + (f.life/f.maxLife)*0.1})`; ctx.beginPath(); ctx.arc(f.x,f.y,f.radius,0,2*Math.PI); ctx.fill(); });
+        activeEffects.echoingVoids.forEach(e => { e.history.forEach((h,i) => { ctx.fillStyle=`rgba(${h.color.r}, ${h.color.g}, ${h.color.b}, ${i/e.history.length*0.5})`; ctx.beginPath(); ctx.arc(h.x,h.y,2,0,2*Math.PI); ctx.fill(); }); });
+        activeEffects.cosmicNurseries.forEach(n => { const grad = ctx.createRadialGradient(n.x, n.y, n.radius/2, n.x, n.y, n.radius); grad.addColorStop(0, 'rgba(255, 200, 255, 0.2)'); grad.addColorStop(1, 'rgba(255, 200, 255, 0)'); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2*Math.PI); ctx.fill(); });
     }
 
     // --- Player Interaction ---
@@ -323,6 +338,16 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'crease': if (distSq < 150*150) { p.vx = 0; } break;
             case 'prism': if (distSq < 150*150) { p.color = {rgb:{r:Math.random()*255, g:Math.random()*255, b:Math.random()*255}}; } break;
             case 'focus': if (distSq < 150*150) { p.vx += dx/dist * 0.2; p.vy += dy/dist * 0.2; p.radius = Math.min(p.radius_initial*2, p.radius+0.05); } break;
+            // SilkWeaver
+            case 'weaveThread': if (distSq < 150*150) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const d2Sq=Math.pow(p.x-p2.x,2)+Math.pow(p.y-p2.y,2); if(d2Sq < 40*40) { activeEffects.silkThreads.push({p1: p, p2: p2, life: 240}); break; } } } break;
+            // VolcanicForge
+            case 'stokeFire': if (distSq < 150*150) { p.vx *= 1.05; p.vy *= 1.05; if(p.radius < p.radius_initial * 2) p.radius += 0.05; } break;
+            // LivingConstellation
+            case 'createStar': if (distSq < 20*20 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, worldMouse)[0]; if(newP) { newP.life = 600; tagParticles([newP]); } } break;
+            // GooeyMess
+            case 'stirGoo': if (distSq < 200*200) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const d2Sq=Math.pow(p.x-p2.x,2)+Math.pow(p.y-p2.y,2); if(d2Sq < 2500) { p.vx -= (p2.x-p.x)*0.005; p.vy -= (p2.y-p.y)*0.005; } } } break;
+            // HauntedRealm
+            case 'exorcise': if (distSq < 150*150) { p.vx += dx/dist * 0.5; p.vy += dy/dist * 0.5; p.opacity.value = Math.min(1, p.opacity.value + 0.01); } break;
         }
     }
 
@@ -359,6 +384,12 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'paperTear': for(let i=pJS.particles.array.length-1; i>=0; i--) { const p=pJS.particles.array[i]; if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 100) pJS.particles.array.splice(i,1); } break;
             case 'smooth': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.vx *= 0.5; p.vy *= 0.5; } } break;
             case 'aberrate': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.x += (Math.random()-0.5)*10; p.y += (Math.random()-0.5)*10; } } break;
+            // Even More New Powers
+            case 'pullThreads': activeEffects.silkThreads.forEach(t => { const midX = (t.p1.x+t.p2.x)/2, midY = (t.p1.y+t.p2.y)/2; const dx=worldMouse.x-midX, dy=worldMouse.y-midY, dSq=dx*dx+dy*dy; if(dSq < 150*150) { t.p1.vx += dx*0.002; t.p1.vy += dy*0.002; t.p2.vx += dx*0.002; t.p2.vy += dy*0.002; } }); break;
+            case 'quench': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.vx *= 0.5; p.vy *= 0.5; if(p.radius > p.radius_initial) p.radius -= 0.1; } } break;
+            case 'connectConstellation': { const inRange = []; for (const p of pJS.particles.array) { if (p.life && Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) inRange.push(p); } if(inRange.length > 1) { const p1 = inRange[Math.floor(Math.random()*inRange.length)]; let p2 = inRange[Math.floor(Math.random()*inRange.length)]; while(p1===p2) p2 = inRange[Math.floor(Math.random()*inRange.length)]; activeEffects.silkThreads.push({p1: p1, p2: p2, life: 400}); } } break;
+            case 'dissolveGoo': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.fading = 100; } } break;
+            case 'materialize': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.opacity.value = Math.min(1, p.opacity.value + 0.1); } } break;
         }
     }
 
@@ -397,6 +428,12 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'Shattering': pJS.particles.array.forEach(p => { p.vx = (Math.random()-0.5)*15; p.vy = (Math.random()-0.5)*15; if (p.radius > 1) p.radius *= 0.5; }); regen(2000); break;
             case 'PaperTearCataclysm': let tear = pJS.canvas.w/2; let tearInterval = setInterval(() => { tear += 10; for(let i=pJS.particles.array.length-1; i>=0; i--) { if(Math.abs(pJS.particles.array[i].x - tear) < 10) pJS.particles.array.splice(i,1); } if(tear > pJS.canvas.w) { clearInterval(tearInterval); regen(1000); } }, 20); activeIntervals.push(tearInterval); break;
             case 'ColorBurn': let burn = 0; const burnInterval = setInterval(() => { burn++; pJS.particles.array.forEach(p => { const c = p.color.rgb; p.color.rgb = {r:Math.min(255, c.r+5), g:Math.max(0, c.g-2), b:Math.max(0, c.b-2)}; }); if(burn > 100) { clearInterval(burnInterval); regen(1000); } }, 30); activeIntervals.push(burnInterval); break;
+            // New Cataclysms for new blueprints
+            case 'WebCollapse': activeEffects.silkThreads.forEach(t => { t.life = 1; }); let webCollapse = 0; const webCollapseInterval = setInterval(() => { webCollapse++; activeEffects.silkThreads.forEach(t => { const midX = (t.p1.x+t.p2.x)/2, midY = (t.p1.y+t.p2.y)/2; t.p1.vx += (midX - t.p1.x) * 0.01; t.p1.vy += (midY - t.p1.y) * 0.01; t.p2.vx += (midX - t.p2.x) * 0.01; t.p2.vy += (midY - t.p2.y) * 0.01; }); if(webCollapse > 150) { clearInterval(webCollapseInterval); regen(1000); } }, 20); activeIntervals.push(webCollapseInterval); break;
+            case 'GrandCooling': let cooling = 0; const coolInterval = setInterval(() => { cooling++; physics.friction *= 1.01; pJS.particles.array.forEach(p => { const c = p.color.rgb; p.color.rgb = {r:c.r*0.99, g:c.g*0.99, b:Math.min(255, c.b+1)}; }); if(cooling > 200) { clearInterval(coolInterval); regen(1000); } }, 20); activeIntervals.push(coolInterval); break;
+            case 'BigRip': let rip = 0; const ripInterval = setInterval(() => { rip++; pJS.particles.array.forEach(p => { p.vx *= 1.05; p.vy *= 1.05; p.radius *= 0.99; if(p.radius < 0.1) pJS.particles.array.splice(pJS.particles.array.indexOf(p), 1); }); if(rip > 150 || pJS.particles.array.length === 0) { clearInterval(ripInterval); regen(1000); } }, 20); activeIntervals.push(ripInterval); break;
+            case 'Homogenization': let homo = 0; const homoInterval = setInterval(() => { homo++; const avg_c = pJS.particles.array.reduce((acc, p) => { acc.r += p.color.rgb.r; acc.g += p.color.rgb.g; acc.b += p.color.rgb.b; return acc; }, {r:0,g:0,b:0}); avg_c.r /= pJS.particles.array.length; avg_c.g /= pJS.particles.array.length; avg_c.b /= pJS.particles.array.length; pJS.particles.array.forEach(p => { p.vx *= 0.95; p.vy *= 0.95; p.color.rgb.r = (p.color.rgb.r*9 + avg_c.r)/10; p.color.rgb.g = (p.color.rgb.g*9 + avg_c.g)/10; p.color.rgb.b = (p.color.rgb.b*9 + avg_c.b)/10; }); if(homo > 200) { clearInterval(homoInterval); regen(1000); } }, 20); activeIntervals.push(homoInterval); break;
+            case 'Banishing': pJS.particles.array.forEach(p => { p.vx = (Math.random()-0.5)*5; p.vy = (Math.random()-0.5)*5 - 20; p.opacity.value = 1; }); regen(4000); break;
         }
     }
 
@@ -412,7 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cosmicRifts: [], magneticStorms: [], ionClouds: [], supergiantStars: [],
             // New effects arrays
             photonSails: [], tidalForces: [], cosmicGeysers: [], crystallineFields: [], temporalRifts: [],
-            negativeSpaces: [], stellarWinds: [], microwaveBackgrounds: []
+            negativeSpaces: [], stellarWinds: [], microwaveBackgrounds: [],
+            silkThreads: [], solarFlares: [], particleAccelerators: [], spacetimeFoam: [], echoingVoids: [], cosmicNurseries: []
         };
         ui.canvasContainer.style.filter='';
         ui.canvasContainer.style.transition = 'filter 1s ease';
@@ -429,6 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(p.radius_initial === undefined || isInitialLoad) p.radius_initial = p.radius;
                 if(p.startX === undefined || isInitialLoad) { p.startX = p.x; p.startY = p.y; }
                 if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = Math.random() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); }
+                if(universeProfile.mutators.includes('SupernovaRemains') && Math.random() < 0.1) { p.isHeavy = true; p.radius *= 2; } else { p.isHeavy = false; }
                 p.seed = Math.random() * 1000;
                 p.isCrystalized = false;
                 p.isInfected = false;
@@ -465,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('mouseup', e => {
         if (cataclysmInProgress) return;
         const powerName = e.button === 0 ? universeProfile.leftClickPower : universeProfile.rightClickPower;
-        const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole', 'entangle', 'decohere', 'shockwave', 'silence', 'splatter', 'blot', 'gaze', 'realityTear', 'paletteKnife', 'wash', 'disperse', 'cool', 'flashFreeze', 'polymorph', 'whiteHoleSpawn', 'pressureWave', 'overgrow', 'decompose', 'paperTear', 'smooth', 'aberrate'];
+        const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole', 'entangle', 'decohere', 'shockwave', 'silence', 'splatter', 'blot', 'gaze', 'realityTear', 'paletteKnife', 'wash', 'disperse', 'cool', 'flashFreeze', 'polymorph', 'whiteHoleSpawn', 'pressureWave', 'overgrow', 'decompose', 'paperTear', 'smooth', 'aberrate', 'pullThreads', 'quench', 'connectConstellation', 'dissolveGoo', 'materialize'];
         if (clickPowers.includes(powerName)) { handleClickPower(powerName, pJS, mouse); }
         if (e.button === 0) isLeftMouseDown = false;
         else if (e.button === 2) isRightMouseDown = false;

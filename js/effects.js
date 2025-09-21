@@ -30,11 +30,11 @@ export const universeBlueprints = {
     VolcanicForge: { left:['stokeFire'], right:['quench', 'lavaJet'], events:['meteorShower'], cataclysms:['GrandCooling', 'CoreEruption'], aesthetic:{glow:false, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.9}} },
     LivingConstellation: { left:['createStar'], right:['connectConstellation'], events:['binaryStars'], cataclysms:['BigRip'], aesthetic:{glow:true, trails:false, shape:['star'], physics:{attract:false, straight:false, bounce:true, friction:0.98}} },
     GooeyMess: { left:['stirGoo'], right:['dissolveGoo'], events:['sporeRelease'], cataclysms:['Homogenization'], aesthetic:{glow:false, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
-    HauntedRealm: { left:['exorcise'], right:['materialize', 'phaseZone'], events:['flickeringReality', 'dejaVu'], cataclysms:['Banishing'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.2, physics:{attract:false, straight:true, bounce:false, friction:0.99}} }
+    HauntedRealm: { left:['exorcise'], right:['materialize', 'phaseZone'], events:['flickeringReality', 'dejaVu'], cataclysms:['Banishing'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.2, physics:{attract:false, straight:true, bounce:false, friction:0.99}} },
+    CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} }
 };
 
 export const mutators = {
-    // ### PHYSICS & MOVEMENT MUTATORS ###
     'Low-Gravity': (pJS, seededRandom, activeEffects, physics) => { physics.friction *= 0.9; },
     'Hyperspeed': (pJS) => { pJS.particles.move.speed *= 2.5; },
     'Viscous': (pJS, seededRandom, activeEffects, physics) => { physics.friction = 0.85; },
@@ -57,6 +57,7 @@ export const mutators = {
     'Self-Propelled': () => { /* Handled in update loop */ },
     'Phase Scattering': () => { /* Handled in update loop */ },
     'Reflective Edges': (pJS) => { pJS.particles.move.out_mode = 'bounce'; },
+    'ParticleChains': () => { /* Handled in update loop */ },
 
     // ### VISUAL & AESTHETIC MUTATORS ###
     'Unstable Particles': () => { /* Handled in update loop */ },
@@ -157,5 +158,17 @@ export const anomalies = {
     },
     'Cosmic Nursery': (pJS, r, { cosmicNurseries }) => {
         cosmicNurseries.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 100 + r()*100, period: 100 + r()*100, tick: 0 });
+    },
+    'CosmicRiver': (pJS, r, { cosmicRivers }) => {
+        const y1 = pJS.canvas.h * (0.2 + r() * 0.6);
+        const y2 = pJS.canvas.h * (0.2 + r() * 0.6);
+        cosmicRivers.push({
+            x1: 0, y1: y1,
+            cx1: pJS.canvas.w * 0.25, cy1: y1 + (r() - 0.5) * 200,
+            cx2: pJS.canvas.w * 0.75, cy2: y2 + (r() - 0.5) * 200,
+            x2: pJS.canvas.w, y2: y2,
+            strength: 0.5 + r() * 1.0,
+            width: 30 + r() * 40
+        });
     }
 };

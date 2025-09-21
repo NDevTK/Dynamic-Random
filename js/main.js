@@ -169,6 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const rift of activeEffects.cosmicRifts) { const dist1Sq = Math.pow(p.x-rift.x1,2)+Math.pow(p.y-rift.y1,2); if(dist1Sq < rift.width*rift.width) { p.x = rift.x2 + (Math.random()-0.5)*rift.width; p.y = rift.y2 + (Math.random()-0.5)*rift.width; } const dist2Sq = Math.pow(p.x-rift.x2,2)+Math.pow(p.y-rift.y2,2); if(dist2Sq < rift.width*rift.width) { p.x = rift.x1 + (Math.random()-0.5)*rift.width; p.y = rift.y1 + (Math.random()-0.5)*rift.width; } }
                 for (const cloud of activeEffects.ionClouds) { const distSq = Math.pow(p.x-cloud.x,2)+Math.pow(p.y-cloud.y,2); if(distSq < cloud.radius*cloud.radius && Math.random() < 0.001 && !isPhased) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dist2Sq = Math.pow(cloud.x-p2.x,2)+Math.pow(cloud.y-p2.y,2); if(dist2Sq < cloud.radius*cloud.radius) { p.vx += (p2.x-p.x)*0.05; p.vy += (p2.y-p.y)*0.05; p2.vx += (p.x-p2.x)*0.05; p2.vy += (p.y-p2.y)*0.05; break; } } } }
                 for (const star of activeEffects.supergiantStars) { const dx = star.x - p.x, dy = star.y - p.y, distSq = dx*dx+dy*dy; if(distSq < 250000){const force = star.mass / (distSq + 1000); p.vx += dx * force * 0.1; p.vy += dy * force * 0.1;} }
+                for (const field of activeEffects.crystallineFields) { const dSq = Math.pow(p.x-field.x,2)+Math.pow(p.y-field.y,2); if(dSq < field.radius*field.radius) { p.vx *= 0.9; p.vy *= 0.9; if(tick % 10 === 0) { const snappedAngle = Math.round(Math.atan2(p.vy,p.vx)/(Math.PI/2))*(Math.PI/2); const speed = Math.sqrt(p.vx*p.vx+p.vy*p.vy); p.vx = Math.cos(snappedAngle)*speed; p.vy = Math.sin(snappedAngle)*speed; } } }
+                for (const space of activeEffects.negativeSpaces) { if(Math.pow(p.x-space.x,2)+Math.pow(p.y-space.y,2) < space.radius*space.radius) { pJS.particles.array.splice(i,1); continue; } }
+                for (const wind of activeEffects.stellarWinds) { p.vx += Math.cos(wind.angle) * wind.strength; p.vy += Math.sin(wind.angle) * wind.strength; }
+                for (const noise of activeEffects.microwaveBackgrounds) { p.vx += (Math.random()-0.5)*noise.noise; p.vy += (Math.random()-0.5)*noise.noise; }
 
                 // Apply Mutators
                 if (universeProfile.mutators.includes('Pulsing Particles')) { p.radius = p.radius_initial * (1 + 0.5 * Math.sin(tick * 0.05 + p.seed)); }
@@ -185,6 +189,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (universeProfile.mutators.includes('Elastic Collisions') && !isPhased) { for(const p2 of pJS.particles.array) { if(p === p2) continue; const dx=p.x-p2.x, dy=p.y-p2.y, distSq=dx*dx+dy*dy; if(distSq < Math.pow(p.radius+p2.radius, 2)) { const angle = Math.atan2(dy,dx); const force = 0.5 / (distSq * 0.01 + 1); p.vx += Math.cos(angle)*force; p.vy += Math.sin(angle)*force; } } }
                 if (universeProfile.mutators.includes('Noisy')) { p.vx += (Math.random()-0.5)*0.2; p.vy += (Math.random()-0.5)*0.2; }
                 if (universeProfile.mutators.includes('Synchronized')) { const angle = Math.sin(tick * 0.02 + p.seed * 10) * Math.PI; const speed = Math.sqrt(p.vx*p.vx+p.vy*p.vy); p.vx = Math.cos(angle)*speed; p.vy = Math.sin(angle)*speed; }
+                if (universeProfile.mutators.includes('Pair Bonding') && !p.bondPartner) { for(const p2 of pJS.particles.array) { if(p === p2 || p2.bondPartner) continue; const dSq=Math.pow(p.x-p2.x,2)+Math.pow(p.y-p2.y,2); if(dSq < 2500) { p.bondPartner = p2; p2.bondPartner = p; break; } } }
+                if (p.bondPartner) { const dx = p.bondPartner.x - p.x, dy = p.bondPartner.y - p.y, dSq = dx*dx+dy*dy; if(dSq > 10000) { p.bondPartner.bondPartner = null; p.bondPartner = null; } else { p.vx += dx * 0.001; p.vy += dy * 0.001; } }
+                if (universeProfile.mutators.includes('Fragmenting') && Math.random() < 0.0001 && p.radius > 1 && pJS.particles.array.length < pJS.particles.number.value_max) { p.radius /= 2; const newP = pJS.fn.modes.pushParticles(1, {x:p.x, y:p.y})[0]; if(newP) { newP.radius = p.radius; tagParticles([newP]); } }
+                for(const sail of activeEffects.photonSails) { p.vx += Math.cos(sail.angle) * sail.strength; p.vy += Math.sin(sail.angle) * sail.strength; }
+                if (universeProfile.mutators.includes('Chaotic Orbits') && pJS.particles.move.attract.enable) { p.vx += (Math.random()-0.5)*0.4; p.vy += (Math.random()-0.5)*0.4; }
+                for(const tide of activeEffects.tidalForces) { const pull = (p.y - tide.y) * 0.0001 * tide.strength; p.vx += pull; }
+                if (universeProfile.mutators.includes('Self-Propelled')) { const angle = p.seed; p.vx += Math.cos(angle)*0.05; p.vy += Math.sin(angle)*0.05; }
+                if (universeProfile.mutators.includes('Phase Scattering') && Math.random() < 0.001) { p.opacity.value = Math.random(); }
 
                 // Apply Player Interaction & Global Forces
                 if (!isPhased && !isStasis && !p.isCrystalized && !p.isEntangled) {
@@ -223,6 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
         activeEffects.blackHoles.forEach(h => { if(h.isWandering) { h.x += (Math.random()-0.5)*0.5; h.y += (Math.random()-0.5)*0.5; if(h.x<0||h.x>pJS.canvas.w||h.y<0||h.y>pJS.canvas.h) {h.x=pJS.canvas.w/2; h.y=pJS.canvas.h/2;} } });
         activeEffects.magneticStorms.forEach(s => { s.lastFlip++; if(s.lastFlip > s.period) { s.lastFlip=0; s.attract = !s.attract; pJS.particles.move.attract.enable = s.attract; } });
         activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if(s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn=0; const newP = pJS.fn.modes.pushParticles(1, {x:s.x, y:s.y})[0]; if(newP){newP.vx=(Math.random()-0.5)*5; newP.vy=(Math.random()-0.5)*5; tagParticles([newP]);} } });
+        activeEffects.cosmicGeysers.forEach(g => { g.tick++; if(g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick=0; const newP = pJS.fn.modes.pushParticles(1, {x: g.x + (Math.random()-0.5)*g.width, y: g.y})[0]; if(newP) { newP.vy = -g.strength; tagParticles([newP]); } } });
+        activeEffects.temporalRifts.forEach((r, i) => { r.life--; if(r.life <= 0) { activeEffects.temporalRifts.splice(i,1); return; } if(Math.random() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, {x: r.x, y: r.y})[0]; if(newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP]); } } });
 
         if (pJS.particles.array.length > pJS.particles.number.value_max) { pJS.particles.array.splice(0, pJS.particles.array.length - pJS.particles.number.value_max); }
 
@@ -249,6 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
         activeEffects.cosmicRifts.forEach(r => { ctx.strokeStyle=`rgba(200, 150, 255, 0.5)`; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(r.x1,r.y1,r.width,0,2*Math.PI); ctx.stroke(); ctx.beginPath(); ctx.arc(r.x2,r.y2,r.width,0,2*Math.PI); ctx.stroke(); });
         activeEffects.ionClouds.forEach(c => { const grad = ctx.createRadialGradient(c.x, c.y, c.radius/2, c.x, c.y, c.radius); grad.addColorStop(0, 'rgba(200, 220, 255, 0.0)'); grad.addColorStop(1, `rgba(200, 220, 255, 0.2)`); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(c.x, c.y, c.radius, 0, 2*Math.PI); ctx.fill(); });
         activeEffects.supergiantStars.forEach(s => { ctx.fillStyle=`rgba(255, 200, 180, ${0.5 + 0.5*Math.sin(tick*0.05)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, 2*Math.PI); ctx.fill(); });
+        activeEffects.crystallineFields.forEach(f => { ctx.strokeStyle=`rgba(180, 220, 255, 0.1)`; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(f.x,f.y,f.radius,0,2*Math.PI); ctx.stroke(); });
+        activeEffects.temporalRifts.forEach(r => { ctx.strokeStyle=`rgba(255, 100, 100, ${0.1 + (r.life / r.maxLife)*0.2})`; ctx.setLineDash([5, 5]); ctx.lineWidth=1; ctx.beginPath(); ctx.arc(r.x,r.y,r.radius,0,2*Math.PI); ctx.stroke(); ctx.setLineDash([]); });
+        activeEffects.negativeSpaces.forEach(s => { ctx.fillStyle=`#000`; ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, 2*Math.PI); ctx.fill(); });
     }
 
     // --- Player Interaction ---
@@ -292,6 +309,20 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'lavaJet': if (distSq < 30*30 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, worldMouse)[0]; if(newP){ newP.color = {rgb:{r:255,g:50,b:0}}; newP.vx = (Math.random()-0.5)*5; newP.vy = (Math.random()-0.5)*5; tagParticles([newP]); newP.fading = 100; } } break;
             case 'glacier': if(distSq < 200*200) { p.vx = (p.vx * 9 + 0.5) / 10; p.vy = (p.vy * 9 + 0.2) / 10; } break;
             case 'runeScribe': if(distSq < 150*150) { p.vx += dy/dist * 0.3; p.vy -= dx/dist * 0.3; if(tick % 5 === 0) p.color = {rgb:{r:200,g:100,b:255}}; } break;
+            case 'gatherDust': if (distSq < 250*250) { const force = 1 / dist; p.vx += dx * force * 0.01; p.vy += dy * force * 0.01; } break;
+            case 'ignite': if (distSq < 100*100) { p.color = {rgb:{r:255,g:220,b:180}}; p.radius += 0.05; } break;
+            case 'lure': if (distSq < 300*300) { const force = 1 / dist; p.vx += dx * force * 0.02; p.vy += dy * force * 0.02; p.vx *= 0.99; p.vy *= 0.99; } break;
+            case 'crush': if (distSq < 100*100) { p.vx += dx/dist * -0.5; p.vy += dy/dist * -0.5; if(p.radius > 0.5) p.radius -= 0.02; } break;
+            case 'align': if (distSq < 200*200) { const grid = 50; p.x += (Math.round(p.x/grid)*grid - p.x)*0.1; p.y += (Math.round(p.y/grid)*grid - p.y)*0.1; } break;
+            case 'regrid': if (distSq < 200*200) { const speed = Math.sqrt(p.vx*p.vx+p.vy*p.vy); const angle = Math.atan2(p.vy,p.vx); const snapped = Math.round(angle/(Math.PI/2))*(Math.PI/2); p.vx = Math.cos(snapped)*speed; p.vy = Math.sin(snapped)*speed; } break;
+            case 'sporeBurst': if (distSq < 20*20 && Math.random() < 0.1 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, {x:p.x, y:p.y})[0]; if(newP){ newP.isInfected = true; tagParticles([newP]); } } break;
+            case 'tangle': if (distSq < 150*150) { for(const p2 of pJS.particles.array) { if(p===p2) continue; const d2Sq=Math.pow(p.x-p2.x,2)+Math.pow(p.y-p2.y,2); if(d2Sq < 2500) { p.vx -= (p2.x-p.x)*0.001; p.vy -= (p2.y-p.y)*0.001; } } } break;
+            case 'ripple': if (tick % 8 === 0) { activeEffects.echoPulses.push({x: worldMouse.x, y: worldMouse.y, radiusSq: 50*50, maxLife: 60, life: 60}); } break;
+            case 'freeze': if (distSq < 150*150) { p.vx *= 0.9; p.vy *= 0.9; } break;
+            case 'fold': if (distSq < 150*150) { p.vx += dy/dist * 0.4; p.vy -= dx/dist * 0.4; } break;
+            case 'crease': if (distSq < 150*150) { p.vx = 0; } break;
+            case 'prism': if (distSq < 150*150) { p.color = {rgb:{r:Math.random()*255, g:Math.random()*255, b:Math.random()*255}}; } break;
+            case 'focus': if (distSq < 150*150) { p.vx += dx/dist * 0.2; p.vy += dy/dist * 0.2; p.radius = Math.min(p.radius_initial*2, p.radius+0.05); } break;
         }
     }
 
@@ -321,6 +352,13 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'cool': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.vx *= 0.1; p.vy *= 0.1; p.color={rgb:{r:80,g:80,b:80}}; } } break;
             case 'flashFreeze': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.vx=0; p.vy=0; p.isCrystalized = true; p.color={rgb:{r:200, g:220, b:255}}; } } break;
             case 'polymorph': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.shape = ['circle', 'triangle', 'edge', 'star', 'polygon'][Math.floor(Math.random()*5)]; } } pJS.fn.particlesRefresh(); break;
+            case 'whiteHoleSpawn': activeEffects.whiteHoles.push({ x: worldMouse.x, y: worldMouse.y, strength: 4 + Math.random()*8, spawnRate: 0.05 + Math.random()*0.15, tick: 0 }); break;
+            case 'pressureWave': for(const p of pJS.particles.array) { const dx=p.x-worldMouse.x, dy=p.y-worldMouse.y, d=Math.sqrt(dx*dx+dy*dy)||1; if(d < 300) { p.vx += dx/d * 20; p.vy += dy/d * 20; } } break;
+            case 'overgrow': for(let i=0; i<10; i++) { if(pJS.particles.array.length < pJS.particles.number.value_max) pJS.fn.modes.pushParticles(1, worldMouse); } break;
+            case 'decompose': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) p.fading = 100; } break;
+            case 'paperTear': for(let i=pJS.particles.array.length-1; i>=0; i--) { const p=pJS.particles.array[i]; if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 100) pJS.particles.array.splice(i,1); } break;
+            case 'smooth': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.vx *= 0.5; p.vy *= 0.5; } } break;
+            case 'aberrate': for(const p of pJS.particles.array) { if(Math.sqrt(Math.pow(p.x-worldMouse.x,2)+Math.pow(p.y-worldMouse.y,2)) < 150) { p.x += (Math.random()-0.5)*10; p.y += (Math.random()-0.5)*10; } } break;
         }
     }
 
@@ -352,6 +390,13 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'DeepFreeze': physics.friction = 1.05; pJS.particles.array.forEach(p => { p.color = {rgb:{r:200,g:220,b:255}}; }); setTimeout(() => { pJS.particles.array.forEach(p => { p.vx += (Math.random()-0.5)*5; p.vy += (Math.random()-0.5)*5; if(p.radius > 1) p.radius *= 0.5; }); }, 2500); regen(3500); break;
             case 'HiveCollapse': let collapses = 0; const collapseInterval = setInterval(() => { collapses++; for(let i=pJS.particles.array.length-1; i>=0; i--) { const p = pJS.particles.array[i]; p.vx += (pJS.canvas.w/2 - p.x) * 0.005; p.vy += (pJS.canvas.h/2 - p.y) * 0.005; if(Math.random() > 0.9) pJS.particles.array.splice(i,1); } if(collapses > 120) { clearInterval(collapseInterval); regen(1000); } }, 30); activeIntervals.push(collapseInterval); break;
             case 'ForbiddenRitual': const ritualCenter = {x: pJS.canvas.w/2, y: pJS.canvas.h/2}; let ritual = 0; const ritualInterval = setInterval(() => { ritual++; pJS.particles.array.forEach(p => { const dx = ritualCenter.x - p.x, dy = ritualCenter.y - p.y, dist=Math.sqrt(dx*dx+dy*dy); p.vx += dx * 0.003; p.vy += dy * 0.003; p.vx *= 0.98; p.vy *= 0.98; if (dist < 50) {p.vx=0;p.vy=0;} p.color = {rgb:{r:200,g:50,b:255}}; }); if(ritual > 200) { pJS.particles.array.forEach(p => { p.vx = (Math.random()-0.5)*50; p.vy = (Math.random()-0.5)*50; }); clearInterval(ritualInterval); regen(2000); } }, 20); activeIntervals.push(ritualInterval); break;
+            case 'ProtoStarCollapse': pJS.particles.array.forEach(p => { p.vx += (pJS.canvas.w/2 - p.x)*0.01; p.vy += (pJS.canvas.h/2 - p.y)*0.01; }); setTimeout(() => { pJS.particles.array.forEach(p => { const dx=p.x-pJS.canvas.w/2, dy=p.y-pJS.canvas.h/2, d=Math.sqrt(dx*dx+dy*dy)||1; p.vx = dx/d*30; p.vy = dy/d*30; }); }, 3000); regen(4000); break;
+            case 'BenthicStorm': let storm = 0; const stormInterval = setInterval(() => { storm++; physics.friction = 0.7; pJS.particles.array.forEach(p => { p.vx += (Math.random()-0.5)*2; p.vy += (Math.random()-0.5)*2; }); if(storm > 100) { clearInterval(stormInterval); regen(1000); } }, 50); activeIntervals.push(stormInterval); break;
+            case 'SystemCrash': ui.body.style.background = '#000'; pJS.particles.array.forEach(p => { p.vx=0; p.vy=0; p.shape='character'; p.character = {value:['!','@','#','$','%']}; }); pJS.fn.particlesRefresh(); regen(3000); break;
+            case 'Decomposition': let decomp = 0; const decompInterval = setInterval(() => { decomp++; if(pJS.particles.array.length > 0) pJS.particles.array.splice(0, 5); if(decomp > 100) { clearInterval(decompInterval); regen(1000); } }, 50); activeIntervals.push(decompInterval); break;
+            case 'Shattering': pJS.particles.array.forEach(p => { p.vx = (Math.random()-0.5)*15; p.vy = (Math.random()-0.5)*15; if (p.radius > 1) p.radius *= 0.5; }); regen(2000); break;
+            case 'PaperTearCataclysm': let tear = pJS.canvas.w/2; let tearInterval = setInterval(() => { tear += 10; for(let i=pJS.particles.array.length-1; i>=0; i--) { if(Math.abs(pJS.particles.array[i].x - tear) < 10) pJS.particles.array.splice(i,1); } if(tear > pJS.canvas.w) { clearInterval(tearInterval); regen(1000); } }, 20); activeIntervals.push(tearInterval); break;
+            case 'ColorBurn': let burn = 0; const burnInterval = setInterval(() => { burn++; pJS.particles.array.forEach(p => { const c = p.color.rgb; p.color.rgb = {r:Math.min(255, c.r+5), g:Math.max(0, c.g-2), b:Math.max(0, c.b-2)}; }); if(burn > 100) { clearInterval(burnInterval); regen(1000); } }, 30); activeIntervals.push(burnInterval); break;
         }
     }
 
@@ -364,7 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
             gravityWells: [], stasisFields: [], phaseZones: [], echoPulses: [], wormholes: [],
             pulsars: [], nebulas: [], blackHoles: [], whiteHoles: [], cosmicStrings: [], cosmicWebs: [],
             gravityPockets: [], timeDilationZones: [], entangledGroups: [], gravityWaves: [], quasars: [],
-            cosmicRifts: [], magneticStorms: [], ionClouds: [], supergiantStars: []
+            cosmicRifts: [], magneticStorms: [], ionClouds: [], supergiantStars: [],
+            // New effects arrays
+            photonSails: [], tidalForces: [], cosmicGeysers: [], crystallineFields: [], temporalRifts: [],
+            negativeSpaces: [], stellarWinds: [], microwaveBackgrounds: []
         };
         ui.canvasContainer.style.filter='';
         ui.canvasContainer.style.transition = 'filter 1s ease';
@@ -389,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 p.colorLocked = false;
                 p.isEntangled = false;
                 p.isConsumed = 0;
+                p.bondPartner = null; // For Pair Bonding mutator
             }
         });
     }
@@ -416,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('mouseup', e => {
         if (cataclysmInProgress) return;
         const powerName = e.button === 0 ? universeProfile.leftClickPower : universeProfile.rightClickPower;
-        const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole', 'entangle', 'decohere', 'shockwave', 'silence', 'splatter', 'blot', 'gaze', 'realityTear', 'paletteKnife', 'wash', 'disperse', 'cool', 'flashFreeze', 'polymorph'];
+        const clickPowers = ['supernova', 'gravityWell', 'stasisField', 'unravel', 'harvest', 'toggleLinks', 'glitch', 'crystalize', 'wormhole', 'entangle', 'decohere', 'shockwave', 'silence', 'splatter', 'blot', 'gaze', 'realityTear', 'paletteKnife', 'wash', 'disperse', 'cool', 'flashFreeze', 'polymorph', 'whiteHoleSpawn', 'pressureWave', 'overgrow', 'decompose', 'paperTear', 'smooth', 'aberrate'];
         if (clickPowers.includes(powerName)) { handleClickPower(powerName, pJS, mouse); }
         if (e.button === 0) isLeftMouseDown = false;
         else if (e.button === 2) isRightMouseDown = false;

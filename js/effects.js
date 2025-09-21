@@ -12,7 +12,12 @@ export const universeBlueprints = {
     SonicScapes: { left: ['resonate', 'dampen'], right: ['shockwave', 'silence'], events: ['ambientHum'], cataclysms: ['The Great Silence'], aesthetic:{glow:true, trails:true, shape:['edge'], opacity: 0.6, physics:{attract:false, straight:false, bounce:true, friction:0.97}} },
     LivingInk: { left: ['smudge', 'draw'], right: ['splatter', 'blot'], events: ['inkSeep'], cataclysms: ['The Bleed'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.92}} },
     Eldritch: { left: ['consume', 'maddeningWhisper'], right: ['gaze', 'realityTear'], events: ['nonEuclideanShift'], cataclysms: ['UnseenGibbering'], aesthetic:{glow:true, trails:true, shape:['polygon'], sides: 7, monochrome: true, physics:{attract:true, straight:false, bounce:false, friction:0.95}} },
-    Painterly: { left: ['smear', 'dab'], right: ['paletteKnife', 'wash'], events: ['colorBleed'], cataclysms: ['CanvasWipe'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.9}} }
+    Painterly: { left: ['smear', 'dab'], right: ['paletteKnife', 'wash'], events: ['colorBleed'], cataclysms: ['CanvasWipe'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.9}} },
+    StarForged: { left:['comet'], right:['supernova'], events:['binaryStars'], cataclysms:['Supernova'], aesthetic:{glow:true, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.96}} },
+    ArcaneCodex: { left:['runeScribe'], right:['polymorph'], events:['nonEuclideanShift'], cataclysms:['ForbiddenRitual'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 5, physics:{attract:false, straight:false, bounce:true, friction:0.97}} },
+    MoltenHeart: { left:['lavaJet'], right:['cool'], events:['meteorShower'], cataclysms:['CoreEruption'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.85}} },
+    GlacialDrift: { left:['glacier'], right:['flashFreeze'], events:['crystalGrowth'], cataclysms:['DeepFreeze'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} },
+    SentientSwarm: { left:['swarmFollow'], right:['disperse'], events:['neuronPulse'], cataclysms:['HiveCollapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.95}} }
 };
 
 export const mutators = {
@@ -37,6 +42,16 @@ export const mutators = {
     'Rainbow': () => { /* Handled in update loop */ },
     'Pulsing Particles': () => { /* Handled in update loop */ },
     'Flickering': () => { /* Handled in update loop */ },
+    'Particle Decay': () => { /* Handled in update loop */ },
+    'Elastic Collisions': () => { /* Handled in update loop */ },
+    'Wandering Singularity': (pJS, seededRandom, { blackHoles }) => {
+        const singularity = { x: pJS.canvas.w * seededRandom(), y: pJS.canvas.h * seededRandom(), mass: 50 + seededRandom()*100, eventHorizon: 5 + seededRandom()*5, isWandering: true };
+        blackHoles.push(singularity);
+    },
+    'Noisy': () => { /* Handled in update loop */ },
+    'Supermassive': (pJS) => { pJS.particles.size.value *= 2; pJS.particles.move.speed *= 0.7; },
+    'Synchronized': () => { /* Handled in update loop */ },
+    'Event Horizon': () => { /* Handled in update loop */ },
 };
 
 export const anomalies = {
@@ -64,5 +79,21 @@ export const anomalies = {
             tick: 0,
             isFiring: false
         });
+    },
+    'Cosmic Rift': (pJS, r, { cosmicRifts }) => {
+        cosmicRifts.push({
+            x1: pJS.canvas.w * (0.1 + r()*0.2), y1: pJS.canvas.h * (0.1 + r()*0.8),
+            x2: pJS.canvas.w * (0.7 + r()*0.2), y2: pJS.canvas.h * (0.1 + r()*0.8),
+            width: 20
+        });
+    },
+    'Magnetic Storm': (pJS, r, { magneticStorms }) => {
+        magneticStorms.push({ lastFlip: 0, period: 100 + r()*200, attract: true });
+    },
+    'Ion Cloud': (pJS, r, { ionClouds }) => {
+        ionClouds.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 150 + r()*100 });
+    },
+    'Supergiant Star': (pJS, r, { supergiantStars }) => {
+        supergiantStars.push({ x: pJS.canvas.w * r(), y: pJS.canvas.h * r(), radius: 50 + r()*30, mass: 200 + r()*200, lastSpawn: 0, period: 50 + r()*50 });
     }
 };

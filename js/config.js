@@ -45,7 +45,7 @@ export const baseConfig = {
                 "enable": false
             },
             "trail": {
-                "enable": false,
+                "enable": true,
                 "fillColor": "#000",
                 "length": 10
             }

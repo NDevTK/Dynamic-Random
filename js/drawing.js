@@ -3,7 +3,7 @@
  * @description This file contains functions for drawing visual effects on the canvas.
  */
 
-import { activeEffects, getTick } from './state.js';
+import { activeEffects, getTick, universeProfile } from './state.js';
 
 /**
  * Draws all active visual effects onto the canvas.
@@ -11,6 +11,13 @@ import { activeEffects, getTick } from './state.js';
  */
 export function drawEffects(ctx) {
     const tick = getTick();
+
+    // Apply a global bloom effect for certain aesthetics
+    if (universeProfile.blueprintName === 'Aether' || universeProfile.blueprintName === 'VoidTouched' || universeProfile.blueprintName === 'ArcaneCodex') {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.filter = 'blur(4px)';
+    }
+
     activeEffects.nebulas.forEach(n => { const grad = ctx.createRadialGradient(n.x, n.y, n.radius/4, n.x, n.y, n.radius); grad.addColorStop(0, n.color.replace('0.15', '0.3')); grad.addColorStop(1, n.color.replace('0.15', '0')); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2*Math.PI); ctx.fill(); });
     activeEffects.pulsars.forEach(p => { p.angle += 0.05; ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 2*Math.PI); ctx.fill(); for(let i=0; i<2; i++) { const angle = p.angle + i*Math.PI; const grad = ctx.createLinearGradient(p.x, p.y, p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); grad.addColorStop(0, 'rgba(255,255,255,0.2)'); grad.addColorStop(1, 'rgba(255,255,255,0)'); ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); ctx.stroke(); } });
     activeEffects.blackHoles.forEach(h => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(h.x, h.y, h.eventHorizon, 0, 2*Math.PI); ctx.fill(); const grad = ctx.createRadialGradient(h.x,h.y,h.eventHorizon,h.x,h.y,h.eventHorizon+5); grad.addColorStop(0, 'rgba(255,200,100,0.8)'); grad.addColorStop(1, 'rgba(255,200,100,0)'); ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.stroke(); });

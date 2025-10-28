@@ -1,3 +1,9 @@
+/**
+ * @file main.js
+ * @description This file contains the core logic for the Celestial Canvas project.
+ * It handles the main simulation loop, universe generation, user interaction,
+ * and rendering of the particle system.
+ */
 import { universeBlueprints, mutators, anomalies } from './effects.js';
 
 const baseConfig = { "particles": { "number": { "value": 150, "density": { "enable": true, "value_area": 800 } }, "color": { "value": "#ffffff" }, "shape": { "type": "circle", "polygon": {"nb_sides": 5}, "character": {"value": ["*"]} }, "opacity": { "value": 0.5, "random": true }, "size": { "value": 3, "random": true }, "line_linked": { "enable": false }, "move": { "enable": true, "speed": 4, "direction": "none", "straight": false, "out_mode": "out", "attract": { "enable": false }, "trail": {"enable": false, "fillColor": "#000", "length": 10} } }, "interactivity": { "detect_on": "canvas", "events": { "onhover": { "enable": true, "mode": "bubble" }, "resize": true }, "modes": { "bubble": { "distance": 200, "size": 8, "duration": 2 } } }, "retina_detect": true };
@@ -28,11 +34,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeIntervals = [], seedCopyTimeout;
 
     // --- Seeding Engine ---
+    /**
+     * Creates a seeded pseudo-random number generator.
+     * @param {number} a - The seed.
+     * @returns {function(): number} A function that returns a random number between 0 and 1.
+     */
     function mulberry32(a) { return function() { var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; } }
+    /**
+     * Converts a string to a 32-bit integer seed.
+     * @param {string} str - The string to convert.
+     * @returns {number} A 32-bit integer seed.
+     */
     function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0} return h; }
+    /**
+     * Generates a random, human-readable seed string.
+     * @returns {string} A random seed string in the format 'WORD-WORD-NUMBER'.
+     */
     function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER', 'SONIC', 'QUANTUM', 'ELDRITCH', 'PAINTERLY', 'ARCANE', 'MOLTEN', 'GLACIAL', 'SWARM', 'FORGED']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL', 'HUM', 'FOAM', 'INK', 'MAW', 'STROKE', 'CODEX', 'HEART', 'HIVE', 'CORE', 'RUNE']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
 
     // --- Main Generation Function ---
+    /**
+     * Generates a new universe based on a seed.
+     * This function sets up the universe's blueprint, mutators, anomalies, and aesthetics.
+     * @param {object} pJS - The particles.js instance.
+     * @param {string} seed - The seed string for the universe.
+     */
     const generateUniverse = (pJS, seed) => {
         resetState();
         currentSeed = seed;
@@ -112,6 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Main Update Loop ---
+    /**
+     * The main update loop, called on every frame.
+     * This function handles particle physics, user interaction, anomalies, and cataclysms.
+     */
     const update = () => {
         tick++;
         if (cataclysmInProgress) { requestAnimationFrame(update); return; }
@@ -263,6 +293,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Drawing Functions ---
+    /**
+     * Draws all active visual effects onto the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The canvas rendering context.
+     */
     function drawEffects(ctx) {
         activeEffects.nebulas.forEach(n => { const grad = ctx.createRadialGradient(n.x, n.y, n.radius/4, n.x, n.y, n.radius); grad.addColorStop(0, n.color.replace('0.15', '0.3')); grad.addColorStop(1, n.color.replace('0.15', '0')); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2*Math.PI); ctx.fill(); });
         activeEffects.pulsars.forEach(p => { p.angle += 0.05; ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 2*Math.PI); ctx.fill(); for(let i=0; i<2; i++) { const angle = p.angle + i*Math.PI; const grad = ctx.createLinearGradient(p.x, p.y, p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); grad.addColorStop(0, 'rgba(255,255,255,0.2)'); grad.addColorStop(1, 'rgba(255,255,255,0)'); ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x+Math.cos(angle)*1000, p.y+Math.sin(angle)*1000); ctx.stroke(); } });
@@ -289,6 +323,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Player Interaction ---
+    /**
+     * Handles the continuous application of a player's power (e.g., holding down the mouse button).
+     * @param {object} p - The particle to affect.
+     * @param {number} i - The index of the particle in the array.
+     * @param {object} pJS - The particles.js instance.
+     * @param {string} powerName - The name of the power being used.
+     * @param {object} worldMouse - The mouse coordinates.
+     */
     function handleActivePower(p, i, pJS, powerName, worldMouse) {
         const dx = worldMouse.x - p.x, dy = worldMouse.y - p.y;
         const distSq = dx*dx + dy*dy;
@@ -359,6 +401,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Handles single-click powers.
+     * @param {string} powerName - The name of the power to trigger.
+     * @param {object} pJS - The particles.js instance.
+     * @param {object} worldMouse - The mouse coordinates.
+     */
     function handleClickPower(powerName, pJS, worldMouse) {
         switch(powerName) {
             case 'supernova': for (const p of pJS.particles.array) { const dx=p.x-worldMouse.x, dy=p.y-worldMouse.y, dist = Math.sqrt(dx*dx+dy*dy)||1; if (dist < 250) { p.vx += dx/dist*30; p.vy += dy/dist*30; } } break;
@@ -402,6 +450,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Cataclysm Logic ---
+    /**
+     * Triggers a universe-ending cataclysm.
+     * @param {object} pJS - The particles.js instance.
+     */
     function triggerCataclysm(pJS) {
         cataclysmInProgress = true;
         ui.container.classList.remove('visible');
@@ -447,6 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Utility Functions ---
+    /**
+     * Resets the state of the universe, clearing all active effects and intervals.
+     */
     function resetState(){
         activeIntervals.forEach(clearInterval);
         clearTimeout(seedCopyTimeout);
@@ -470,6 +525,10 @@ document.addEventListener('DOMContentLoaded', () => {
         cataclysmInProgress=false;
     }
 
+    /**
+     * Adds custom properties to new particles.
+     * @param {Array<object>} particles - An array of particles to tag.
+     */
     function tagParticles(particles) {
         if (!particles) return;
         particles.forEach(p => {
@@ -495,6 +554,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * Sets a random gradient background for the body and canvas.
+     * @param {number} hue - The base hue for the gradient.
+     * @param {boolean} isMonochrome - Whether the gradient should be monochrome.
+     * @param {function(): number} seededRandom - The seeded random number generator.
+     * @param {boolean} isDark - Whether the gradient should be dark.
+     */
     function setRandomGradient(hue, isMonochrome, seededRandom, isDark) {
         const angle=Math.floor(seededRandom()*360);
         if(isDark){
@@ -508,8 +574,28 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.canvasContainer.style.backgroundSize = '400% 400%';
     }
 
+    /**
+     * Converts an HSL color value to a hex string.
+     * @param {number} h - The hue value (0-360).
+     * @param {number} s - The saturation value (0-100).
+     * @param {number} l - The lightness value (0-100).
+     * @returns {string} The hex color string.
+     */
     function hslToHex(h,s,l){s/=100;l/=100;let c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}r=Math.round((r+m)*255).toString(16).padStart(2,'0');g=Math.round((g+m)*255).toString(16).padStart(2,'0');b=Math.round((b+m)*255).toString(16).padStart(2,'0');return`#${r}${g}${b}`; }
 
+    /**
+     * Calculates the X and Y coordinates for a point on a cubic Bezier curve.
+     * @param {number} t - The position on the curve (0-1).
+     * @param {number} sx - The starting X coordinate.
+     * @param {number} sy - The starting Y coordinate.
+     * @param {number} cp1x - The first control point's X coordinate.
+     * @param {number} cp1y - The first control point's Y coordinate.
+     * @param {number} cp2x - The second control point's X coordinate.
+     * @param {number} cp2y - The second control point's Y coordinate.
+     * @param {number} ex - The ending X coordinate.
+     * @param {number} ey - The ending Y coordinate.
+     * @returns {{x: number, y: number}} The coordinates of the point on the curve.
+     */
     function getBezierXY(t, sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey) {
         const invT = (1 - t);
         const x = invT * invT * invT * sx + 3 * invT * invT * t * cp1x + 3 * invT * t * t * cp2x + t * t * t * ex;

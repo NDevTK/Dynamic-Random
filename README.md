@@ -55,6 +55,16 @@ The simulation will start immediately.
 
 ---
 
+## 📂 Codebase Overview
+
+The JavaScript code is organized into two main files:
+
+*   **`js/main.js`**: This is the heart of the simulation. It contains the main update loop, handles user input, manages the universe's state (energy, cataclysms), and orchestrates the generation of new universes. It also includes the core physics calculations for particle interactions.
+
+*   **`js/effects.js`**: This file acts as a library of procedural generation components. It defines the `universeBlueprints` (thematic templates for universes), `mutators` (modifiers that alter the universe's physics or aesthetics), and `anomalies` (interactive, persistent objects within the simulation). This separation makes it easy to add new content and features without altering the core simulation logic.
+
+---
+
 ## 🔮 Future Ideas
 
 This project is a sandbox for creative coding. Potential future additions could include:

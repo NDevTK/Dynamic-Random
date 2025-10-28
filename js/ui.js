@@ -8,7 +8,27 @@ import { handleClickPower } from './powers.js';
 import { generateUniverse } from './universe.js';
 
 /**
- * Sets a random gradient background for the body and canvas.
+ * Generates a CSS string for a layered, procedural starfield background.
+ * @param {function(): number} seededRandom - The seeded random number generator.
+ * @returns {string} - The CSS background value.
+ */
+function createStarfield(seededRandom) {
+    const starLayers = [
+        { size: '1px', count: 1500, duration: '150s' },
+        { size: '2px', count: 700, duration: '200s' },
+        { size: '3px', count: 200, duration: '250s' }
+    ];
+
+    return starLayers.map(layer => {
+        const positions = Array.from({ length: layer.count }, () =>
+            `${Math.floor(seededRandom() * 4000)}px ${Math.floor(seededRandom() * 4000)}px #FFF`
+        ).join(',');
+        return `radial-gradient(${layer.size} ${layer.size} at center, #fff, transparent), ${positions}`;
+    }).join(',');
+}
+
+/**
+ * Sets a random gradient background for the body and canvas, with a starfield.
  * @param {number} hue - The base hue for the gradient.
  * @param {boolean} isMonochrome - Whether the gradient should be monochrome.
  * @param {function(): number} seededRandom - The seeded random number generator.
@@ -16,15 +36,23 @@ import { generateUniverse } from './universe.js';
  */
 export function setRandomGradient(hue, isMonochrome, seededRandom, isDark) {
     const angle = Math.floor(seededRandom() * 360);
+    let gradient;
+
     if (isDark) {
-        document.body.style.background = `linear-gradient(${angle}deg, #0a050d, #120510, #000000)`;
+        gradient = `linear-gradient(${angle}deg, #0a050d, #120510, #000000)`;
     } else if (isMonochrome) {
-        document.body.style.background = `linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;
+        gradient = `linear-gradient(${angle}deg, hsl(${hue}, 80%, 10%), hsl(${hue}, 40%, 20%), hsl(${hue}, 90%, 5%))`;
     } else {
-        document.body.style.background = `linear-gradient(${angle}deg, hsl(${hue},80%,30%), hsl(${(hue + 120) % 360},80%,20%), hsl(${(hue + 240) % 360},80%,25%))`;
+        gradient = `linear-gradient(${angle}deg, hsl(${hue}, 80%, 30%), hsl(${(hue + 120) % 360}, 80%, 20%), hsl(${(hue + 240) % 360}, 80%, 25%))`;
     }
-    ui.canvasContainer.style.background = document.body.style.background;
-    ui.canvasContainer.style.backgroundSize = '400% 400%';
+
+    const starfield = createStarfield(seededRandom);
+    const backgroundValue = `${starfield}, ${gradient}`;
+
+    document.body.style.background = backgroundValue;
+    ui.canvasContainer.style.background = backgroundValue;
+    document.body.style.backgroundSize = '2000px 2000px, auto';
+    ui.canvasContainer.style.backgroundSize = '2000px 2000px, 400% 400%';
 }
 
 export function updateUI() {

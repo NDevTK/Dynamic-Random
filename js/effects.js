@@ -1,5 +1,38 @@
+/**
+ * @file effects.js
+ * @description This file defines the procedural generation components for universes,
+ * including blueprints, mutators, and anomalies.
+ */
+
+/**
+ * @typedef {object} UniverseBlueprint
+ * @property {string[]} left - The available left-click powers.
+ * @property {string[]} right - The available right-click powers.
+ * @property {string[]} events - The available ambient events.
+ * @property {string[]} cataclysms - The available cataclysms.
+ * @property {object} aesthetic - The aesthetic properties of the universe.
+ * @property {boolean} aesthetic.glow - Whether particles have a glow effect.
+ * @property {boolean} aesthetic.trails - Whether particles have trails.
+ * @property {string[]} aesthetic.shape - The possible shapes of particles.
+ * @property {string[]} [aesthetic.chars] - The possible characters for particles (if shape is 'character').
+ * @property {number} [aesthetic.sides] - The number of sides for polygon particles.
+ * @property {number} [aesthetic.opacity] - The opacity of particles.
+ * @property {boolean} [aesthetic.monochrome] - Whether the universe is monochrome.
+ * @property {object} aesthetic.physics - The physics properties of the universe.
+ * @property {boolean} aesthetic.physics.attract - Whether particles are attracted to the center.
+ * @property {boolean} aesthetic.physics.straight - Whether particles move in straight lines.
+ * @property {boolean} aesthetic.physics.bounce - Whether particles bounce off the walls.
+ * @property {number} aesthetic.physics.friction - The friction applied to particles.
+ */
+
+/**
+ * A collection of universe blueprints, each defining a unique theme for a universe.
+ * @type {Object.<string, UniverseBlueprint>}
+ */
 export const universeBlueprints = {
+    // A classic space simulation with gravitational pull and explosive events.
     Classical: { left:['comet'], right:['supernova','gravityWell'], events:['binaryStars','meteorShower'], cataclysms:['Supernova'], aesthetic:{glow:true, trails:false, shape:['circle','star'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
+    // A fluid, biological environment with interactive, symbiotic particles.
     Organic: { left:['symbiote','forceField'], right:['sculptor','setOrbit'], events:['pulsingCore', 'sporeRelease'], cataclysms:['Phase Shift'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
     Digital: { left:['chainLightning','shaper','scribe'], right:['glitch','toggleLinks'], events:['cosmicMessage'], cataclysms:['Glitch Storm'], aesthetic:{glow:true, trails:false, shape:['character'], chars:['0','1','<','>','/','?'], physics:{attract:false, straight:true, bounce:false, friction:0.98}} },
     Crystalline: { left: ['shatter', 'refractor'], right: ['crystalize', 'glaze'], events: ['crystalGrowth'], cataclysms: ['Resonance Cascade'], aesthetic:{glow:true, trails:false, shape:['triangle', 'edge'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
@@ -34,8 +67,22 @@ export const universeBlueprints = {
     CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} }
 };
 
+/**
+ * @callback Mutator
+ * @param {object} pJS - The particles.js instance.
+ * @param {function(): number} seededRandom - The seeded random number generator.
+ * @param {object} activeEffects - The active effects object.
+ * @param {object} physics - The physics object.
+ */
+
+/**
+ * A collection of mutators that can be applied to a universe to alter its properties.
+ * @type {Object.<string, Mutator>}
+ */
 export const mutators = {
+    // Reduces the friction, making particles drift more.
     'Low-Gravity': (pJS, seededRandom, activeEffects, physics) => { physics.friction *= 0.9; },
+    // Greatly increases the speed of all particles.
     'Hyperspeed': (pJS) => { pJS.particles.move.speed *= 2.5; },
     'Viscous': (pJS, seededRandom, activeEffects, physics) => { physics.friction = 0.85; },
     'Inertialess': (pJS, seededRandom, activeEffects, physics) => { physics.friction = 0.6; },
@@ -82,8 +129,21 @@ export const mutators = {
     'Carnival': () => { /* Handled in update loop */ },
 };
 
+/**
+ * @callback Anomaly
+ * @param {object} pJS - The particles.js instance.
+ * @param {function(): number} seededRandom - The seeded random number generator.
+ * @param {object} activeEffects - The active effects object.
+ */
+
+/**
+ * A collection of anomalies that can be spawned in a universe to add unique interactive elements.
+ * @type {Object.<string, Anomaly>}
+ */
 export const anomalies = {
+    // A rotating object that emits powerful beams of energy.
     'Pulsar': (pJS, r, { pulsars }) => { pulsars.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), angle: 0, period: 100 + Math.floor(r()*200), strength: 20 + r()*30 }); },
+    // A cloud of gas and dust that slows down particles and colors them.
     'Nebula': (pJS, r, { nebulas }) => { const hue = r()*360; nebulas.push({ x: pJS.canvas.w * (0.3 + r()*0.4), y: pJS.canvas.h * (0.3 + r()*0.4), radius: 200 + r()*250, color: `hsla(${hue}, 70%, 50%, 0.15)`, baseColor: {h: hue, s: 70, l: 50} }); },
     'Black Hole': (pJS, r, { blackHoles }) => { blackHoles.push({ x: pJS.canvas.w * (0.2 + r()*0.6), y: pJS.canvas.h * (0.2 + r()*0.6), mass: 100 + r()*250, eventHorizon: 10 + r()*20 }); },
     'White Hole': (pJS, r, { whiteHoles }) => { whiteHoles.push({ x: pJS.canvas.w * (0.2 + r()*0.6), y: pJS.canvas.h * (0.2 + r()*0.6), strength: 4 + r()*8, spawnRate: 0.05 + r()*0.15, tick: 0 }); },

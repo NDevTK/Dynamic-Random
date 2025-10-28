@@ -50,18 +50,26 @@ The simulation will start immediately.
 ## 🛠️ Technology Stack
 
 *   **HTML5 / CSS3:** For the structure and vibrant visual styling.
-*   **Vanilla JavaScript (ES6 Modules):** Powers the entire simulation logic, from the seeding engine to the physics and cataclysm events. The code is now split into logical modules (`main.js`, `effects.js`).
+*   **Vanilla JavaScript (ES6 Modules):** Powers the entire simulation logic, from the seeding engine to the physics and cataclysm events.
 *   **particles.js:** Used as the base rendering engine for the particle system, which is then heavily modified and extended by the custom simulation loop.
 
 ---
 
 ## 📂 Codebase Overview
 
-The JavaScript code is organized into two main files:
+The JavaScript code is organized into a modular structure:
 
-*   **`js/main.js`**: This is the heart of the simulation. It contains the main update loop, handles user input, manages the universe's state (energy, cataclysms), and orchestrates the generation of new universes. It also includes the core physics calculations for particle interactions.
-
-*   **`js/effects.js`**: This file acts as a library of procedural generation components. It defines the `universeBlueprints` (thematic templates for universes), `mutators` (modifiers that alter the universe's physics or aesthetics), and `anomalies` (interactive, persistent objects within the simulation). This separation makes it easy to add new content and features without altering the core simulation logic.
+*   **`js/main.js`**: The main entry point for the application. It initializes the particles.js instance and kicks off the simulation.
+*   **`js/simulation.js`**: Contains the core update loop, handling all particle physics, interactions, and anomaly updates.
+*   **`js/universe.js`**: Manages the procedural generation of new universes based on a seed.
+*   **`js/state.js`**: Manages the global state of the application, including the current universe profile, active effects, and user input.
+*   **`js/effects.js`**: Defines the data for procedural generation, including `universeBlueprints`, `mutators`, and `anomalies`.
+*   **`js/powers.js`**: Contains the logic for all player-activated powers.
+*   **`js/cataclysms.js`**: Handles the logic for universe-ending cataclysm events.
+*   **`js/ui.js`**: Manages all DOM interactions, UI updates, and event listeners.
+*   **`js/drawing.js`**: Contains functions for drawing custom visual effects on the canvas.
+*   **`js/utils.js`**: A collection of utility functions, such as color conversion and seeding algorithms.
+*   **`js/config.js`**: Stores the base configuration for the particles.js library.
 
 ---
 

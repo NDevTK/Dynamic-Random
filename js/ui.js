@@ -68,8 +68,12 @@ export function initializeEventListeners(pJS) {
     ui.seed.addEventListener('click', () => {
         navigator.clipboard.writeText(window.location.href).then(() => {
             ui.seed.innerText = 'Copied!';
+            ui.seed.classList.add('copied-animation');
             clearSeedCopyTimeout();
-            const timeout = setTimeout(() => ui.seed.innerText = `Seed: ${currentSeed}`, 2000);
+            const timeout = setTimeout(() => {
+                ui.seed.innerText = `Seed: ${currentSeed}`;
+                ui.seed.classList.remove('copied-animation');
+            }, 2000);
             setSeedCopyTimeout(timeout);
         });
     });

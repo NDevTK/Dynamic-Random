@@ -144,19 +144,31 @@ body.cataclysm-bleed::after {
     bottom: 25px;
     left: 25px;
     z-index: 101;
-    background: linear-gradient(145deg, rgba(15, 15, 20, 0.6), rgba(25, 25, 30, 0.6));
+    background: linear-gradient(145deg, rgba(20, 20, 25, 0.75), rgba(30, 30, 35, 0.75));
     padding: 15px 22px;
     border-radius: 12px;
     font-size: 14px;
     font-weight: 300;
-    backdrop-filter: blur(12px) saturate(120%);
-    -webkit-backdrop-filter: blur(12px) saturate(120%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     opacity: 0;
     min-width: 260px;
     transform: translateY(20px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+#ui-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('data:image/svg+xml,...');
+    opacity: 0.03;
+    pointer-events: none;
+    border-radius: 12px;
 }
 
 #ui-container.visible {
@@ -191,6 +203,21 @@ body.cataclysm-bleed::after {
 #seed-capture:hover {
     color: #fff;
     letter-spacing: 0.8px;
+}
+
+#seed-capture.copied-animation {
+    animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    0%, 100% {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    10%, 90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 #mutator-display,

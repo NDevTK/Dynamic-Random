@@ -6,6 +6,7 @@
 import { ui, setMouse, setLeftMouseDown, setRightMouseDown, currentSeed, cataclysmInProgress, universeProfile, isLeftMouseDown, isRightMouseDown, setSeedCopyTimeout, clearSeedCopyTimeout } from './state.js';
 import { handleClickPower } from './powers.js';
 import { generateUniverse } from './universe.js';
+import { initAudio } from './audio.js';
 
 /**
  * Generates a CSS string for a layered, procedural starfield background.
@@ -77,6 +78,21 @@ export function initializeEventListeners(pJS) {
             setSeedCopyTimeout(timeout);
         });
     });
+
+    const audioBtn = document.getElementById('audio-toggle');
+    if (audioBtn) {
+        audioBtn.addEventListener('click', async () => {
+            const success = await initAudio();
+            if (success) {
+                audioBtn.innerText = "Audio Reactivity: ON";
+                audioBtn.style.background = "rgba(100, 255, 100, 0.2)";
+                audioBtn.disabled = true;
+            } else {
+                audioBtn.innerText = "Audio Init Failed";
+                audioBtn.style.background = "rgba(255, 100, 100, 0.2)";
+            }
+        });
+    }
 
     window.addEventListener('mousemove', e => {
         setMouse({ x: e.clientX, y: e.clientY });

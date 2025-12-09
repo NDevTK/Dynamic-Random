@@ -64,7 +64,35 @@ export const universeBlueprints = {
     LivingConstellation: { left:['createStar'], right:['connectConstellation'], events:['binaryStars'], cataclysms:['BigRip'], aesthetic:{glow:true, trails:false, shape:['star'], physics:{attract:false, straight:false, bounce:true, friction:0.98}} },
     GooeyMess: { left:['stirGoo'], right:['dissolveGoo'], events:['sporeRelease'], cataclysms:['Homogenization'], aesthetic:{glow:false, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
     HauntedRealm: { left:['exorcise'], right:['materialize', 'phaseZone'], events:['flickeringReality', 'dejaVu'], cataclysms:['Banishing'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.2, physics:{attract:false, straight:true, bounce:false, friction:0.99}} },
-    CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} }
+    CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} },
+
+    // Brand New "Overhaul" Blueprints
+    Cyberpunk: {
+        left: ['chainLightning', 'align'],
+        right: ['glitch', 'regrid'],
+        events: ['cosmicMessage'],
+        cataclysms: ['SystemCrash', 'GlitchStorm'],
+        aesthetic: {
+            glow: true,
+            trails: true,
+            shape: ['character', 'edge'],
+            chars: ['0', '1', 'ERROR', 'NULL'],
+            physics: { attract: false, straight: true, bounce: true, friction: 0.99 }
+        }
+    },
+    Zen: {
+        left: ['ripple', 'smooth'],
+        right: ['fade', 'silence'],
+        events: ['aurora'],
+        cataclysms: ['The Great Silence'],
+        aesthetic: {
+            glow: true,
+            trails: true,
+            shape: ['circle'],
+            opacity: 0.3,
+            physics: { attract: false, straight: false, bounce: false, friction: 0.95 }
+        }
+    }
 };
 
 /**

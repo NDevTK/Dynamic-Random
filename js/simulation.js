@@ -9,6 +9,8 @@ import { handleActivePower } from './powers.js';
 import { getBezierXY, tagParticles } from './utils.js';
 import { drawEffects } from './drawing.js';
 import { incrementTick, getTick } from './state.js';
+import { renderParticles } from './renderer.js';
+import { getAudioData, isAudioEnabled } from './audio.js';
 
 // --- Simulation Sub-modules ---
 
@@ -31,6 +33,8 @@ function handleEnergyAndCataclysm(pJS) {
 
 function prepareCanvas(pJS) {
     const trailAlpha = pJS.particles.move.trail.enable ? (universeProfile.blueprintName === 'LivingInk' || universeProfile.blueprintName === 'Painterly' ? 0.2 : 0.1) : 1;
+
+    // Clear the canvas with trail effect
     pJS.canvas.ctx.fillStyle = `rgba(0, 0, 0, ${trailAlpha})`;
     pJS.canvas.ctx.fillRect(0, 0, pJS.canvas.w, pJS.canvas.h);
 }
@@ -42,6 +46,28 @@ function applyOngoingEffects(p, i, pJS) {
     if (p.isConsumed > 0) { p.radius *= 0.97; p.isConsumed--; if (p.isConsumed <= 0) { pJS.particles.array.splice(i, 1); return true; } }
     return false;
 }
+
+// --- Audio Reactivity ---
+function applyAudioReactivity(p, audioData) {
+    if (!audioData) return;
+
+    // Bass affects size
+    const bassFactor = 1 + (audioData.bass / 255) * 2;
+    p.radius = p.radius_initial * bassFactor;
+
+    // Highs affect color brightness (if not locked)
+    if (!p.colorLocked && audioData.high > 100) {
+        const brightness = Math.min(255, 100 + audioData.high);
+        p.color.rgb = { r: brightness, g: brightness, b: brightness };
+    }
+
+    // Mids affect jitter/energy
+    if (audioData.mid > 100) {
+        p.vx += (Math.random() - 0.5) * (audioData.mid / 255);
+        p.vy += (Math.random() - 0.5) * (audioData.mid / 255);
+    }
+}
+
 
 // --- Anomaly Forces ---
 
@@ -598,6 +624,8 @@ function handleBoundaryConditions(p, i, pJS) {
 }
 
 function updateAllParticles(pJS, worldMouse) {
+    const audioData = getAudioData();
+
     for (let i = pJS.particles.array.length - 1; i >= 0; i--) {
         const p = pJS.particles.array[i];
         if (!p) continue;
@@ -617,6 +645,10 @@ function updateAllParticles(pJS, worldMouse) {
             if (isStasis) { p.vx = 0; p.vy = 0; }
 
             if (applyOngoingEffects(p, i, pJS)) continue;
+
+            // Audio Effect
+            if (isAudioEnabled()) applyAudioReactivity(p, audioData);
+
             if (applyAnomalyForces(p, i, pJS)) continue;
             if (applyMutatorForces(p, i, pJS, isPhased)) continue;
             applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse);
@@ -675,7 +707,9 @@ export function update(pJS) {
 
     drawEffects(pJS.canvas.ctx);
     pJS.fn.particlesUpdate();
-    pJS.fn.particlesDraw();
+
+    // Use Custom Renderer
+    renderParticles(pJS, pJS.canvas.ctx);
 
     requestAnimationFrame(() => update(pJS));
 }

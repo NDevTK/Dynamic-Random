@@ -8,8 +8,9 @@ import { mouse } from './state.js';
 class BackgroundSystem {
     constructor() {
         this.canvas = document.createElement('canvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for no transparency
         this.stars = [];
+        this.dust = [];
         this.shootingStars = [];
         this.nebulas = [];
         this.width = window.innerWidth;
@@ -59,34 +60,42 @@ class BackgroundSystem {
         this.hue = hue;
         this.isMonochrome = isMonochrome;
         this.isDark = isDark;
+        this.updateThemeColors();
+        this.generateStars(seededRandom);
+        this.generateDust(seededRandom);
+        this.generateNebulas(seededRandom);
+    }
 
-        // Calculate gradient colors
-        if (isDark) {
+    updateThemeColors() {
+        // Calculate gradient colors based on current tick/hue
+        if (this.isDark) {
              this.gradientColors = ['#0a050d', '#120510', '#000000'];
-        } else if (isMonochrome) {
+        } else if (this.isMonochrome) {
+            // Breathing lightness
+            const l = 10 + Math.sin(this.tick * 0.005) * 3;
             this.gradientColors = [
-                `hsl(${hue}, 80%, 10%)`,
-                `hsl(${hue}, 40%, 20%)`,
-                `hsl(${hue}, 90%, 5%)`
+                `hsl(${this.hue}, 80%, ${l}%)`,
+                `hsl(${this.hue}, 40%, ${l*2}%)`,
+                `hsl(${this.hue}, 90%, ${l*0.5}%)`
             ];
         } else {
+            // Shifting Hue
+            const shift = Math.sin(this.tick * 0.002) * 20;
+            const h = this.hue + shift;
             this.gradientColors = [
-                `hsl(${hue}, 80%, 10%)`,
-                `hsl(${(hue + 120) % 360}, 80%, 5%)`,
-                `hsl(${(hue + 240) % 360}, 80%, 8%)`
+                `hsl(${h}, 80%, 10%)`,
+                `hsl(${(h + 120) % 360}, 80%, 5%)`,
+                `hsl(${(h + 240) % 360}, 80%, 8%)`
             ];
         }
-
         this.updateGradient();
-        this.generateStars(seededRandom);
-        this.generateNebulas(seededRandom);
     }
 
     generateStars(seededRandom) {
         this.stars = [];
         const rng = seededRandom || Math.random;
         const count = 400;
-        const starColors = ['#ffffff', '#ffe9c4', '#d4fbff', '#ffdede', '#e0ffff']; // Added color variation
+        const starColors = ['#ffffff', '#ffe9c4', '#d4fbff', '#ffdede', '#e0ffff'];
 
         for (let i = 0; i < count; i++) {
             this.stars.push({
@@ -97,8 +106,28 @@ class BackgroundSystem {
                 baseAlpha: rng() * 0.5 + 0.3,
                 twinklePhase: rng() * Math.PI * 2,
                 twinkleSpeed: rng() * 0.05 + 0.01,
-                color: starColors[Math.floor(rng() * starColors.length)] // Assign random color
+                color: starColors[Math.floor(rng() * starColors.length)],
+                baseVx: (rng() - 0.5) * 0.2,
+                baseVy: (rng() - 0.5) * 0.2,
+                vx: 0,
+                vy: 0
             });
+        }
+    }
+
+    generateDust(seededRandom) {
+        this.dust = [];
+        const rng = seededRandom || Math.random;
+        const count = 200; // More dust
+        for(let i=0; i<count; i++) {
+             this.dust.push({
+                 x: rng() * this.width,
+                 y: rng() * this.height,
+                 vx: (rng() - 0.5) * 0.5,
+                 vy: (rng() - 0.5) * 0.5,
+                 size: rng() * 1.5,
+                 baseAlpha: rng() * 0.2 + 0.05
+             });
         }
     }
 
@@ -129,6 +158,8 @@ class BackgroundSystem {
                 radius: radius,
                 vx: (rng() - 0.5) * 0.2,
                 vy: (rng() - 0.5) * 0.2,
+                rotation: rng() * Math.PI * 2,
+                rotationSpeed: (rng() - 0.5) * 0.002,
                 sprite: sprite
             });
         }
@@ -136,23 +167,27 @@ class BackgroundSystem {
 
     animate() {
         this.tick++;
-        this.ctx.clearRect(0, 0, this.width, this.height);
 
-        // Draw Background Gradient (using cached gradient)
+        // Animated Gradient
+        if (this.tick % 5 === 0) {
+             this.updateThemeColors();
+        }
+
+        // Draw Background Gradient
         if (this.gradient) {
             this.ctx.fillStyle = this.gradient;
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
 
         // Parallax Offset
-        // mouse.x/y are screen coordinates
         const mx = (mouse.x - this.width / 2) * 0.05;
         const my = (mouse.y - this.height / 2) * 0.05;
 
-        // Draw Nebulas (using cached sprites)
+        // Draw Nebulas (Dynamic rotation)
         this.nebulas.forEach(n => {
             n.x += n.vx;
             n.y += n.vy;
+            n.rotation += n.rotationSpeed;
 
             // Wrap around
             if (n.x < -n.radius) n.x = this.width + n.radius;
@@ -160,22 +195,48 @@ class BackgroundSystem {
             if (n.y < -n.radius) n.y = this.height + n.radius;
             if (n.y > this.height + n.radius) n.y = -n.radius;
 
-            this.ctx.drawImage(n.sprite, n.x - n.radius - mx * 0.5, n.y - n.radius - my * 0.5);
+            this.ctx.save();
+            this.ctx.translate(n.x - mx * 0.5, n.y - my * 0.5);
+            this.ctx.rotate(n.rotation);
+            this.ctx.drawImage(n.sprite, -n.radius, -n.radius);
+            this.ctx.restore();
         });
+
+        // Draw Dust
+        this.ctx.fillStyle = 'white';
+        this.dust.forEach(d => {
+             d.x += d.vx;
+             d.y += d.vy;
+
+             // Wrap
+             if(d.x < 0) d.x += this.width;
+             else if(d.x > this.width) d.x -= this.width;
+             if(d.y < 0) d.y += this.height;
+             else if(d.y > this.height) d.y -= this.height;
+
+             // Mouse Influence (Subtle)
+             const dx = d.x - mouse.x;
+             const dy = d.y - mouse.y;
+             const distSq = dx*dx + dy*dy;
+             if(distSq < 10000) {
+                 const angle = Math.atan2(dy, dx);
+                 d.x += Math.cos(angle) * 0.5;
+                 d.y += Math.sin(angle) * 0.5;
+             }
+
+             this.ctx.globalAlpha = d.baseAlpha;
+             this.ctx.fillRect(d.x - mx * 0.8, d.y - my * 0.8, d.size, d.size);
+        });
+        this.ctx.globalAlpha = 1.0;
+
 
         // Draw Stars
         this.stars.forEach(star => {
-            const alpha = star.baseAlpha + Math.sin(this.tick * star.twinkleSpeed + star.twinklePhase) * 0.2;
-            // Twinkle size
-            const sizeMod = 1 + Math.sin(this.tick * star.twinkleSpeed * 1.5 + star.twinklePhase) * 0.3;
-
-            this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-            this.ctx.fillStyle = star.color; // Use star color
-
+            // Interaction: Mouse Repulsion
             const px = star.x - mx * star.z;
             const py = star.y - my * star.z;
 
-            // Simple wrap logic
+            // Handle Wrapping for Projection calculation
             let wx = px % (this.width + 100);
             if (wx < -50) wx += this.width + 100;
             else if (wx > this.width + 50) wx -= this.width + 100;
@@ -184,24 +245,70 @@ class BackgroundSystem {
             if (wy < -50) wy += this.height + 100;
             else if (wy > this.height + 50) wy -= this.height + 100;
 
-            this.ctx.beginPath();
-            this.ctx.arc(wx, wy, star.size * sizeMod, 0, Math.PI * 2);
-            this.ctx.fill();
+            const mdx = wx - mouse.x;
+            const mdy = wy - mouse.y;
+            const distSq = mdx*mdx + mdy*mdy;
 
-            // Constellation check
-            const dx = mouse.x - wx;
-            const dy = mouse.y - wy;
-            const distSq = dx*dx + dy*dy;
-            if (distSq < 22500) { // 150 * 150
-                this.ctx.save();
-                this.ctx.globalAlpha = 1 - (distSq / 22500);
+            if (distSq < 20000) { // Repulsion range
+                const dist = Math.sqrt(distSq);
+                const force = (20000 - distSq) / 20000;
+                const angle = Math.atan2(mdy, mdx);
+                const push = force * 1.5; // Push strength
+
+                star.vx += Math.cos(angle) * push;
+                star.vy += Math.sin(angle) * push;
+            }
+
+            // Update Star Position
+            star.x += star.baseVx + star.vx;
+            star.y += star.baseVy + star.vy;
+
+            // Friction for active velocity
+            star.vx *= 0.95;
+            star.vy *= 0.95;
+
+            // Rendering
+            const alpha = star.baseAlpha + Math.sin(this.tick * star.twinkleSpeed + star.twinklePhase) * 0.2;
+            const sizeMod = 1 + Math.sin(this.tick * star.twinkleSpeed * 1.5 + star.twinklePhase) * 0.3;
+
+            this.ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+            this.ctx.fillStyle = star.color;
+
+            // Recalculate positions with updated star.x/y for drawing
+             const pxNew = star.x - mx * star.z;
+            const pyNew = star.y - my * star.z;
+
+            let wxNew = pxNew % (this.width + 100);
+            if (wxNew < -50) wxNew += this.width + 100;
+            else if (wxNew > this.width + 50) wxNew -= this.width + 100;
+
+            let wyNew = pyNew % (this.height + 100);
+            if (wyNew < -50) wyNew += this.height + 100;
+            else if (wyNew > this.height + 50) wyNew -= this.height + 100;
+
+            // Optimization: Use fillRect for small stars
+            const currentSize = star.size * sizeMod;
+            if (currentSize < 2) {
+                this.ctx.fillRect(wxNew, wyNew, currentSize, currentSize);
+            } else {
+                this.ctx.beginPath();
+                this.ctx.arc(wxNew, wyNew, currentSize, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+
+            // Constellation check (using new positions)
+            const cdx = mouse.x - wxNew;
+            const cdy = mouse.y - wyNew;
+            const cDistSq = cdx*cdx + cdy*cdy;
+
+            if (cDistSq < 22500) {
+                this.ctx.globalAlpha = 1 - (cDistSq / 22500);
                 this.ctx.strokeStyle = star.color;
                 this.ctx.lineWidth = 1;
                 this.ctx.beginPath();
                 this.ctx.moveTo(mouse.x, mouse.y);
-                this.ctx.lineTo(wx, wy);
+                this.ctx.lineTo(wxNew, wyNew);
                 this.ctx.stroke();
-                this.ctx.restore();
             }
         });
         this.ctx.globalAlpha = 1.0;

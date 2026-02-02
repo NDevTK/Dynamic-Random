@@ -9,12 +9,15 @@ import { baseConfig } from './config.js';
 import { generateUniverse } from './universe.js';
 import { update } from './simulation.js';
 import { initializeEventListeners } from './ui.js';
+import { background } from './background.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
     particlesJS('particles-js', baseConfig);
     const pJS = window.pJSDom[0].pJS;
     const urlParams = new URLSearchParams(window.location.search);
+
+    background.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

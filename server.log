@@ -1,0 +1,14 @@
+127.0.0.1 - - [02/Feb/2026 06:18:49] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:49] "GET /css/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/main.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/config.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/background.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/ui.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/simulation.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/universe.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/state.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/powers.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/effects.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/utils.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/cataclysms.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Feb/2026 06:18:50] "GET /js/drawing.js HTTP/1.1" 200 -

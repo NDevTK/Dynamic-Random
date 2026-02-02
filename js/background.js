@@ -11,6 +11,8 @@ class BackgroundSystem {
         this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for no transparency
         this.stars = [];
         this.dust = [];
+        this.trail = [];
+        this.shockwaves = [];
         this.shootingStars = [];
         this.nebulas = [];
         this.width = window.innerWidth;
@@ -25,6 +27,9 @@ class BackgroundSystem {
 
         // Animation
         this.tick = 0;
+        this.speedMultiplier = 1;
+        this.targetSpeed = 1;
+
         this.canvas.id = 'background-canvas';
         this.canvas.style.position = 'fixed';
         this.canvas.style.top = '0';
@@ -38,6 +43,15 @@ class BackgroundSystem {
     init() {
         document.body.prepend(this.canvas);
         window.addEventListener('resize', () => this.resize());
+
+        // Warp Drive Interaction
+        window.addEventListener('mousedown', () => { this.targetSpeed = 20; });
+        window.addEventListener('mouseup', () => { this.targetSpeed = 1; });
+        window.addEventListener('mouseleave', () => { this.targetSpeed = 1; });
+
+        // Shockwaves
+        window.addEventListener('click', (e) => this.createShockwave(e.clientX, e.clientY));
+
         this.resize();
         this.loop = this.animate.bind(this);
         requestAnimationFrame(this.loop);
@@ -64,6 +78,17 @@ class BackgroundSystem {
         this.generateStars(seededRandom);
         this.generateDust(seededRandom);
         this.generateNebulas(seededRandom);
+    }
+
+    createShockwave(x, y) {
+        this.shockwaves.push({
+            x, y,
+            radius: 0,
+            maxRadius: Math.max(this.width, this.height) * 0.8,
+            speed: 10,
+            strength: 2,
+            alpha: 1
+        });
     }
 
     updateThemeColors() {
@@ -134,10 +159,10 @@ class BackgroundSystem {
     generateNebulas(seededRandom) {
         this.nebulas = [];
         const rng = seededRandom || Math.random;
-        const count = 3;
+        const count = 6;
         for (let i = 0; i < count; i++) {
-            const radius = rng() * 300 + 200;
-            const color = `hsla(${this.hue + (rng() - 0.5) * 60}, 70%, 20%, 0.1)`;
+            const radius = rng() * 400 + 200;
+            const color = `hsla(${this.hue + (rng() - 0.5) * 100}, 80%, 25%, 0.15)`;
 
             // Pre-render nebula sprite
             const sprite = document.createElement('canvas');
@@ -168,8 +193,11 @@ class BackgroundSystem {
     animate() {
         this.tick++;
 
+        // Smoothly interpolate speed
+        this.speedMultiplier += (this.targetSpeed - this.speedMultiplier) * 0.1;
+
         // Animated Gradient
-        if (this.tick % 5 === 0) {
+        if (!this.isDark && this.tick % 15 === 0) {
              this.updateThemeColors();
         }
 
@@ -179,15 +207,60 @@ class BackgroundSystem {
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
 
+        // Mouse Trail
+        this.trail.push({ x: mouse.x, y: mouse.y, age: 0 });
+        for (let i = this.trail.length - 1; i >= 0; i--) {
+            const t = this.trail[i];
+            t.age++;
+            if (t.age > 20) {
+                this.trail.splice(i, 1);
+                continue;
+            }
+        }
+
+        // Render Trail
+        this.ctx.lineCap = 'round';
+        for (let i = 0; i < this.trail.length - 1; i++) {
+            const t = this.trail[i];
+            const nextT = this.trail[i+1];
+            const opacity = 1 - (t.age / 20);
+
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = `rgba(200, 220, 255, ${opacity * 0.4})`;
+            this.ctx.lineWidth = (1 - t.age / 20) * 8;
+            this.ctx.moveTo(t.x, t.y);
+            this.ctx.lineTo(nextT.x, nextT.y);
+            this.ctx.stroke();
+        }
+
+        // Update and Draw Shockwaves
+        this.ctx.lineWidth = 2;
+        for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+            const sw = this.shockwaves[i];
+            sw.radius += sw.speed;
+            sw.alpha = 1 - (sw.radius / sw.maxRadius);
+
+            if (sw.alpha <= 0) {
+                this.shockwaves.splice(i, 1);
+                continue;
+            }
+
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = `rgba(255, 255, 255, ${sw.alpha * 0.3})`;
+            this.ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+
         // Parallax Offset
         const mx = (mouse.x - this.width / 2) * 0.05;
         const my = (mouse.y - this.height / 2) * 0.05;
 
         // Draw Nebulas (Dynamic rotation)
+        this.ctx.globalCompositeOperation = 'lighter';
         this.nebulas.forEach(n => {
-            n.x += n.vx;
-            n.y += n.vy;
-            n.rotation += n.rotationSpeed;
+            n.x += n.vx * this.speedMultiplier;
+            n.y += n.vy * this.speedMultiplier;
+            n.rotation += n.rotationSpeed * this.speedMultiplier;
 
             // Wrap around
             if (n.x < -n.radius) n.x = this.width + n.radius;
@@ -201,12 +274,13 @@ class BackgroundSystem {
             this.ctx.drawImage(n.sprite, -n.radius, -n.radius);
             this.ctx.restore();
         });
+        this.ctx.globalCompositeOperation = 'source-over';
 
         // Draw Dust
         this.ctx.fillStyle = 'white';
         this.dust.forEach(d => {
-             d.x += d.vx;
-             d.y += d.vy;
+             d.x += d.vx * this.speedMultiplier;
+             d.y += d.vy * this.speedMultiplier;
 
              // Wrap
              if(d.x < 0) d.x += this.width;
@@ -259,9 +333,24 @@ class BackgroundSystem {
                 star.vy += Math.sin(angle) * push;
             }
 
+            // Shockwave Interaction
+            this.shockwaves.forEach(sw => {
+                const dx = wx - sw.x;
+                const dy = wy - sw.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const distFromWave = Math.abs(dist - sw.radius);
+
+                if (distFromWave < 100) {
+                     const angle = Math.atan2(dy, dx);
+                     const force = (100 - distFromWave) / 100 * sw.strength;
+                     star.vx += Math.cos(angle) * force;
+                     star.vy += Math.sin(angle) * force;
+                }
+            });
+
             // Update Star Position
-            star.x += star.baseVx + star.vx;
-            star.y += star.baseVy + star.vy;
+            star.x += (star.baseVx + star.vx) * this.speedMultiplier;
+            star.y += (star.baseVy + star.vy) * this.speedMultiplier;
 
             // Friction for active velocity
             star.vx *= 0.95;

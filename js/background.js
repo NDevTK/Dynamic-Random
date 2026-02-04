@@ -12,6 +12,7 @@ class BackgroundSystem {
         this.stars = [];
         this.dust = [];
         this.trail = [];
+        this.trailPool = []; // Pool for trail particles to reduce GC
         this.shockwaves = [];
         this.shootingStars = [];
         this.nebulas = [];
@@ -30,6 +31,9 @@ class BackgroundSystem {
         this.speedMultiplier = 1;
         this.targetSpeed = 1;
 
+        // Interactive Modes
+        this.isGravityWell = false;
+
         this.canvas.id = 'background-canvas';
         this.canvas.style.position = 'fixed';
         this.canvas.style.top = '0';
@@ -44,13 +48,39 @@ class BackgroundSystem {
         document.body.prepend(this.canvas);
         window.addEventListener('resize', () => this.resize());
 
-        // Warp Drive Interaction
-        window.addEventListener('mousedown', () => { this.targetSpeed = 20; });
-        window.addEventListener('mouseup', () => { this.targetSpeed = 1; });
-        window.addEventListener('mouseleave', () => { this.targetSpeed = 1; });
+        // Disable context menu for Right Click interaction (only on background)
+        window.addEventListener('contextmenu', (e) => {
+            if (!e.target.closest('#ui-container')) {
+                e.preventDefault();
+            }
+        });
 
-        // Shockwaves
-        window.addEventListener('click', (e) => this.createShockwave(e.clientX, e.clientY));
+        // Interaction Handling
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#ui-container')) return;
+
+            if (e.button === 0) {
+                // Left Click: Warp Drive
+                this.targetSpeed = 20;
+            } else if (e.button === 2) {
+                // Right Click: Gravity Well
+                this.isGravityWell = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            this.targetSpeed = 1;
+            this.isGravityWell = false;
+        });
+
+        window.addEventListener('mouseleave', () => {
+            this.targetSpeed = 1;
+            this.isGravityWell = false;
+        });
+
+        window.addEventListener('click', (e) => {
+             this.createShockwave(e.clientX, e.clientY);
+        });
 
         this.resize();
         this.loop = this.animate.bind(this);
@@ -185,7 +215,9 @@ class BackgroundSystem {
                 vy: (rng() - 0.5) * 0.2,
                 rotation: rng() * Math.PI * 2,
                 rotationSpeed: (rng() - 0.5) * 0.002,
-                sprite: sprite
+                sprite: sprite,
+                pulsePhase: rng() * Math.PI * 2,
+                pulseSpeed: rng() * 0.01 + 0.005
             });
         }
     }
@@ -207,30 +239,61 @@ class BackgroundSystem {
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
 
-        // Mouse Trail
-        this.trail.push({ x: mouse.x, y: mouse.y, age: 0 });
-        for (let i = this.trail.length - 1; i >= 0; i--) {
-            const t = this.trail[i];
-            t.age++;
-            if (t.age > 20) {
-                this.trail.splice(i, 1);
-                continue;
+        // Mouse Trail (Pooled)
+        let newTrailNode;
+        if (this.trailPool.length > 0) {
+            newTrailNode = this.trailPool.pop();
+            newTrailNode.x = mouse.x;
+            newTrailNode.y = mouse.y;
+            newTrailNode.age = 0;
+        } else {
+            newTrailNode = { x: mouse.x, y: mouse.y, age: 0 };
+        }
+        this.trail.push(newTrailNode);
+
+        // Update trail ages
+        for(let i=0; i<this.trail.length; i++) {
+            this.trail[i].age++;
+        }
+
+        // Remove old trails (from front, queue-like)
+        while(this.trail.length > 0 && this.trail[0].age > 20) {
+            this.trailPool.push(this.trail.shift());
+        }
+
+        // Render Trail with Rainbow/Theme Effect
+        this.ctx.lineCap = 'round';
+        if (this.trail.length > 1) {
+            this.ctx.beginPath();
+            // Dynamic trail color
+            const trailHue = (this.tick * 2) % 360;
+
+            for (let i = 0; i < this.trail.length - 1; i++) {
+                const t = this.trail[i];
+                const nextT = this.trail[i+1];
+
+                const opacity = 1 - (t.age / 20);
+                this.ctx.beginPath();
+                // Vary hue slightly along the trail or over time
+                this.ctx.strokeStyle = `hsla(${trailHue}, 80%, 70%, ${opacity * 0.5})`;
+                this.ctx.lineWidth = (1 - t.age / 20) * 8;
+                this.ctx.moveTo(t.x, t.y);
+                this.ctx.lineTo(nextT.x, nextT.y);
+                this.ctx.stroke();
             }
         }
 
-        // Render Trail
-        this.ctx.lineCap = 'round';
-        for (let i = 0; i < this.trail.length - 1; i++) {
-            const t = this.trail[i];
-            const nextT = this.trail[i+1];
-            const opacity = 1 - (t.age / 20);
-
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = `rgba(200, 220, 255, ${opacity * 0.4})`;
-            this.ctx.lineWidth = (1 - t.age / 20) * 8;
-            this.ctx.moveTo(t.x, t.y);
-            this.ctx.lineTo(nextT.x, nextT.y);
-            this.ctx.stroke();
+        // Render Gravity Well Visual
+        if (this.isGravityWell) {
+             const g = this.ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 100);
+             g.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
+             g.addColorStop(0.3, 'rgba(20, 0, 30, 0.6)');
+             g.addColorStop(0.6, 'rgba(100, 50, 150, 0.2)');
+             g.addColorStop(1, 'transparent');
+             this.ctx.fillStyle = g;
+             this.ctx.beginPath();
+             this.ctx.arc(mouse.x, mouse.y, 100, 0, Math.PI * 2);
+             this.ctx.fill();
         }
 
         // Update and Draw Shockwaves
@@ -255,7 +318,7 @@ class BackgroundSystem {
         const mx = (mouse.x - this.width / 2) * 0.05;
         const my = (mouse.y - this.height / 2) * 0.05;
 
-        // Draw Nebulas (Dynamic rotation)
+        // Draw Nebulas (Dynamic rotation & pulse)
         this.ctx.globalCompositeOperation = 'lighter';
         this.nebulas.forEach(n => {
             n.x += n.vx * this.speedMultiplier;
@@ -271,13 +334,21 @@ class BackgroundSystem {
             this.ctx.save();
             this.ctx.translate(n.x - mx * 0.5, n.y - my * 0.5);
             this.ctx.rotate(n.rotation);
+
+            // Pulse Effect
+            const scale = 1 + Math.sin(this.tick * n.pulseSpeed + n.pulsePhase) * 0.1;
+            this.ctx.scale(scale, scale);
+
             this.ctx.drawImage(n.sprite, -n.radius, -n.radius);
             this.ctx.restore();
         });
         this.ctx.globalCompositeOperation = 'source-over';
 
         // Draw Dust
-        this.ctx.fillStyle = 'white';
+        // Dynamic Dust Color based on theme hue
+        const dustHue = (this.hue + 200) % 360;
+        this.ctx.fillStyle = `hsla(${dustHue}, 60%, 80%, 0.8)`;
+
         this.dust.forEach(d => {
              d.x += d.vx * this.speedMultiplier;
              d.y += d.vy * this.speedMultiplier;
@@ -288,14 +359,38 @@ class BackgroundSystem {
              if(d.y < 0) d.y += this.height;
              else if(d.y > this.height) d.y -= this.height;
 
-             // Mouse Influence (Subtle)
+             // Interaction: Mouse (Repulsion or Gravity)
              const dx = d.x - mouse.x;
              const dy = d.y - mouse.y;
              const distSq = dx*dx + dy*dy;
-             if(distSq < 10000) {
-                 const angle = Math.atan2(dy, dx);
-                 d.x += Math.cos(angle) * 0.5;
-                 d.y += Math.sin(angle) * 0.5;
+
+             if (this.isGravityWell) {
+                 if(distSq < 150000 && distSq > 100) {
+                     const dist = Math.sqrt(distSq);
+                     const force = (150000 - distSq) / 150000;
+                     const pull = force * 3.0; // Stronger for dust
+
+                     const ux = dx / dist;
+                     const uy = dy / dist;
+
+                     d.x -= ux * pull;
+                     d.y -= uy * pull;
+
+                     // Spiral
+                     d.x += -uy * pull * 0.8;
+                     d.y += ux * pull * 0.8;
+                 }
+             } else {
+                 // Mouse Influence (Subtle Repulsion/Displace)
+                 if(distSq < 10000) {
+                     const dist = Math.sqrt(distSq);
+                     if (dist > 1) {
+                        const ux = dx / dist;
+                        const uy = dy / dist;
+                        d.x += ux * 0.5;
+                        d.y += uy * 0.5;
+                     }
+                 }
              }
 
              this.ctx.globalAlpha = d.baseAlpha;
@@ -323,14 +418,36 @@ class BackgroundSystem {
             const mdy = wy - mouse.y;
             const distSq = mdx*mdx + mdy*mdy;
 
-            if (distSq < 20000) { // Repulsion range
-                const dist = Math.sqrt(distSq);
-                const force = (20000 - distSq) / 20000;
-                const angle = Math.atan2(mdy, mdx);
-                const push = force * 1.5; // Push strength
+            if (this.isGravityWell) {
+                 // Gravity Well Logic
+                 if (distSq < 200000 && distSq > 100) { // Large range
+                     const dist = Math.sqrt(distSq);
+                     const force = (200000 - distSq) / 200000;
+                     const pull = force * 1.5;
 
-                star.vx += Math.cos(angle) * push;
-                star.vy += Math.sin(angle) * push;
+                     const ux = mdx / dist;
+                     const uy = mdy / dist;
+
+                     star.vx -= ux * pull; // Pull towards mouse
+                     star.vy -= uy * pull;
+
+                     // Spiral
+                     star.vx += -uy * pull * 0.3;
+                     star.vy += ux * pull * 0.3;
+                 }
+            } else {
+                if (distSq < 20000) { // Repulsion range
+                    const dist = Math.sqrt(distSq);
+                    if (dist > 1) {
+                        const force = (20000 - distSq) / 20000;
+                        const push = force * 1.5; // Push strength
+                        const ux = mdx / dist;
+                        const uy = mdy / dist;
+
+                        star.vx += ux * push;
+                        star.vy += uy * push;
+                    }
+                }
             }
 
             // Shockwave Interaction
@@ -341,10 +458,14 @@ class BackgroundSystem {
                 const distFromWave = Math.abs(dist - sw.radius);
 
                 if (distFromWave < 100) {
-                     const angle = Math.atan2(dy, dx);
-                     const force = (100 - distFromWave) / 100 * sw.strength;
-                     star.vx += Math.cos(angle) * force;
-                     star.vy += Math.sin(angle) * force;
+                     // Using vector math optimization here too
+                     if (dist > 1) {
+                         const force = (100 - distFromWave) / 100 * sw.strength;
+                         const ux = dx / dist;
+                         const uy = dy / dist;
+                         star.vx += ux * force;
+                         star.vy += uy * force;
+                     }
                 }
             });
 

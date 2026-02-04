@@ -14,8 +14,11 @@ class BackgroundSystem {
         this.trail = [];
         this.trailPool = []; // Pool for trail particles to reduce GC
         this.shockwaves = [];
+        this.sparks = []; // Explosion particles
         this.shootingStars = [];
         this.nebulas = [];
+        this.grid = {}; // Spatial grid for constellations
+        this.auroraOffset = 0;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
 
@@ -110,6 +113,11 @@ class BackgroundSystem {
         this.generateNebulas(seededRandom);
     }
 
+    noise(x) {
+        // Simple superposition of sine waves for organic look
+        return Math.sin(x) * 0.5 + Math.sin(x * 2.1) * 0.25 + Math.sin(x * 4.3) * 0.12;
+    }
+
     createShockwave(x, y) {
         this.shockwaves.push({
             x, y,
@@ -119,6 +127,45 @@ class BackgroundSystem {
             strength: 2,
             alpha: 1
         });
+
+        // Spawn Sparks
+        for(let i=0; i<30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 10 + 5;
+            this.sparks.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: 50 + Math.random() * 30,
+                maxLife: 80,
+                size: Math.random() * 3 + 1,
+                color: '255, 255, 200'
+            });
+        }
+    }
+
+    drawSparks() {
+        this.ctx.globalCompositeOperation = 'lighter';
+        for (let i = this.sparks.length - 1; i >= 0; i--) {
+            const s = this.sparks[i];
+            s.x += s.vx;
+            s.y += s.vy;
+            s.life--;
+            s.vx *= 0.9;
+            s.vy *= 0.9;
+
+            if (s.life <= 0) {
+                this.sparks.splice(i, 1);
+                continue;
+            }
+
+            const alpha = s.life / s.maxLife;
+            this.ctx.fillStyle = `rgba(${s.color}, ${alpha})`;
+            this.ctx.beginPath();
+            this.ctx.arc(s.x, s.y, s.size * alpha, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        this.ctx.globalCompositeOperation = 'source-over';
     }
 
     updateThemeColors() {
@@ -186,6 +233,95 @@ class BackgroundSystem {
         }
     }
 
+    updateStarGrid() {
+        this.grid = {}; // Reset grid
+        const cellSize = 150;
+
+        this.stars.forEach((star, index) => {
+             const col = Math.floor(star.x / cellSize);
+             const row = Math.floor(star.y / cellSize);
+             const key = `${col},${row}`;
+
+             if (!this.grid[key]) this.grid[key] = [];
+             this.grid[key].push(index);
+        });
+    }
+
+    drawConstellations() {
+        // Don't draw constellations in warp speed
+        if (this.speedMultiplier > 5) return;
+
+        this.updateStarGrid();
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = `rgba(255, 255, 255, 0.05)`; // Very faint
+        this.ctx.lineWidth = 1;
+
+        const mx = (mouse.x - this.width / 2) * 0.05;
+        const my = (mouse.y - this.height / 2) * 0.05;
+
+        // Helper to project (duplicated logic from drawStars, but needed here)
+        const getScreenPos = (s) => {
+             const px = s.x - mx * s.z;
+             const py = s.y - my * s.z;
+
+             let wx = px % (this.width + 100);
+             if (wx < -50) wx += this.width + 100;
+             else if (wx > this.width + 50) wx -= this.width + 100;
+
+             let wy = py % (this.height + 100);
+             if (wy < -50) wy += this.height + 100;
+             else if (wy > this.height + 50) wy -= this.height + 100;
+
+             return {x: wx, y: wy};
+        };
+
+        for (const key in this.grid) {
+            const [col, row] = key.split(',').map(Number);
+            const cellStars = this.grid[key];
+
+            // Check neighbors + self
+            const neighborKeys = [
+                key,
+                `${col+1},${row}`,
+                `${col},${row+1}`,
+                `${col+1},${row+1}`,
+                `${col-1},${row+1}`
+            ];
+
+            for (const nKey of neighborKeys) {
+                 if (!this.grid[nKey]) continue;
+                 const neighbors = this.grid[nKey];
+
+                 for (const i of cellStars) {
+                     for (const j of neighbors) {
+                         if (i >= j && nKey === key) continue; // Avoid double check
+
+                         const s1 = this.stars[i];
+                         const s2 = this.stars[j];
+
+                         // World distance check (fast)
+                         const dx = s1.x - s2.x;
+                         const dy = s1.y - s2.y;
+                         if (dx*dx + dy*dy < 22500) { // 150*150
+                             const p1 = getScreenPos(s1);
+                             const p2 = getScreenPos(s2);
+
+                             // Screen distance check (to handle wrapping artifacts)
+                             const sdx = p1.x - p2.x;
+                             const sdy = p1.y - p2.y;
+
+                             if (sdx*sdx + sdy*sdy < 25000) {
+                                 this.ctx.moveTo(p1.x, p1.y);
+                                 this.ctx.lineTo(p2.x, p2.y);
+                             }
+                         }
+                     }
+                 }
+            }
+        }
+        this.ctx.stroke();
+    }
+
     generateNebulas(seededRandom) {
         this.nebulas = [];
         const rng = seededRandom || Math.random;
@@ -222,6 +358,38 @@ class BackgroundSystem {
         }
     }
 
+    drawAurora() {
+        this.auroraOffset += 0.002;
+        this.ctx.globalCompositeOperation = 'lighter';
+
+        const colors = [
+            `hsla(${this.hue}, 80%, 30%, 0.1)`,
+            `hsla(${(this.hue + 60) % 360}, 80%, 30%, 0.1)`,
+            `hsla(${(this.hue + 120) % 360}, 80%, 30%, 0.1)`
+        ];
+
+        for (let i = 0; i < 3; i++) {
+            this.ctx.fillStyle = colors[i];
+            this.ctx.beginPath();
+
+            let yBase = this.height * (0.3 + i * 0.2);
+            this.ctx.moveTo(0, this.height);
+            this.ctx.lineTo(0, yBase);
+
+            for (let x = 0; x <= this.width; x += 50) {
+                // Use noise for y variation
+                const n = this.noise(x * 0.002 + this.auroraOffset + i * 10);
+                const y = yBase + n * 100;
+                this.ctx.lineTo(x, y);
+            }
+
+            this.ctx.lineTo(this.width, this.height);
+            this.ctx.fill();
+        }
+
+        this.ctx.globalCompositeOperation = 'source-over';
+    }
+
     animate() {
         this.tick++;
 
@@ -237,6 +405,11 @@ class BackgroundSystem {
         if (this.gradient) {
             this.ctx.fillStyle = this.gradient;
             this.ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        // Draw Aurora
+        if (!this.isMonochrome) {
+            this.drawAurora();
         }
 
         // Mouse Trail (Pooled)
@@ -294,7 +467,32 @@ class BackgroundSystem {
              this.ctx.beginPath();
              this.ctx.arc(mouse.x, mouse.y, 100, 0, Math.PI * 2);
              this.ctx.fill();
+
+             // Spawn spiraling particles
+             if (this.tick % 2 === 0) {
+                 const angle = Math.random() * Math.PI * 2;
+                 const dist = 100 + Math.random() * 50;
+                 // Calculate velocity towards center but with a spiral offset
+                 const dx = mouse.x - (mouse.x + Math.cos(angle) * dist);
+                 const dy = mouse.y - (mouse.y + Math.sin(angle) * dist);
+                 const d = Math.sqrt(dx*dx + dy*dy);
+                 const ux = dx/d;
+                 const uy = dy/d;
+
+                 this.sparks.push({
+                     x: mouse.x + Math.cos(angle) * dist,
+                     y: mouse.y + Math.sin(angle) * dist,
+                     vx: ux * 5 + uy * 2, // Inward + Tangential
+                     vy: uy * 5 - ux * 2,
+                     life: 30,
+                     maxLife: 30,
+                     size: 2,
+                     color: '100, 200, 255'
+                 });
+             }
         }
+
+        this.drawSparks();
 
         // Update and Draw Shockwaves
         this.ctx.lineWidth = 2;
@@ -398,6 +596,8 @@ class BackgroundSystem {
         });
         this.ctx.globalAlpha = 1.0;
 
+        // Draw Constellations
+        this.drawConstellations();
 
         // Draw Stars
         this.stars.forEach(star => {
@@ -496,14 +696,29 @@ class BackgroundSystem {
             if (wyNew < -50) wyNew += this.height + 100;
             else if (wyNew > this.height + 50) wyNew -= this.height + 100;
 
-            // Optimization: Use fillRect for small stars
+            // WARP SPEED EFFECT & OPTIMIZATION
             const currentSize = star.size * sizeMod;
-            if (currentSize < 2) {
-                this.ctx.fillRect(wxNew, wyNew, currentSize, currentSize);
-            } else {
+
+            if (this.speedMultiplier > 5) {
+                this.ctx.strokeStyle = star.color;
+                this.ctx.lineWidth = Math.max(1, currentSize * 0.5);
                 this.ctx.beginPath();
-                this.ctx.arc(wxNew, wyNew, currentSize, 0, Math.PI * 2);
-                this.ctx.fill();
+                this.ctx.moveTo(wxNew, wyNew);
+
+                // Streak length based on speed
+                const len = this.speedMultiplier * 2;
+                // Draw streak opposite to velocity
+                this.ctx.lineTo(wxNew - (star.baseVx + star.vx) * len, wyNew - (star.baseVy + star.vy) * len);
+                this.ctx.stroke();
+            } else {
+                // Normal rendering
+                if (currentSize < 2) {
+                    this.ctx.fillRect(wxNew, wyNew, currentSize, currentSize);
+                } else {
+                    this.ctx.beginPath();
+                    this.ctx.arc(wxNew, wyNew, currentSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
             }
 
             // Constellation check (using new positions)

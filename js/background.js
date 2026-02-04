@@ -17,7 +17,10 @@ class BackgroundSystem {
         this.sparks = []; // Explosion particles
         this.shootingStars = [];
         this.nebulas = [];
-        this.grid = {}; // Spatial grid for constellations
+        this.grid = []; // Spatial grid (1D array)
+        this.cols = 0;
+        this.rows = 0;
+        this.cellSize = 150;
         this.auroraOffset = 0;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
@@ -95,6 +98,8 @@ class BackgroundSystem {
         this.height = window.innerHeight;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
+        this.cols = Math.ceil(this.width / this.cellSize) + 2; // +2 buffer for wrapping
+        this.rows = Math.ceil(this.height / this.cellSize) + 2;
         this.updateGradient();
     }
 
@@ -234,16 +239,29 @@ class BackgroundSystem {
     }
 
     updateStarGrid() {
-        this.grid = {}; // Reset grid
-        const cellSize = 150;
+        const size = this.cols * this.rows;
+        // Reset grid: instead of new array, clear existing subarrays
+        if (this.grid.length !== size) {
+            this.grid = new Array(size).fill(null).map(() => []);
+        } else {
+            for(let i=0; i<size; i++) {
+                this.grid[i].length = 0;
+            }
+        }
 
         this.stars.forEach((star, index) => {
-             const col = Math.floor(star.x / cellSize);
-             const row = Math.floor(star.y / cellSize);
-             const key = `${col},${row}`;
+             // Handle wrapping for grid placement
+             let x = star.x;
+             let y = star.y;
+             if (x < 0) x += this.width;
+             if (y < 0) y += this.height;
 
-             if (!this.grid[key]) this.grid[key] = [];
-             this.grid[key].push(index);
+             const col = Math.floor(x / this.cellSize);
+             const row = Math.floor(y / this.cellSize);
+
+             if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
+                 this.grid[row * this.cols + col].push(index);
+             }
         });
     }
 
@@ -259,7 +277,7 @@ class BackgroundSystem {
         const mx = (mouse.x - this.width / 2) * 0.05;
         const my = (mouse.y - this.height / 2) * 0.05;
 
-        // Helper to project (duplicated logic from drawStars, but needed here)
+        // Helper to project
         const getScreenPos = (s) => {
              const px = s.x - mx * s.z;
              const py = s.y - my * s.z;
@@ -275,48 +293,50 @@ class BackgroundSystem {
              return {x: wx, y: wy};
         };
 
-        for (const key in this.grid) {
-            const [col, row] = key.split(',').map(Number);
-            const cellStars = this.grid[key];
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                const idx = r * this.cols + c;
+                const cellStars = this.grid[idx];
+                if (cellStars.length === 0) continue;
 
-            // Check neighbors + self
-            const neighborKeys = [
-                key,
-                `${col+1},${row}`,
-                `${col},${row+1}`,
-                `${col+1},${row+1}`,
-                `${col-1},${row+1}`
-            ];
+                // Neighbors to check: Right, Down, Bottom-Right, Bottom-Left
+                const neighborsIndices = [];
+                if (c + 1 < this.cols) neighborsIndices.push(r * this.cols + (c + 1));
+                if (r + 1 < this.rows) neighborsIndices.push((r + 1) * this.cols + c);
+                if (c + 1 < this.cols && r + 1 < this.rows) neighborsIndices.push((r + 1) * this.cols + (c + 1));
+                if (c - 1 >= 0 && r + 1 < this.rows) neighborsIndices.push((r + 1) * this.cols + (c - 1));
 
-            for (const nKey of neighborKeys) {
-                 if (!this.grid[nKey]) continue;
-                 const neighbors = this.grid[nKey];
+                // Also check self for internal connections
+                neighborsIndices.push(idx);
 
-                 for (const i of cellStars) {
-                     for (const j of neighbors) {
-                         if (i >= j && nKey === key) continue; // Avoid double check
+                for (const i of cellStars) {
+                    for (const nIdx of neighborsIndices) {
+                         const neighbors = this.grid[nIdx];
+                         for (const j of neighbors) {
+                             if (nIdx === idx && j <= i) continue; // Avoid self and duplicates within same cell
 
-                         const s1 = this.stars[i];
-                         const s2 = this.stars[j];
+                             const s1 = this.stars[i];
+                             const s2 = this.stars[j];
 
-                         // World distance check (fast)
-                         const dx = s1.x - s2.x;
-                         const dy = s1.y - s2.y;
-                         if (dx*dx + dy*dy < 22500) { // 150*150
-                             const p1 = getScreenPos(s1);
-                             const p2 = getScreenPos(s2);
+                             // World distance check
+                             const dx = s1.x - s2.x;
+                             const dy = s1.y - s2.y;
 
-                             // Screen distance check (to handle wrapping artifacts)
-                             const sdx = p1.x - p2.x;
-                             const sdy = p1.y - p2.y;
+                             if (dx*dx + dy*dy < 22500) {
+                                 const p1 = getScreenPos(s1);
+                                 const p2 = getScreenPos(s2);
 
-                             if (sdx*sdx + sdy*sdy < 25000) {
-                                 this.ctx.moveTo(p1.x, p1.y);
-                                 this.ctx.lineTo(p2.x, p2.y);
+                                 const sdx = p1.x - p2.x;
+                                 const sdy = p1.y - p2.y;
+
+                                 if (sdx*sdx + sdy*sdy < 25000) {
+                                     this.ctx.moveTo(p1.x, p1.y);
+                                     this.ctx.lineTo(p2.x, p2.y);
+                                 }
                              }
                          }
-                     }
-                 }
+                    }
+                }
             }
         }
         this.ctx.stroke();
@@ -412,66 +432,95 @@ class BackgroundSystem {
             this.drawAurora();
         }
 
-        // Mouse Trail (Pooled)
-        let newTrailNode;
-        if (this.trailPool.length > 0) {
-            newTrailNode = this.trailPool.pop();
-            newTrailNode.x = mouse.x;
-            newTrailNode.y = mouse.y;
-            newTrailNode.age = 0;
-        } else {
-            newTrailNode = { x: mouse.x, y: mouse.y, age: 0 };
-        }
-        this.trail.push(newTrailNode);
+        // Mouse Trail (Comet Dust)
+        // Spawn new particles
+        const speedX = (mouse.x - (this.lastMouseX || mouse.x));
+        const speedY = (mouse.y - (this.lastMouseY || mouse.y));
+        const speed = Math.sqrt(speedX*speedX + speedY*speedY);
+        this.lastMouseX = mouse.x;
+        this.lastMouseY = mouse.y;
 
-        // Update trail ages
-        for(let i=0; i<this.trail.length; i++) {
-            this.trail[i].age++;
-        }
+        const spawnCount = Math.min(5, Math.ceil(speed * 0.5)); // More particles when moving fast
 
-        // Remove old trails (from front, queue-like)
-        while(this.trail.length > 0 && this.trail[0].age > 20) {
-            this.trailPool.push(this.trail.shift());
-        }
-
-        // Render Trail with Rainbow/Theme Effect
-        this.ctx.lineCap = 'round';
-        if (this.trail.length > 1) {
-            this.ctx.beginPath();
-            // Dynamic trail color
-            const trailHue = (this.tick * 2) % 360;
-
-            for (let i = 0; i < this.trail.length - 1; i++) {
-                const t = this.trail[i];
-                const nextT = this.trail[i+1];
-
-                const opacity = 1 - (t.age / 20);
-                this.ctx.beginPath();
-                // Vary hue slightly along the trail or over time
-                this.ctx.strokeStyle = `hsla(${trailHue}, 80%, 70%, ${opacity * 0.5})`;
-                this.ctx.lineWidth = (1 - t.age / 20) * 8;
-                this.ctx.moveTo(t.x, t.y);
-                this.ctx.lineTo(nextT.x, nextT.y);
-                this.ctx.stroke();
+        for(let i=0; i<spawnCount; i++) {
+            let p;
+            if (this.trailPool.length > 0) {
+                p = this.trailPool.pop();
+            } else {
+                p = {};
             }
+            p.x = mouse.x + (Math.random() - 0.5) * 10;
+            p.y = mouse.y + (Math.random() - 0.5) * 10;
+            p.vx = (Math.random() - 0.5) * 1; // Slight drift
+            p.vy = (Math.random() - 0.5) * 1;
+            p.life = 1.0;
+            p.decay = 0.02 + Math.random() * 0.03;
+            p.size = 2 + Math.random() * 3;
+            p.hue = (this.tick * 2 + Math.random() * 30) % 360;
+            this.trail.push(p);
         }
 
-        // Render Gravity Well Visual
+        // Update and Draw Trail Particles
+        this.ctx.globalCompositeOperation = 'lighter';
+        for(let i=this.trail.length - 1; i>=0; i--) {
+            const p = this.trail[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= p.decay;
+
+            // Gravity Well Interaction for Dust
+            if (this.isGravityWell) {
+                 const dx = p.x - mouse.x;
+                 const dy = p.y - mouse.y;
+                 const dist = Math.sqrt(dx*dx + dy*dy);
+                 if (dist > 50 && dist < 300) {
+                     p.x -= (dx/dist) * 2;
+                     p.y -= (dy/dist) * 2;
+                 }
+            }
+
+            if (p.life <= 0) {
+                this.trailPool.push(this.trail.splice(i, 1)[0]);
+                continue;
+            }
+
+            this.ctx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.life})`;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        this.ctx.globalCompositeOperation = 'source-over';
+
+        // Render Gravity Well Visual (Lensing Black Hole)
         if (this.isGravityWell) {
-             const g = this.ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 100);
-             g.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
-             g.addColorStop(0.3, 'rgba(20, 0, 30, 0.6)');
-             g.addColorStop(0.6, 'rgba(100, 50, 150, 0.2)');
+             // Event Horizon (Black Void)
+             this.ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+             this.ctx.beginPath();
+             this.ctx.arc(mouse.x, mouse.y, 40, 0, Math.PI * 2);
+             this.ctx.fill();
+
+             // Accretion Disk Glow
+             const g = this.ctx.createRadialGradient(mouse.x, mouse.y, 40, mouse.x, mouse.y, 120);
+             g.addColorStop(0, 'rgba(50, 0, 100, 0.8)');
+             g.addColorStop(0.2, 'rgba(100, 50, 200, 0.6)');
+             g.addColorStop(0.5, 'rgba(50, 20, 100, 0.2)');
              g.addColorStop(1, 'transparent');
              this.ctx.fillStyle = g;
              this.ctx.beginPath();
-             this.ctx.arc(mouse.x, mouse.y, 100, 0, Math.PI * 2);
+             this.ctx.arc(mouse.x, mouse.y, 120, 0, Math.PI * 2);
              this.ctx.fill();
 
-             // Spawn spiraling particles
+             // Lensing Ring (Distortion visual hint)
+             this.ctx.strokeStyle = 'rgba(200, 200, 255, 0.1)';
+             this.ctx.lineWidth = 1;
+             this.ctx.beginPath();
+             this.ctx.arc(mouse.x, mouse.y, 60 + Math.sin(this.tick * 0.1) * 2, 0, Math.PI * 2);
+             this.ctx.stroke();
+
+             // Spawn spiraling particles (Accretion)
              if (this.tick % 2 === 0) {
                  const angle = Math.random() * Math.PI * 2;
-                 const dist = 100 + Math.random() * 50;
+                 const dist = 120 + Math.random() * 50;
                  // Calculate velocity towards center but with a spiral offset
                  const dx = mouse.x - (mouse.x + Math.cos(angle) * dist);
                  const dy = mouse.y - (mouse.y + Math.sin(angle) * dist);
@@ -482,12 +531,12 @@ class BackgroundSystem {
                  this.sparks.push({
                      x: mouse.x + Math.cos(angle) * dist,
                      y: mouse.y + Math.sin(angle) * dist,
-                     vx: ux * 5 + uy * 2, // Inward + Tangential
-                     vy: uy * 5 - ux * 2,
-                     life: 30,
-                     maxLife: 30,
-                     size: 2,
-                     color: '100, 200, 255'
+                     vx: ux * 5 + uy * 4, // Strong tangential
+                     vy: uy * 5 - ux * 4,
+                     life: 40,
+                     maxLife: 40,
+                     size: Math.random() * 2 + 1,
+                     color: '150, 200, 255'
                  });
              }
         }
@@ -518,6 +567,10 @@ class BackgroundSystem {
 
         // Draw Nebulas (Dynamic rotation & pulse)
         this.ctx.globalCompositeOperation = 'lighter';
+
+        // Cosmic Heartbeat
+        const globalPulse = Math.sin(this.tick * 0.02) * 0.05 + 1.0;
+
         this.nebulas.forEach(n => {
             n.x += n.vx * this.speedMultiplier;
             n.y += n.vy * this.speedMultiplier;
@@ -533,11 +586,13 @@ class BackgroundSystem {
             this.ctx.translate(n.x - mx * 0.5, n.y - my * 0.5);
             this.ctx.rotate(n.rotation);
 
-            // Pulse Effect
-            const scale = 1 + Math.sin(this.tick * n.pulseSpeed + n.pulsePhase) * 0.1;
+            // Pulse Effect (Individual + Global)
+            const scale = (1 + Math.sin(this.tick * n.pulseSpeed + n.pulsePhase) * 0.1) * globalPulse;
             this.ctx.scale(scale, scale);
 
+            this.ctx.globalAlpha = 0.8 + Math.sin(this.tick * 0.01) * 0.2;
             this.ctx.drawImage(n.sprite, -n.radius, -n.radius);
+            this.ctx.globalAlpha = 1.0;
             this.ctx.restore();
         });
         this.ctx.globalCompositeOperation = 'source-over';
@@ -563,20 +618,28 @@ class BackgroundSystem {
              const distSq = dx*dx + dy*dy;
 
              if (this.isGravityWell) {
-                 if(distSq < 150000 && distSq > 100) {
-                     const dist = Math.sqrt(distSq);
-                     const force = (150000 - distSq) / 150000;
-                     const pull = force * 3.0; // Stronger for dust
+                 const dist = Math.sqrt(distSq);
+                 const ux = dx / dist;
+                 const uy = dy / dist;
 
-                     const ux = dx / dist;
-                     const uy = dy / dist;
-
+                 if (dist < 50) {
+                     // Event Horizon Repulsion (Lensing)
+                     const push = (50 - dist) * 0.5;
+                     d.x += ux * push;
+                     d.y += uy * push;
+                 } else if (dist < 300) {
+                     // Accretion Disk (Spiral)
+                     const pull = 2.0;
                      d.x -= ux * pull;
                      d.y -= uy * pull;
-
-                     // Spiral
-                     d.x += -uy * pull * 0.8;
-                     d.y += ux * pull * 0.8;
+                     // Strong rotation
+                     d.x += -uy * 3.0;
+                     d.y += ux * 3.0;
+                 } else if (dist < 800) {
+                     // Far field attraction
+                     const pull = (800 - dist) / 800 * 1.5;
+                     d.x -= ux * pull;
+                     d.y -= uy * pull;
                  }
              } else {
                  // Mouse Influence (Subtle Repulsion/Displace)
@@ -619,21 +682,32 @@ class BackgroundSystem {
             const distSq = mdx*mdx + mdy*mdy;
 
             if (this.isGravityWell) {
-                 // Gravity Well Logic
-                 if (distSq < 200000 && distSq > 100) { // Large range
-                     const dist = Math.sqrt(distSq);
-                     const force = (200000 - distSq) / 200000;
-                     const pull = force * 1.5;
+                 // Gravity Well Logic (Lensing)
+                 const dist = Math.sqrt(distSq);
 
-                     const ux = mdx / dist;
-                     const uy = mdy / dist;
+                 if (dist > 1) { // Avoid div by zero
+                    const ux = mdx / dist;
+                    const uy = mdy / dist;
 
-                     star.vx -= ux * pull; // Pull towards mouse
-                     star.vy -= uy * pull;
-
-                     // Spiral
-                     star.vx += -uy * pull * 0.3;
-                     star.vy += ux * pull * 0.3;
+                    if (dist < 50) {
+                        // Event Horizon: Push OUT hard
+                        const push = (50 - dist) * 0.5;
+                        star.vx += ux * push;
+                        star.vy += uy * push;
+                    } else if (dist < 250) {
+                         // Accretion: Orbit
+                         const pull = 0.5;
+                         star.vx -= ux * pull;
+                         star.vy -= uy * pull;
+                         // Rotation
+                         star.vx += -uy * 1.5;
+                         star.vy += ux * 1.5;
+                    } else if (dist < 600) {
+                         // Attraction
+                         const pull = (600 - dist) / 600 * 0.8;
+                         star.vx -= ux * pull;
+                         star.vy -= uy * pull;
+                    }
                  }
             } else {
                 if (distSq < 20000) { // Repulsion range
@@ -700,13 +774,19 @@ class BackgroundSystem {
             const currentSize = star.size * sizeMod;
 
             if (this.speedMultiplier > 5) {
-                this.ctx.strokeStyle = star.color;
-                this.ctx.lineWidth = Math.max(1, currentSize * 0.5);
+                // Redshift/Blueshift Effect
+                const speedFactor = Math.min(1, (this.speedMultiplier - 5) / 15);
+                // Shift towards cyan/blue/violet at high speeds. Lower lightness to ensure color visibility.
+                const warpColor = `hsl(${200 + speedFactor * 60}, ${80 + speedFactor * 20}%, ${60 + speedFactor * 10}%)`;
+
+                this.ctx.strokeStyle = warpColor;
+                this.ctx.lineWidth = Math.max(1, currentSize * 0.8);
                 this.ctx.beginPath();
                 this.ctx.moveTo(wxNew, wyNew);
 
                 // Streak length based on speed
-                const len = this.speedMultiplier * 2;
+                // Increased multiplier significantly because baseVx is very small
+                const len = this.speedMultiplier * 15;
                 // Draw streak opposite to velocity
                 this.ctx.lineTo(wxNew - (star.baseVx + star.vx) * len, wyNew - (star.baseVy + star.vy) * len);
                 this.ctx.stroke();

@@ -27,27 +27,9 @@ export function setRandomGradient(hue, isMonochrome, seededRandom, isDark) {
 
 export function updateUI() {
     history.replaceState(null, '', `?seed=${currentSeed}`);
-    ui.blueprint.innerText = `Blueprint: ${universeProfile.blueprintName}`;
-    ui.seed.innerText = `Seed: ${currentSeed}`;
-    ui.mutators.innerText = universeProfile.mutators.length ? `Mutators: ${universeProfile.mutators.join(', ')}` : 'Mutators: None';
-    ui.anomaly.innerText = universeProfile.anomaly ? `Anomaly: ${universeProfile.anomaly}` : 'Anomaly: None';
-    setTimeout(() => { ui.container.classList.add('visible'); }, 500);
 }
 
 export function initializeEventListeners(pJS) {
-    ui.seed.addEventListener('click', () => {
-        navigator.clipboard.writeText(window.location.href).then(() => {
-            ui.seed.innerText = 'Copied!';
-            ui.seed.classList.add('copied-animation');
-            clearSeedCopyTimeout();
-            const timeout = setTimeout(() => {
-                ui.seed.innerText = `Seed: ${currentSeed}`;
-                ui.seed.classList.remove('copied-animation');
-            }, 2000);
-            setSeedCopyTimeout(timeout);
-        });
-    });
-
     window.addEventListener('mousemove', e => {
         setMouse({ x: e.clientX, y: e.clientY });
         ui.cursorGlow.style.left = `${e.clientX}px`;

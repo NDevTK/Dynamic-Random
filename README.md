@@ -12,6 +12,7 @@ Use your mouse as a cosmic force to attract, repel, warp, shatter, and paint the
 
 *   **Procedural Universe Generation:** Every universe is generated from a unique, shareable seed string (e.g., `ASTRAL-WARP-4271`). No two universes are exactly alike.
 *   **Deeply Interactive Physics:** Your mouse isn't just a pointer; it's an extension of your will. Left and right clicks unleash unique powers determined by the universe's blueprint.
+*   **Immersive Background System:** A dynamic, procedurally generated background that reacts to your actions. Features include **Auroras**, **Warp Speed** star streaks, **Click Sparks**, and **Gravity Well** particle accretion.
 *   **Ever-Expanding Universe Engine:** A complex system of interlocking, randomized components ensures immense variety:
     *   🌌 **Blueprints:** Each universe is based on one of **32+** fundamental themes. Existing blueprints are now joined by new ones like `StellarNursery`, `AbyssalZone`, `TechnoUtopia`, `FungalForest`, `GlassySea`, `Papercraft`, `ChromaticAberration`, `SilkWeaver`, `VolcanicForge`, `LivingConstellation`, `GooeyMess`, `HauntedRealm`, and `CoralReef`.
     *   🔀 **Mutators:** Universes can be warped by one or more of **36+** mutators, like `Hyperspeed`, `Rainbow Particles`, `Clustering` (now with a breathing effect!), `Gravity Waves`, and new additions such as `PairBonding`, `Fragmenting`, `PhotonSails`, `ChaoticOrbits`, `TidalForces`, `Self-Propelled`, `ReflectiveEdges`, `Noctilucent`, `BrownianMotion`, `SupernovaRemains`, `Choral`, `Carnival`, and `ParticleChains`.
@@ -39,11 +40,9 @@ The simulation will start immediately.
 
 ### Controls
 *   **Move Mouse:** A passive glow follows your cursor, influencing particles in some universes.
-*   **Left-Click (Hold):** Activates your primary power (e.g., attract particles, create tendrils, accelerate time).
-*   **Right-Click (Hold or Click):** Activates your secondary power (e.g., unleash a supernova, create a stasis field, entangle particles).
-*   **UI (Bottom Left):**
-    *   Displays the current `Blueprint`, `Mutators`, and `Anomaly`.
-    *   Click on the **Seed** text to copy the shareable URL to your clipboard.
+*   **Left-Click (Hold):** Activates your primary power (e.g., attract particles, create tendrils, accelerate time). Triggers "Warp Speed" background effect.
+*   **Right-Click (Hold or Click):** Activates your secondary power (e.g., unleash a supernova, create a stasis field, entangle particles). Triggers "Gravity Well" background effect.
+*   **Share:** The current seed is always in the URL. Copy the browser URL to share your unique universe.
 
 ---
 

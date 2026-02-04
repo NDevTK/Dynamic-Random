@@ -6,11 +6,6 @@
 export const ui = {
     body: document.body,
     cursorGlow: document.getElementById('cursor-glow'),
-    container: document.getElementById('ui-container'),
-    blueprint: document.getElementById('blueprint-display'),
-    seed: document.getElementById('seed-capture'),
-    mutators: document.getElementById('mutator-display'),
-    anomaly: document.getElementById('anomaly-display'),
     canvasContainer: document.getElementById('canvas-container')
 };
 

@@ -25,10 +25,17 @@ export function setRandomGradient(hue, isMonochrome, seededRandom, isDark) {
     ui.canvasContainer.style.backgroundSize = '';
 }
 
+/**
+ * Updates the URL to reflect the current seed without reloading the page.
+ */
 export function updateUI() {
     history.replaceState(null, '', `?seed=${currentSeed}`);
 }
 
+/**
+ * Initializes global event listeners for interactions.
+ * @param {Object} pJS - The particles.js instance.
+ */
 export function initializeEventListeners(pJS) {
     window.addEventListener('mousemove', e => {
         setMouse({ x: e.clientX, y: e.clientY });

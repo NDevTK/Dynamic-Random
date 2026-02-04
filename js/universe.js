@@ -4,9 +4,10 @@
  */
 
 import { universeBlueprints, mutators, anomalies } from './effects.js';
-import { setUniverseProfile, setUniverseState, setCurrentSeed, setInitialLoad, resetState as resetGlobalState, activeEffects, physics, isInitialLoad } from './state.js';
+import { setUniverseProfile, setUniverseState, setCurrentSeed, setInitialLoad, setSeededRandom, resetState as resetGlobalState, activeEffects, physics, isInitialLoad } from './state.js';
 import { mulberry32, stringToSeed, generateRandomSeed, hslToHex, tagParticles } from './utils.js';
 import { setRandomGradient, updateUI } from './ui.js';
+import { postProcess } from './post_processing.js';
 
 /**
  * Generates a new universe based on a seed.
@@ -17,9 +18,11 @@ import { setRandomGradient, updateUI } from './ui.js';
  */
 export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     resetGlobalState();
+    postProcess.reset();
     const newSeed = isNewSeed || !seed ? generateRandomSeed() : seed;
     setCurrentSeed(newSeed);
     const seededRandom = mulberry32(stringToSeed(newSeed));
+    setSeededRandom(seededRandom);
 
     const blueprintNames = Object.keys(universeBlueprints);
     const blueprintName = blueprintNames[Math.floor(seededRandom() * blueprintNames.length)];
@@ -51,6 +54,17 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     pJS.particles.move.straight = blueprint.aesthetic.physics.straight;
     pJS.particles.move.out_mode = blueprint.aesthetic.physics.bounce ? 'bounce' : 'out';
 
+    // SPECIAL BLUEPRINT HANDLING
+    if (blueprintName === 'NeonCyber') {
+        postProcess.toggleScanlines(true);
+        postProcess.setFilter('contrast', 1.2);
+    } else if (blueprintName === 'AbyssalHorror') {
+        postProcess.setFilter('brightness', 0.6);
+        postProcess.setFilter('contrast', 1.5);
+    } else if (blueprintName === 'CelestialForge') {
+        postProcess.setFilter('blur', 1);
+    }
+
     setUniverseProfile(profile);
     setUniverseState({ energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 });
 
@@ -76,13 +90,13 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     updateUI();
 
     pJS.fn.particlesRefresh();
-    tagParticles(pJS.particles.array, profile, true);
+    tagParticles(pJS.particles.array, profile, true, seededRandom);
 
     if (isInitialLoad) {
         pJS.particles.array.forEach(p => {
             p.x = pJS.canvas.w / 2; p.y = pJS.canvas.h / 2;
-            const angle = Math.random()*2*Math.PI; const force = Math.random()*20+5;
-            p.vx = Math.cos(angle)*force; p.vy = Math.sin(angle)*force;
+            const angle = seededRandom() * 2 * Math.PI; const force = seededRandom() * 20 + 5;
+            p.vx = Math.cos(angle) * force; p.vy = Math.sin(angle) * force;
         });
         setInitialLoad(false);
     }

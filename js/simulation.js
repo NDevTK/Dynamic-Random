@@ -3,14 +3,17 @@
  * @description This file contains the core particle simulation and update loop.
  */
 
-import { cataclysmInProgress, universeState, setUniverseState, isLeftMouseDown, isRightMouseDown, activeEffects, universeProfile, physics, mouse } from './state.js';
+import { cataclysmInProgress, universeState, setUniverseState, isLeftMouseDown, isRightMouseDown, activeEffects, universeProfile, physics, mouse, seededRandom } from './state.js';
 import { triggerCataclysm } from './cataclysms.js';
 import { handleActivePower } from './powers.js';
 import { getBezierXY, tagParticles } from './utils.js';
 import { drawEffects } from './drawing.js';
 import { incrementTick, getTick } from './state.js';
+import { SpatialGrid } from './spatial_grid.js';
 
 // --- Simulation Sub-modules ---
+
+let particleGrid = null;
 
 function handleEnergyAndCataclysm(pJS) {
     if (isLeftMouseDown || isRightMouseDown) {
@@ -47,7 +50,9 @@ function applyOngoingEffects(p, i, pJS) {
 
 function applyNebulaForce(p) {
     for (const nebula of activeEffects.nebulas) {
-        const dSq = Math.pow(p.x - nebula.x, 2) + Math.pow(p.y - nebula.y, 2);
+        const dx = p.x - nebula.x;
+        const dy = p.y - nebula.y;
+        const dSq = dx * dx + dy * dy;
         if (dSq < nebula.radius * nebula.radius) {
             p.vx *= 0.95;
             p.vy *= 0.95;
@@ -83,7 +88,7 @@ function applyWhiteHoleForce(p) {
     for (const hole of activeEffects.whiteHoles) {
         const dx = hole.x - p.x, dy = hole.y - p.y, distSq = dx * dx + dy * dy;
         if (distSq < 90000) {
-            const force = hole.strength / Math.sqrt(distSq);
+            const force = hole.strength / (Math.sqrt(distSq) + 0.1);
             p.vx -= dx * force * 0.1;
             p.vy -= dy * force * 0.1;
         }
@@ -120,24 +125,31 @@ function applyQuasarForce(p) {
 
 function applyCosmicRiftForce(p) {
     for (const rift of activeEffects.cosmicRifts) {
-        const dist1Sq = Math.pow(p.x - rift.x1, 2) + Math.pow(p.y - rift.y1, 2);
+        const dx1 = p.x - rift.x1;
+        const dy1 = p.y - rift.y1;
+        const dist1Sq = dx1 * dx1 + dy1 * dy1;
         if (dist1Sq < rift.width * rift.width) {
-            p.x = rift.x2 + (Math.random() - 0.5) * rift.width;
-            p.y = rift.y2 + (Math.random() - 0.5) * rift.width;
+            p.x = rift.x2 + (seededRandom() - 0.5) * rift.width;
+            p.y = rift.y2 + (seededRandom() - 0.5) * rift.width;
         }
-        const dist2Sq = Math.pow(p.x - rift.x2, 2) + Math.pow(p.y - rift.y2, 2);
+        const dx2 = p.x - rift.x2;
+        const dy2 = p.y - rift.y2;
+        const dist2Sq = dx2 * dx2 + dy2 * dy2;
         if (dist2Sq < rift.width * rift.width) {
-            p.x = rift.x1 + (Math.random() - 0.5) * rift.width;
-            p.y = rift.y1 + (Math.random() - 0.5) * rift.width;
+            p.x = rift.x1 + (seededRandom() - 0.5) * rift.width;
+            p.y = rift.y1 + (seededRandom() - 0.5) * rift.width;
         }
     }
 }
 
 function applyIonCloudForce(p, pJS) {
     for (const cloud of activeEffects.ionClouds) {
-        const distSq = Math.pow(p.x - cloud.x, 2) + Math.pow(p.y - cloud.y, 2);
-        if (distSq < cloud.radius * cloud.radius && Math.random() < 0.001) {
-            for (const p2 of pJS.particles.array) {
+        const dx = p.x - cloud.x;
+        const dy = p.y - cloud.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq < cloud.radius * cloud.radius && seededRandom() < 0.001) {
+            const nearby = particleGrid.getNearby(cloud.x, cloud.y, cloud.radius);
+            for (const p2 of nearby) {
                 if (p === p2) continue;
                 const dist2Sq = Math.pow(cloud.x - p2.x, 2) + Math.pow(cloud.y - p2.y, 2);
                 if (dist2Sq < cloud.radius * cloud.radius) {
@@ -165,7 +177,9 @@ function applySupergiantStarForce(p) {
 
 function applyCrystallineFieldForce(p) {
     for (const field of activeEffects.crystallineFields) {
-        const dSq = Math.pow(p.x - field.x, 2) + Math.pow(p.y - field.y, 2);
+        const dx = p.x - field.x;
+        const dy = p.y - field.y;
+        const dSq = dx * dx + dy * dy;
         if (dSq < field.radius * field.radius) {
             p.vx *= 0.9;
             p.vy *= 0.9;
@@ -181,7 +195,9 @@ function applyCrystallineFieldForce(p) {
 
 function applyNegativeSpaceForce(p, i, pJS) {
     for (const space of activeEffects.negativeSpaces) {
-        if (Math.pow(p.x - space.x, 2) + Math.pow(p.y - space.y, 2) < space.radius * space.radius) {
+        const dx = p.x - space.x;
+        const dy = p.y - space.y;
+        if (dx * dx + dy * dy < space.radius * space.radius) {
             pJS.particles.array.splice(i, 1);
             return true;
         }
@@ -198,14 +214,16 @@ function applyStellarWindForce(p) {
 
 function applyMicrowaveBackgroundForce(p) {
     for (const noise of activeEffects.microwaveBackgrounds) {
-        p.vx += (Math.random() - 0.5) * noise.noise;
-        p.vy += (Math.random() - 0.5) * noise.noise;
+        p.vx += (seededRandom() - 0.5) * noise.noise;
+        p.vy += (seededRandom() - 0.5) * noise.noise;
     }
 }
 
 function applyParticleAcceleratorForce(p) {
     for (const acc of activeEffects.particleAccelerators) {
-        const dSq = Math.pow(p.x - acc.x, 2) + Math.pow(p.y - acc.y, 2);
+        const dx = p.x - acc.x;
+        const dy = p.y - acc.y;
+        const dSq = dx * dx + dy * dy;
         if (dSq > (acc.radius - 10) * (acc.radius - 10) && dSq < (acc.radius + 10) * (acc.radius + 10)) {
             p.vx *= acc.strength;
             p.vy *= acc.strength;
@@ -215,17 +233,21 @@ function applyParticleAcceleratorForce(p) {
 
 function applySpacetimeFoamForce(p) {
     for (const foam of activeEffects.spacetimeFoam) {
-        const dSq = Math.pow(p.x - foam.x, 2) + Math.pow(p.y - foam.y, 2);
+        const dx = p.x - foam.x;
+        const dy = p.y - foam.y;
+        const dSq = dx * dx + dy * dy;
         if (dSq < foam.radius * foam.radius) {
-            p.vx += (Math.random() - 0.5) * 0.5;
-            p.vy += (Math.random() - 0.5) * 0.5;
+            p.vx += (seededRandom() - 0.5) * 0.5;
+            p.vy += (seededRandom() - 0.5) * 0.5;
         }
     }
 }
 
 function applyEchoingVoidForce(p) {
     for (const evoid of activeEffects.echoingVoids) {
-        const dSq = Math.pow(p.x - evoid.x, 2) + Math.pow(p.y - evoid.y, 2);
+        const dx = p.x - evoid.x;
+        const dy = p.y - evoid.y;
+        const dSq = dx * dx + dy * dy;
         if (dSq < evoid.radius * evoid.radius) {
             evoid.history.push({ x: p.x, y: p.y, color: p.color.rgb });
             if (evoid.history.length > 200) evoid.history.shift();
@@ -262,8 +284,8 @@ function applyPulsingParticles(p, tick) {
 }
 
 function applyUnstableParticles(p, i, pJS) {
-    if (universeProfile.mutators.includes('Unstable Particles') && Math.random() < 0.0005) {
-        if (Math.random() > 0.5 && pJS.particles.array.length < pJS.particles.number.value_max) {
+    if (universeProfile.mutators.includes('Unstable Particles') && seededRandom() < 0.0005) {
+        if (seededRandom() > 0.5 && pJS.particles.array.length < pJS.particles.number.value_max) {
             pJS.fn.modes.pushParticles(1, { x: p.x, y: p.y });
         } else {
             pJS.particles.array.splice(i, 1);
@@ -275,7 +297,8 @@ function applyUnstableParticles(p, i, pJS) {
 
 function applyRepulsiveField(p, pJS, isPhased) {
     if (universeProfile.mutators.includes('Repulsive Field') && !isPhased) {
-        for (const p2 of pJS.particles.array) {
+        const nearby = particleGrid.getNearby(p.x, p.y, 50);
+        for (const p2 of nearby) {
             if (p === p2) continue;
             const dx = p.x - p2.x, dy = p.y - p2.y, distSq = dx * dx + dy * dy;
             if (distSq < 2500) {
@@ -289,7 +312,8 @@ function applyRepulsiveField(p, pJS, isPhased) {
 function applyClustering(p, pJS, isPhased, tick) {
     if (universeProfile.mutators.includes('Clustering') && !isPhased) {
         const pulse = 1.0 + 0.5 * Math.sin(tick * 0.01);
-        for (const p2 of pJS.particles.array) {
+        const nearby = particleGrid.getNearby(p.x, p.y, 125);
+        for (const p2 of nearby) {
             if (p === p2) continue;
             const dx = p.x - p2.x, dy = p.y - p2.y, distSq = dx * dx + dy * dy;
             if (distSq < 15000 && distSq > 100) {
@@ -302,8 +326,8 @@ function applyClustering(p, pJS, isPhased, tick) {
 
 function applyErratic(p) {
     if (universeProfile.mutators.includes('Erratic')) {
-        p.vx += (Math.random() - 0.5) * 0.3;
-        p.vy += (Math.random() - 0.5) * 0.3;
+        p.vx += (seededRandom() - 0.5) * 0.3;
+        p.vy += (seededRandom() - 0.5) * 0.3;
     }
 }
 
@@ -352,7 +376,8 @@ function applyParticleDecay(p, i, pJS) {
 
 function applyElasticCollisions(p, pJS, isPhased) {
     if (universeProfile.mutators.includes('Elastic Collisions') && !isPhased) {
-        for (const p2 of pJS.particles.array) {
+        const nearby = particleGrid.getNearby(p.x, p.y, 20);
+        for (const p2 of nearby) {
             if (p === p2) continue;
             const dx = p.x - p2.x, dy = p.y - p2.y, distSq = dx * dx + dy * dy;
             if (distSq < Math.pow(p.radius + p2.radius, 2)) {
@@ -367,8 +392,8 @@ function applyElasticCollisions(p, pJS, isPhased) {
 
 function applyNoisy(p) {
     if (universeProfile.mutators.includes('Noisy')) {
-        p.vx += (Math.random() - 0.5) * 0.2;
-        p.vy += (Math.random() - 0.5) * 0.2;
+        p.vx += (seededRandom() - 0.5) * 0.2;
+        p.vy += (seededRandom() - 0.5) * 0.2;
     }
 }
 
@@ -383,7 +408,8 @@ function applySynchronized(p, tick) {
 
 function applyPairBonding(p, pJS) {
     if (universeProfile.mutators.includes('Pair Bonding') && !p.bondPartner) {
-        for (const p2 of pJS.particles.array) {
+        const nearby = particleGrid.getNearby(p.x, p.y, 50);
+        for (const p2 of nearby) {
             if (p === p2 || p2.bondPartner) continue;
             const dSq = Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2);
             if (dSq < 2500) {
@@ -406,12 +432,12 @@ function applyPairBonding(p, pJS) {
 }
 
 function applyFragmenting(p, pJS) {
-    if (universeProfile.mutators.includes('Fragmenting') && Math.random() < 0.0001 && p.radius > 1 && pJS.particles.array.length < pJS.particles.number.value_max) {
+    if (universeProfile.mutators.includes('Fragmenting') && seededRandom() < 0.0001 && p.radius > 1 && pJS.particles.array.length < pJS.particles.number.value_max) {
         p.radius /= 2;
         const newP = pJS.fn.modes.pushParticles(1, { x: p.x, y: p.y })[0];
         if (newP) {
             newP.radius = p.radius;
-            tagParticles([newP], universeProfile, false);
+            tagParticles([newP], universeProfile, false, seededRandom);
         }
     }
 }
@@ -425,8 +451,8 @@ function applyPhotonSails(p) {
 
 function applyChaoticOrbits(p, pJS) {
     if (universeProfile.mutators.includes('Chaotic Orbits') && pJS.particles.move.attract.enable) {
-        p.vx += (Math.random() - 0.5) * 0.4;
-        p.vy += (Math.random() - 0.5) * 0.4;
+        p.vx += (seededRandom() - 0.5) * 0.4;
+        p.vy += (seededRandom() - 0.5) * 0.4;
     }
 }
 
@@ -446,21 +472,22 @@ function applySelfPropelled(p) {
 }
 
 function applyPhaseScattering(p) {
-    if (universeProfile.mutators.includes('Phase Scattering') && Math.random() < 0.001) {
-        p.opacity.value = Math.random();
+    if (universeProfile.mutators.includes('Phase Scattering') && seededRandom() < 0.001) {
+        p.opacity.value = seededRandom();
     }
 }
 
 function applyBrownianMotion(p) {
     if (universeProfile.mutators.includes('BrownianMotion')) {
-        p.vx += (Math.random() - 0.5) * 0.8;
-        p.vy += (Math.random() - 0.5) * 0.8;
+        p.vx += (seededRandom() - 0.5) * 0.8;
+        p.vy += (seededRandom() - 0.5) * 0.8;
     }
 }
 
 function applyHeavyParticles(p, pJS) {
     if (p.isHeavy) {
-        for (const p2 of pJS.particles.array) {
+        const nearby = particleGrid.getNearby(p.x, p.y, 100);
+        for (const p2 of nearby) {
             if (p === p2) continue;
             const dx = p.x - p2.x, dy = p.y - p2.y, dSq = dx * dx + dy * dy;
             if (dSq < 10000) {
@@ -482,15 +509,16 @@ function applyChoral(p, pJS) {
 
 function applyCarnival(p, tick) {
     if (universeProfile.mutators.includes('Carnival') && tick % 10 === 0) {
-        p.color = { rgb: { r: Math.random() * 255, g: Math.random() * 255, b: Math.random() * 255 } };
-        p.radius = p.radius_initial * (0.5 + Math.random());
+        p.color = { rgb: { r: seededRandom() * 255, g: seededRandom() * 255, b: seededRandom() * 255 } };
+        p.radius = p.radius_initial * (0.5 + seededRandom());
     }
 }
 
 function applyParticleChains(p, pJS) {
     if (universeProfile.mutators.includes('ParticleChains')) {
         if (!p.chainChild) {
-            for (const p2 of pJS.particles.array) {
+            const nearby = particleGrid.getNearby(p.x, p.y, 30);
+            for (const p2 of nearby) {
                 if (p === p2 || p2.chainParent) continue;
                 const dSq = Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2);
                 if (dSq < 20 * 20 && !p.chainParent) {
@@ -529,7 +557,9 @@ function applyCosmicRivers(p) {
     for (const river of activeEffects.cosmicRivers) {
         for (let t = 0; t < 1; t += 0.05) {
             const pt = getBezierXY(t, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2);
-            const dSq = Math.pow(p.x - pt.x, 2) + Math.pow(p.y - pt.y, 2);
+            const dx = p.x - pt.x;
+            const dy = p.y - pt.y;
+            const dSq = dx * dx + dy * dy;
             if (dSq < river.width * river.width) {
                 const nextPt = getBezierXY(t + 0.01, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2);
                 const riverAngle = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x);
@@ -578,7 +608,17 @@ function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
         if (isRightMouseDown) handleActivePower(p, i, pJS, universeProfile.rightClickPower, worldMouse);
         for (const well of activeEffects.gravityWells) { const dx = well.x - p.x, dy = well.y - p.y; p.vx += dx * well.strength * 0.01; p.vy += dy * well.strength * 0.01; }
     }
-    if (p.isInfected) { for (const p2 of pJS.particles.array) { if (p === p2 || p2.isInfected) continue; const dx = p.x - p2.x, dy = p.y - p2.y, dSq = dx * dx + dy * dy; if (dSq < Math.pow(p.radius + p2.radius + 2, 2)) { p2.isInfected = true; p2.color = { rgb: { r: 255, g: 50, b: 50 } }; } } }
+    if (p.isInfected) {
+        const nearby = particleGrid.getNearby(p.x, p.y, 20);
+        for (const p2 of nearby) {
+            if (p === p2 || p2.isInfected) continue;
+            const dx = p.x - p2.x, dy = p.y - p2.y, dSq = dx * dx + dy * dy;
+            if (dSq < Math.pow(p.radius + p2.radius + 2, 2)) {
+                p2.isInfected = true;
+                p2.color = { rgb: { r: 255, g: 50, b: 50 } };
+            }
+        }
+    }
 
     if (p.radius > p.radius_initial && !universeProfile.mutators.includes('Pulsing Particles')) { p.radius -= 0.05; }
     p.vx *= physics.friction; p.vy *= physics.friction;
@@ -603,17 +643,29 @@ function updateAllParticles(pJS, worldMouse) {
         if (!p) continue;
 
         let timeFactor = 1.0;
-        for (const zone of activeEffects.timeDilationZones) { if (Math.pow(p.x - zone.x, 2) + Math.pow(p.y - zone.y, 2) < zone.radiusSq) { timeFactor = zone.timeFactor; break; } }
+        for (const zone of activeEffects.timeDilationZones) {
+            const dx = p.x - zone.x;
+            const dy = p.y - zone.y;
+            if (dx * dx + dy * dy < zone.radiusSq) { timeFactor = zone.timeFactor; break; }
+        }
 
         const updateSteps = timeFactor > 1 ? Math.floor(timeFactor) : 1;
         for (let step = 0; step < updateSteps; step++) {
-            if (timeFactor < 1 && Math.random() > timeFactor) continue;
+            if (timeFactor < 1 && seededRandom() > timeFactor) continue;
 
             let isPhased = universeProfile.mutators.includes('Phase Shift');
-            for (const zone of activeEffects.phaseZones) { if (Math.pow(p.x - zone.x, 2) + Math.pow(p.y - zone.y, 2) < zone.radiusSq) { isPhased = true; break; } }
+            for (const zone of activeEffects.phaseZones) {
+                const dx = p.x - zone.x;
+                const dy = p.y - zone.y;
+                if (dx * dx + dy * dy < zone.radiusSq) { isPhased = true; break; }
+            }
 
             let isStasis = false;
-            for (const field of activeEffects.stasisFields) { if (Math.pow(p.x - field.x, 2) + Math.pow(p.y - field.y, 2) < field.r * field.r) { isStasis = true; break; } }
+            for (const field of activeEffects.stasisFields) {
+                const dx = p.x - field.x;
+                const dy = p.y - field.y;
+                if (dx * dx + dy * dy < field.r * field.r) { isStasis = true; break; }
+            }
             if (isStasis) { p.vx = 0; p.vy = 0; }
 
             if (applyOngoingEffects(p, i, pJS)) continue;
@@ -635,15 +687,15 @@ function updateEntangledGroups(pJS) {
 
 function updateAnomalies(pJS) {
     activeEffects.whiteHoles.forEach(h => { h.tick++; if (h.tick * h.spawnRate > 1 && pJS.particles.array.length < pJS.particles.number.value_max) { h.tick = 0; pJS.fn.modes.pushParticles(1, { x: h.x, y: h.y }); } });
-    activeEffects.quasars.forEach(q => { q.tick++; if (q.tick > q.period) { q.tick = 0; q.isFiring = true; setTimeout(() => q.isFiring = false, q.duration * 16); } if (q.isFiring && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: q.x, y: q.y })[0]; if (newP) { newP.vx = Math.cos(q.angle) * q.strength; newP.vy = Math.sin(q.angle) * q.strength; tagParticles([newP], universeProfile, false); } } });
-    activeEffects.blackHoles.forEach(h => { if (h.isWandering) { h.x += (Math.random() - 0.5) * 0.5; h.y += (Math.random() - 0.5) * 0.5; if (h.x < 0 || h.x > pJS.canvas.w || h.y < 0 || h.y > pJS.canvas.h) { h.x = pJS.canvas.w / 2; h.y = pJS.canvas.h / 2; } } });
+    activeEffects.quasars.forEach(q => { q.tick++; if (q.tick > q.period) { q.tick = 0; q.isFiring = true; setTimeout(() => q.isFiring = false, q.duration * 16); } if (q.isFiring && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: q.x, y: q.y })[0]; if (newP) { newP.vx = Math.cos(q.angle) * q.strength; newP.vy = Math.sin(q.angle) * q.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.blackHoles.forEach(h => { if (h.isWandering) { h.x += (seededRandom() - 0.5) * 0.5; h.y += (seededRandom() - 0.5) * 0.5; if (h.x < 0 || h.x > pJS.canvas.w || h.y < 0 || h.y > pJS.canvas.h) { h.x = pJS.canvas.w / 2; h.y = pJS.canvas.h / 2; } } });
     activeEffects.magneticStorms.forEach(s => { s.lastFlip++; if (s.lastFlip > s.period) { s.lastFlip = 0; s.attract = !s.attract; pJS.particles.move.attract.enable = s.attract; } });
-    activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if (s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn = 0; const newP = pJS.fn.modes.pushParticles(1, { x: s.x, y: s.y })[0]; if (newP) { newP.vx = (Math.random() - 0.5) * 5; newP.vy = (Math.random() - 0.5) * 5; tagParticles([newP], universeProfile, false); } } });
-    activeEffects.cosmicGeysers.forEach(g => { g.tick++; if (g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick = 0; const newP = pJS.fn.modes.pushParticles(1, { x: g.x + (Math.random() - 0.5) * g.width, y: g.y })[0]; if (newP) { newP.vy = -g.strength; tagParticles([newP], universeProfile, false); } } });
-    activeEffects.temporalRifts.forEach((r, i) => { r.life--; if (r.life <= 0) { activeEffects.temporalRifts.splice(i, 1); return; } if (Math.random() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: r.x, y: r.y })[0]; if (newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP], universeProfile, false); } } });
-    activeEffects.solarFlares.forEach(f => { f.tick++; if (f.tick > f.period) { f.tick = 0; for (let i = 0; i < 30; i++) { if (pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: pJS.canvas.w / 2, y: pJS.canvas.h / 2 })[0]; if (newP) { newP.vx = Math.cos(f.angle) * f.strength; newP.vy = Math.sin(f.angle) * f.strength; tagParticles([newP], universeProfile, false); } } } } });
+    activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if (s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn = 0; const newP = pJS.fn.modes.pushParticles(1, { x: s.x, y: s.y })[0]; if (newP) { newP.vx = (seededRandom() - 0.5) * 5; newP.vy = (seededRandom() - 0.5) * 5; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.cosmicGeysers.forEach(g => { g.tick++; if (g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick = 0; const newP = pJS.fn.modes.pushParticles(1, { x: g.x + (seededRandom() - 0.5) * g.width, y: g.y })[0]; if (newP) { newP.vy = -g.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.temporalRifts.forEach((r, i) => { r.life--; if (r.life <= 0) { activeEffects.temporalRifts.splice(i, 1); return; } if (seededRandom() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: r.x, y: r.y })[0]; if (newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.solarFlares.forEach(f => { f.tick++; if (f.tick > f.period) { f.tick = 0; for (let i = 0; i < 30; i++) { if (pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: pJS.canvas.w / 2, y: pJS.canvas.h / 2 })[0]; if (newP) { newP.vx = Math.cos(f.angle) * f.strength; newP.vy = Math.sin(f.angle) * f.strength; tagParticles([newP], universeProfile, false, seededRandom); } } } } });
     activeEffects.spacetimeFoam.forEach((f, i) => { f.life--; if (f.life <= 0) activeEffects.spacetimeFoam.splice(i, 1); });
-    activeEffects.cosmicNurseries.forEach(n => { n.tick++; if (n.tick > n.period && pJS.particles.array.length < pJS.particles.number.value_max) { n.tick = 0; const newP = pJS.fn.modes.pushParticles(1, { x: n.x + (Math.random() - 0.5) * n.radius, y: n.y + (Math.random() - 0.5) * n.radius })[0]; if (newP) { newP.vx = (Math.random() - 0.5) * 2; newP.vy = (Math.random() - 0.5) * 2; tagParticles([newP], universeProfile, false); } } });
+    activeEffects.cosmicNurseries.forEach(n => { n.tick++; if (n.tick > n.period && pJS.particles.array.length < pJS.particles.number.value_max) { n.tick = 0; const newP = pJS.fn.modes.pushParticles(1, { x: n.x + (seededRandom() - 0.5) * n.radius, y: n.y + (seededRandom() - 0.5) * n.radius })[0]; if (newP) { newP.vx = (seededRandom() - 0.5) * 2; newP.vy = (seededRandom() - 0.5) * 2; tagParticles([newP], universeProfile, false, seededRandom); } } });
 }
 
 function enforceParticleLimit(pJS) {
@@ -661,6 +713,17 @@ export function update(pJS) {
     if (cataclysmInProgress) {
         requestAnimationFrame(() => update(pJS));
         return;
+    }
+
+    if (!particleGrid) {
+        particleGrid = new SpatialGrid(pJS.canvas.w, pJS.canvas.h, 150);
+    } else if (particleGrid.width !== pJS.canvas.w || particleGrid.height !== pJS.canvas.h) {
+        particleGrid.updateDimensions(pJS.canvas.w, pJS.canvas.h);
+    }
+
+    particleGrid.clear();
+    for (let i = 0; i < pJS.particles.array.length; i++) {
+        particleGrid.insert(pJS.particles.array[i]);
     }
 
     handleEnergyAndCataclysm(pJS);

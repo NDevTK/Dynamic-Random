@@ -4,6 +4,8 @@
  * including blueprints, mutators, and anomalies.
  */
 
+import { postProcess } from './post_processing.js';
+
 /**
  * @typedef {object} UniverseBlueprint
  * @property {string[]} left - The available left-click powers.
@@ -64,7 +66,10 @@ export const universeBlueprints = {
     LivingConstellation: { left:['createStar'], right:['connectConstellation'], events:['binaryStars'], cataclysms:['BigRip'], aesthetic:{glow:true, trails:false, shape:['star'], physics:{attract:false, straight:false, bounce:true, friction:0.98}} },
     GooeyMess: { left:['stirGoo'], right:['dissolveGoo'], events:['sporeRelease'], cataclysms:['Homogenization'], aesthetic:{glow:false, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
     HauntedRealm: { left:['exorcise'], right:['materialize', 'phaseZone'], events:['flickeringReality', 'dejaVu'], cataclysms:['Banishing'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.2, physics:{attract:false, straight:true, bounce:false, friction:0.99}} },
-    CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} }
+    CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} },
+    NeonCyber: { left:['shaper'], right:['glitch'], events:['cosmicMessage'], cataclysms:['SystemCrash'], aesthetic:{glow:true, trails:true, shape:['edge'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
+    AbyssalHorror: { left:['tendril'], right:['consume'], events:['flickeringReality'], cataclysms:['TotalAnnihilation'], aesthetic:{glow:false, trails:true, shape:['circle'], monochrome:true, physics:{attract:true, straight:false, bounce:false, friction:0.94}} },
+    CelestialForge: { left:['ignite'], right:['supernova'], events:['meteorShower'], cataclysms:['CoreEruption'], aesthetic:{glow:true, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.96}} }
 };
 
 /**
@@ -127,6 +132,11 @@ export const mutators = {
     'SupernovaRemains': () => { /* Handled in tagParticles */ },
     'Choral': () => { /* Handled in update loop */ },
     'Carnival': () => { /* Handled in update loop */ },
+    'Scanlines': () => { postProcess.toggleScanlines(true); },
+    'High Contrast': () => { postProcess.setFilter('contrast', 1.8); },
+    'Inverted': () => { postProcess.setFilter('invert', 1); },
+    'Bloom': () => { postProcess.setFilter('blur', 2); },
+    'Overexposed': () => { postProcess.setFilter('brightness', 1.5); postProcess.setFilter('saturate', 2); },
 };
 
 /**

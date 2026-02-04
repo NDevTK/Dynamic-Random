@@ -4,6 +4,7 @@
  */
 
 import { mouse } from './state.js';
+import { SpatialGrid } from './spatial_grid.js';
 
 class BackgroundSystem {
     constructor() {
@@ -17,13 +18,13 @@ class BackgroundSystem {
         this.sparks = []; // Explosion particles
         this.shootingStars = [];
         this.nebulas = [];
-        this.grid = []; // Spatial grid (1D array)
-        this.cols = 0;
-        this.rows = 0;
+        this.celestialObjects = [];
+        this.spatialGrid = null;
         this.cellSize = 150;
         this.auroraOffset = 0;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
+        this.rng = Math.random;
 
         // Theme properties
         this.hue = 0;
@@ -98,8 +99,11 @@ class BackgroundSystem {
         this.height = window.innerHeight;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
-        this.cols = Math.ceil(this.width / this.cellSize) + 2; // +2 buffer for wrapping
-        this.rows = Math.ceil(this.height / this.cellSize) + 2;
+        if (!this.spatialGrid) {
+            this.spatialGrid = new SpatialGrid(this.width, this.height, this.cellSize);
+        } else {
+            this.spatialGrid.updateDimensions(this.width, this.height);
+        }
         this.updateGradient();
     }
 
@@ -112,10 +116,12 @@ class BackgroundSystem {
         this.hue = hue;
         this.isMonochrome = isMonochrome;
         this.isDark = isDark;
+        this.rng = seededRandom || Math.random;
         this.updateThemeColors();
-        this.generateStars(seededRandom);
-        this.generateDust(seededRandom);
-        this.generateNebulas(seededRandom);
+        this.generateStars(this.rng);
+        this.generateDust(this.rng);
+        this.generateNebulas(this.rng);
+        this.generateCelestialObjects(this.rng);
     }
 
     noise(x) {
@@ -135,15 +141,15 @@ class BackgroundSystem {
 
         // Spawn Sparks
         for(let i=0; i<30; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 10 + 5;
+            const angle = this.rng() * Math.PI * 2;
+            const speed = this.rng() * 10 + 5;
             this.sparks.push({
                 x, y,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
-                life: 50 + Math.random() * 30,
+                life: 50 + this.rng() * 30,
                 maxLife: 80,
-                size: Math.random() * 3 + 1,
+                size: this.rng() * 3 + 1,
                 color: '255, 255, 200'
             });
         }
@@ -206,6 +212,7 @@ class BackgroundSystem {
 
         for (let i = 0; i < count; i++) {
             this.stars.push({
+                index: i,
                 x: rng() * this.width,
                 y: rng() * this.height,
                 z: rng() * 2 + 0.5, // Depth factor for parallax
@@ -238,38 +245,13 @@ class BackgroundSystem {
         }
     }
 
-    updateStarGrid() {
-        const size = this.cols * this.rows;
-        // Reset grid: instead of new array, clear existing subarrays
-        if (this.grid.length !== size) {
-            this.grid = new Array(size).fill(null).map(() => []);
-        } else {
-            for(let i=0; i<size; i++) {
-                this.grid[i].length = 0;
-            }
-        }
-
-        this.stars.forEach((star, index) => {
-             // Handle wrapping for grid placement
-             let x = star.x;
-             let y = star.y;
-             if (x < 0) x += this.width;
-             if (y < 0) y += this.height;
-
-             const col = Math.floor(x / this.cellSize);
-             const row = Math.floor(y / this.cellSize);
-
-             if (col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
-                 this.grid[row * this.cols + col].push(index);
-             }
-        });
-    }
-
     drawConstellations() {
         // Don't draw constellations in warp speed
         if (this.speedMultiplier > 5) return;
 
-        this.updateStarGrid();
+        this.spatialGrid.clear();
+        this.stars.forEach(s => this.spatialGrid.insert(s));
+
         this.ctx.beginPath();
         this.ctx.strokeStyle = `rgba(255, 255, 255, 0.05)`; // Very faint
         this.ctx.lineWidth = 1;
@@ -293,53 +275,120 @@ class BackgroundSystem {
              return {x: wx, y: wy};
         };
 
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const idx = r * this.cols + c;
-                const cellStars = this.grid[idx];
-                if (cellStars.length === 0) continue;
+        for (let i = 0; i < this.stars.length; i++) {
+            const s1 = this.stars[i];
+            const nearby = this.spatialGrid.getNearby(s1.x, s1.y, 150);
 
-                // Neighbors to check: Right, Down, Bottom-Right, Bottom-Left
-                const neighborsIndices = [];
-                if (c + 1 < this.cols) neighborsIndices.push(r * this.cols + (c + 1));
-                if (r + 1 < this.rows) neighborsIndices.push((r + 1) * this.cols + c);
-                if (c + 1 < this.cols && r + 1 < this.rows) neighborsIndices.push((r + 1) * this.cols + (c + 1));
-                if (c - 1 >= 0 && r + 1 < this.rows) neighborsIndices.push((r + 1) * this.cols + (c - 1));
+            for (let j = 0; j < nearby.length; j++) {
+                const s2 = nearby[j];
+                if (s1.index >= s2.index) continue; // Avoid self and duplicates
 
-                // Also check self for internal connections
-                neighborsIndices.push(idx);
+                // World distance check
+                const dx = s1.x - s2.x;
+                const dy = s1.y - s2.y;
 
-                for (const i of cellStars) {
-                    for (const nIdx of neighborsIndices) {
-                         const neighbors = this.grid[nIdx];
-                         for (const j of neighbors) {
-                             if (nIdx === idx && j <= i) continue; // Avoid self and duplicates within same cell
+                if (dx*dx + dy*dy < 22500) {
+                    const p1 = getScreenPos(s1);
+                    const p2 = getScreenPos(s2);
 
-                             const s1 = this.stars[i];
-                             const s2 = this.stars[j];
+                    const sdx = p1.x - p2.x;
+                    const sdy = p1.y - p2.y;
 
-                             // World distance check
-                             const dx = s1.x - s2.x;
-                             const dy = s1.y - s2.y;
-
-                             if (dx*dx + dy*dy < 22500) {
-                                 const p1 = getScreenPos(s1);
-                                 const p2 = getScreenPos(s2);
-
-                                 const sdx = p1.x - p2.x;
-                                 const sdy = p1.y - p2.y;
-
-                                 if (sdx*sdx + sdy*sdy < 25000) {
-                                     this.ctx.moveTo(p1.x, p1.y);
-                                     this.ctx.lineTo(p2.x, p2.y);
-                                 }
-                             }
-                         }
+                    if (sdx*sdx + sdy*sdy < 25000) {
+                        this.ctx.moveTo(p1.x, p1.y);
+                        this.ctx.lineTo(p2.x, p2.y);
                     }
                 }
             }
         }
         this.ctx.stroke();
+    }
+
+    generateCelestialObjects(seededRandom) {
+        this.celestialObjects = [];
+        const rng = seededRandom || Math.random;
+
+        // DISTANT GALAXIES / STAR CLUSTERS
+        const galaxyCount = Math.floor(rng() * 3) + 2;
+        for (let i = 0; i < galaxyCount; i++) {
+            const size = rng() * 100 + 50;
+            const sprite = document.createElement('canvas');
+            sprite.width = size * 2;
+            sprite.height = size * 2;
+            const sctx = sprite.getContext('2d');
+
+            // Draw a fuzzy spiral or oval
+            const g = sctx.createRadialGradient(size, size, 0, size, size, size);
+            const h = (this.hue + rng() * 60 - 30 + 360) % 360;
+            g.addColorStop(0, `hsla(${h}, 70%, 80%, 0.3)`);
+            g.addColorStop(0.5, `hsla(${h}, 50%, 40%, 0.1)`);
+            g.addColorStop(1, 'transparent');
+            sctx.fillStyle = g;
+            sctx.save();
+            sctx.translate(size, size);
+            sctx.rotate(rng() * Math.PI * 2);
+            sctx.scale(1, rng() * 0.5 + 0.3); // Flatten into oval
+            sctx.beginPath();
+            sctx.arc(0, 0, size, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.restore();
+
+            this.celestialObjects.push({
+                type: 'galaxy',
+                x: rng() * this.width,
+                y: rng() * this.height,
+                z: rng() * 0.2 + 0.1, // Distant
+                vx: (rng() - 0.5) * 0.05,
+                vy: (rng() - 0.5) * 0.05,
+                rotation: rng() * Math.PI * 2,
+                rotationSpeed: (rng() - 0.5) * 0.001,
+                sprite: sprite,
+                size: size
+            });
+        }
+
+        // BACKGROUND PLANET (RARE)
+        if (rng() > 0.4) {
+            const size = rng() * 150 + 100;
+            const sprite = document.createElement('canvas');
+            sprite.width = size * 2;
+            sprite.height = size * 2;
+            const sctx = sprite.getContext('2d');
+
+            const h = (this.hue + 180 + rng() * 40 - 20 + 360) % 360;
+
+            // Planet body
+            const g = sctx.createRadialGradient(size * 0.7, size * 0.7, 0, size, size, size);
+            g.addColorStop(0, `hsla(${h}, 40%, 50%, 1)`);
+            g.addColorStop(0.8, `hsla(${h}, 60%, 20%, 1)`);
+            g.addColorStop(1, `hsla(${h}, 80%, 5%, 1)`);
+
+            sctx.fillStyle = g;
+            sctx.beginPath();
+            sctx.arc(size, size, size * 0.9, 0, Math.PI * 2);
+            sctx.fill();
+
+            // Planet atmosphere/glow
+            const glow = sctx.createRadialGradient(size, size, size * 0.8, size, size, size);
+            glow.addColorStop(0, 'transparent');
+            glow.addColorStop(1, `hsla(${h}, 100%, 70%, 0.3)`);
+            sctx.fillStyle = glow;
+            sctx.beginPath();
+            sctx.arc(size, size, size, 0, Math.PI * 2);
+            sctx.fill();
+
+            this.celestialObjects.push({
+                type: 'planet',
+                x: rng() * this.width,
+                y: rng() * this.height,
+                z: rng() * 0.5 + 0.4,
+                vx: (rng() - 0.5) * 0.1,
+                vy: (rng() - 0.5) * 0.1,
+                rotation: rng() * Math.PI * 2,
+                sprite: sprite,
+                size: size
+            });
+        }
     }
 
     generateNebulas(seededRandom) {
@@ -427,6 +476,32 @@ class BackgroundSystem {
             this.ctx.fillRect(0, 0, this.width, this.height);
         }
 
+        const mx = (mouse.x - this.width / 2) * 0.05;
+        const my = (mouse.y - this.height / 2) * 0.05;
+
+        // DRAW CELESTIAL OBJECTS
+        this.celestialObjects.forEach(obj => {
+            obj.x += obj.vx * this.speedMultiplier;
+            obj.y += obj.vy * this.speedMultiplier;
+            if (obj.rotationSpeed) obj.rotation += obj.rotationSpeed * this.speedMultiplier;
+
+            // Parallax position
+            const px = obj.x - mx * obj.z;
+            const py = obj.y - my * obj.z;
+
+            // Wrap
+            if (px < -obj.size * 2) obj.x += this.width + obj.size * 4;
+            if (px > this.width + obj.size * 2) obj.x -= this.width + obj.size * 4;
+            if (py < -obj.size * 2) obj.y += this.height + obj.size * 4;
+            if (py > this.height + obj.size * 2) obj.y -= this.height + obj.size * 4;
+
+            this.ctx.save();
+            this.ctx.translate(px, py);
+            this.ctx.rotate(obj.rotation);
+            this.ctx.drawImage(obj.sprite, -obj.size, -obj.size);
+            this.ctx.restore();
+        });
+
         // Draw Aurora
         if (!this.isMonochrome) {
             this.drawAurora();
@@ -449,14 +524,14 @@ class BackgroundSystem {
             } else {
                 p = {};
             }
-            p.x = mouse.x + (Math.random() - 0.5) * 10;
-            p.y = mouse.y + (Math.random() - 0.5) * 10;
-            p.vx = (Math.random() - 0.5) * 1; // Slight drift
-            p.vy = (Math.random() - 0.5) * 1;
+            p.x = mouse.x + (this.rng() - 0.5) * 10;
+            p.y = mouse.y + (this.rng() - 0.5) * 10;
+            p.vx = (this.rng() - 0.5) * 1; // Slight drift
+            p.vy = (this.rng() - 0.5) * 1;
             p.life = 1.0;
-            p.decay = 0.02 + Math.random() * 0.03;
-            p.size = 2 + Math.random() * 3;
-            p.hue = (this.tick * 2 + Math.random() * 30) % 360;
+            p.decay = 0.02 + this.rng() * 0.03;
+            p.size = 2 + this.rng() * 3;
+            p.hue = (this.tick * 2 + this.rng() * 30) % 360;
             this.trail.push(p);
         }
 
@@ -519,8 +594,8 @@ class BackgroundSystem {
 
              // Spawn spiraling particles (Accretion)
              if (this.tick % 2 === 0) {
-                 const angle = Math.random() * Math.PI * 2;
-                 const dist = 120 + Math.random() * 50;
+                 const angle = this.rng() * Math.PI * 2;
+                 const dist = 120 + this.rng() * 50;
                  // Calculate velocity towards center but with a spiral offset
                  const dx = mouse.x - (mouse.x + Math.cos(angle) * dist);
                  const dy = mouse.y - (mouse.y + Math.sin(angle) * dist);
@@ -535,7 +610,7 @@ class BackgroundSystem {
                      vy: uy * 5 - ux * 4,
                      life: 40,
                      maxLife: 40,
-                     size: Math.random() * 2 + 1,
+                     size: this.rng() * 2 + 1,
                      color: '150, 200, 255'
                  });
              }
@@ -560,10 +635,6 @@ class BackgroundSystem {
             this.ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
             this.ctx.stroke();
         }
-
-        // Parallax Offset
-        const mx = (mouse.x - this.width / 2) * 0.05;
-        const my = (mouse.y - this.height / 2) * 0.05;
 
         // Draw Nebulas (Dynamic rotation & pulse)
         this.ctx.globalCompositeOperation = 'lighter';
@@ -779,16 +850,21 @@ class BackgroundSystem {
                 // Shift towards cyan/blue/violet at high speeds. Lower lightness to ensure color visibility.
                 const warpColor = `hsl(${200 + speedFactor * 60}, ${80 + speedFactor * 20}%, ${60 + speedFactor * 10}%)`;
 
+                // MOTION BLUR (Vanishing point toward center)
+                const dx = wxNew - this.width / 2;
+                const dy = wyNew - this.height / 2;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const ux = dx / dist;
+                const uy = dy / dist;
+
                 this.ctx.strokeStyle = warpColor;
                 this.ctx.lineWidth = Math.max(1, currentSize * 0.8);
                 this.ctx.beginPath();
                 this.ctx.moveTo(wxNew, wyNew);
 
-                // Streak length based on speed
-                // Increased multiplier significantly because baseVx is very small
-                const len = this.speedMultiplier * 15;
-                // Draw streak opposite to velocity
-                this.ctx.lineTo(wxNew - (star.baseVx + star.vx) * len, wyNew - (star.baseVy + star.vy) * len);
+                // Streak length based on speed and distance from center
+                const len = this.speedMultiplier * (dist / 100 + 1);
+                this.ctx.lineTo(wxNew + ux * len, wyNew + uy * len);
                 this.ctx.stroke();
             } else {
                 // Normal rendering
@@ -819,12 +895,12 @@ class BackgroundSystem {
         this.ctx.globalAlpha = 1.0;
 
         // Shooting Stars
-        if (Math.random() < 0.005) {
+        if (this.rng() < 0.005) {
             this.shootingStars.push({
-                x: Math.random() * this.width,
-                y: Math.random() * this.height,
-                vx: (Math.random() - 0.5) * 20 + 10,
-                vy: (Math.random() - 0.5) * 20 + 10,
+                x: this.rng() * this.width,
+                y: this.rng() * this.height,
+                vx: (this.rng() - 0.5) * 20 + 10,
+                vy: (this.rng() - 0.5) * 20 + 10,
                 life: 30,
                 maxLife: 30
             });

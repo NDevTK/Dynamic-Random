@@ -57,16 +57,17 @@ export function getBezierXY(t, sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey) {
  * @param {Array<object>} particles - An array of particles to tag.
  * @param {object} universeProfile - The current universe profile.
  * @param {boolean} isInitialLoad - Whether this is the initial load.
+ * @param {function} seededRandom - The seeded random number generator.
  */
-export function tagParticles(particles, universeProfile, isInitialLoad) {
+export function tagParticles(particles, universeProfile, isInitialLoad, seededRandom = Math.random) {
     if (!particles) return;
     particles.forEach(p => {
         if (p) {
             if(p.radius_initial === undefined || isInitialLoad) p.radius_initial = p.radius;
             if(p.startX === undefined || isInitialLoad) { p.startX = p.x; p.startY = p.y; }
-            if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = Math.random() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); }
-            if(universeProfile.mutators.includes('SupernovaRemains') && Math.random() < 0.1) { p.isHeavy = true; p.radius *= 2; } else { p.isHeavy = false; }
-            p.seed = Math.random() * 1000;
+            if(universeProfile.mutators.includes('Dwarf & Giant')) { const newSize = seededRandom() > 0.5 ? p.radius * 2 : p.radius * 0.5; p.radius = p.radius_initial = Math.max(1, newSize); }
+            if(universeProfile.mutators.includes('SupernovaRemains') && seededRandom() < 0.1) { p.isHeavy = true; p.radius *= 2; } else { p.isHeavy = false; }
+            p.seed = seededRandom() * 1000;
             p.isCrystalized = false;
             p.isInfected = false;
             p.unravelling = 0;

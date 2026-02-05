@@ -8,6 +8,7 @@ import { setUniverseProfile, setUniverseState, setCurrentSeed, setInitialLoad, s
 import { mulberry32, stringToSeed, generateRandomSeed, hslToHex, tagParticles } from './utils.js';
 import { setRandomGradient, updateUI } from './ui.js';
 import { postProcess } from './post_processing.js';
+import { background } from './background.js';
 
 /**
  * Generates a new universe based on a seed.
@@ -40,7 +41,8 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
 
     // Apply Aesthetics & Physics from Blueprint
     const baseHue = seededRandom() * 360;
-    setRandomGradient(baseHue, blueprint.aesthetic.monochrome, seededRandom, blueprintName === 'VoidTouched' || blueprintName === 'Eldritch');
+    const isDark = blueprintName === 'VoidTouched' || blueprintName === 'Eldritch';
+    setRandomGradient(baseHue, blueprint.aesthetic.monochrome, seededRandom, isDark, blueprintName);
     pJS.particles.color.value = hslToHex((baseHue + 180) % 360, 80, 70);
     pJS.particles.opacity.value = blueprint.aesthetic.opacity || 0.5;
     pJS.particles.number.value = 150; pJS.particles.number.value_max = 400;

@@ -14,9 +14,10 @@ import { background } from './background.js';
  * @param {boolean} isMonochrome - Whether the gradient should be monochrome.
  * @param {function(): number} seededRandom - The seeded random number generator.
  * @param {boolean} isDark - Whether the gradient should be dark.
+ * @param {string} blueprintName - The name of the universe blueprint.
  */
-export function setRandomGradient(hue, isMonochrome, seededRandom, isDark) {
-    background.setTheme(hue, isMonochrome, seededRandom, isDark);
+export function setRandomGradient(hue, isMonochrome, seededRandom, isDark, blueprintName) {
+    background.setTheme(hue, isMonochrome, seededRandom, isDark, blueprintName);
 
     // Clear any previous inline styles that might interfere
     document.body.style.background = '';

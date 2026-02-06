@@ -314,60 +314,76 @@ export class CosmicArchitecture extends Architecture {
         if (isWarp) {
             const speedFactor = Math.min(1, (system.speedMultiplier - 5) / 15);
             ctx.strokeStyle = `hsl(${200 + speedFactor * 60}, 80%, 70%)`;
+            ctx.lineWidth = 2;
             ctx.beginPath();
-        }
+            this.stars.forEach(star => {
+                const px = star.x - mx * star.z;
+                const py = star.y - my * star.z;
+                let wx = px % (system.width + 100);
+                if (wx < -50) wx += system.width + 100;
+                else if (wx > system.width + 50) wx -= system.width + 100;
+                let wy = py % (system.height + 100);
+                if (wy < -50) wy += system.height + 100;
+                else if (wy > system.height + 50) wy -= system.height + 100;
 
-        this.stars.forEach(star => {
-            const px = star.x - mx * star.z;
-            const py = star.y - my * star.z;
-            let wx = px % (system.width + 100);
-            if (wx < -50) wx += system.width + 100;
-            else if (wx > system.width + 50) wx -= system.width + 100;
-            let wy = py % (system.height + 100);
-            if (wy < -50) wy += system.height + 100;
-            else if (wy > system.height + 50) wy -= system.height + 100;
-
-            const sizeMod = 1 + Math.sin(system.tick * star.twinkleSpeed * 1.5 + star.twinklePhase) * 0.3;
-            const currentSize = star.size * sizeMod;
-
-            if (isWarp) {
                 const dx = wx - system.width / 2;
                 const dy = wy - system.height / 2;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const ux = dx / dist;
-                const uy = dy / dist;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
                 const len = system.speedMultiplier * (dist / 100 + 1);
                 ctx.moveTo(wx, wy);
-                ctx.lineTo(wx + ux * len, wy + uy * len);
-            } else {
-                ctx.globalAlpha = Math.max(0, Math.min(1, star.baseAlpha + Math.sin(system.tick * star.twinkleSpeed + star.twinklePhase) * 0.2));
-                ctx.fillStyle = star.color;
-                if (currentSize < 2) {
-                    ctx.fillRect(wx, wy, currentSize, currentSize);
-                } else {
-                    ctx.beginPath();
-                    ctx.arc(wx, wy, currentSize, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+                ctx.lineTo(wx + (dx / dist) * len, wy + (dy / dist) * len);
+            });
+            ctx.stroke();
+        } else {
+            const starColors = ['#ffffff', '#ffe9c4', '#d4fbff', '#ffdede', '#e0ffff'];
+            starColors.forEach(color => {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                this.stars.forEach(star => {
+                    if (star.color !== color) return;
+                    const px = star.x - mx * star.z;
+                    const py = star.y - my * star.z;
+                    let wx = px % (system.width + 100);
+                    if (wx < -50) wx += system.width + 100;
+                    else if (wx > system.width + 50) wx -= system.width + 100;
+                    let wy = py % (system.height + 100);
+                    if (wy < -50) wy += system.height + 100;
+                    else if (wy > system.height + 50) wy -= system.height + 100;
 
-                // Mouse Constellation (only in non-warp)
+                    const sizeMod = 1 + Math.sin(system.tick * star.twinkleSpeed * 1.5 + star.twinklePhase) * 0.3;
+                    const currentSize = star.size * sizeMod;
+
+                    // Batched arc drawing (twinkle handled by size modulation instead of alpha for speed)
+                    ctx.moveTo(wx + currentSize, wy);
+                    ctx.arc(wx, wy, currentSize, 0, Math.PI * 2);
+                });
+                ctx.fill();
+            });
+
+            // Mouse Constellations (separate pass)
+            ctx.lineWidth = 1;
+            this.stars.forEach(star => {
+                const px = star.x - mx * star.z;
+                const py = star.y - my * star.z;
+                let wx = px % (system.width + 100);
+                if (wx < -50) wx += system.width + 100;
+                else if (wx > system.width + 50) wx -= system.width + 100;
+                let wy = py % (system.height + 100);
+                if (wy < -50) wy += system.height + 100;
+                else if (wy > system.height + 50) wy -= system.height + 100;
+
                 const cdx = mouse.x - wx;
                 const cdy = mouse.y - wy;
                 const cDistSq = cdx * cdx + cdy * cdy;
                 if (cDistSq < 22500) {
                     ctx.globalAlpha = 1 - (cDistSq / 22500);
                     ctx.strokeStyle = star.color;
-                    ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(mouse.x, mouse.y);
                     ctx.lineTo(wx, wy);
                     ctx.stroke();
                 }
-            }
-        });
-        if (isWarp) {
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            });
         }
         ctx.globalAlpha = 1.0;
     }
@@ -402,11 +418,11 @@ export class CosmicArchitecture extends Architecture {
         const ctx = system.ctx;
         system.spatialGrid.clear();
         this.stars.forEach(s => system.spatialGrid.insert(s));
-        ctx.beginPath();
-        ctx.strokeStyle = `rgba(255, 255, 255, 0.05)`;
-        ctx.lineWidth = 1;
+
+        const path = new Path2D();
         const mx = (mouse.x - system.width / 2) * 0.05;
         const my = (mouse.y - system.height / 2) * 0.05;
+
         for (let i = 0; i < this.stars.length; i++) {
             const s1 = this.stars[i];
             const nearby = system.spatialGrid.getNearby(s1.x, s1.y, 150);
@@ -416,16 +432,30 @@ export class CosmicArchitecture extends Architecture {
                 const dx = s1.x - s2.x;
                 const dy = s1.y - s2.y;
                 if (dx * dx + dy * dy < 22500) {
-                    const p1x = (s1.x - mx * s1.z) % (system.width + 100);
-                    const p1y = (s1.y - my * s1.z) % (system.height + 100);
-                    const p2x = (s2.x - mx * s2.z) % (system.width + 100);
-                    const p2y = (s2.y - my * s2.z) % (system.height + 100);
-                    ctx.moveTo(p1x, p1y);
-                    ctx.lineTo(p2x, p2y);
+                    let p1x = (s1.x - mx * s1.z) % (system.width + 100);
+                    if (p1x < -50) p1x += system.width + 100;
+                    else if (p1x > system.width + 50) p1x -= system.width + 100;
+                    let p1y = (s1.y - my * s1.z) % (system.height + 100);
+                    if (p1y < -50) p1y += system.height + 100;
+                    else if (p1y > system.height + 50) p1y -= system.height + 100;
+
+                    let p2x = (s2.x - mx * s2.z) % (system.width + 100);
+                    if (p2x < -50) p2x += system.width + 100;
+                    else if (p2x > system.width + 50) p2x -= system.width + 100;
+                    let p2y = (s2.y - my * s2.z) % (system.height + 100);
+                    if (p2y < -50) p2y += system.height + 100;
+                    else if (p2y > system.height + 50) p2y -= system.height + 100;
+
+                    if (Math.abs(p1x - p2x) < 200 && Math.abs(p1y - p2y) < 200) {
+                        path.moveTo(p1x, p1y);
+                        path.lineTo(p2x, p2y);
+                    }
                 }
             }
         }
-        ctx.stroke();
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.05)`;
+        ctx.lineWidth = 1;
+        ctx.stroke(path);
     }
 
     ctxDrawWrapped(ctx, sprite, x, y, size, rotation, system) {

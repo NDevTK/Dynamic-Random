@@ -6,6 +6,10 @@
 import { mouse } from './state.js';
 import { SpatialGrid } from './spatial_grid.js';
 import { CosmicArchitecture, DigitalArchitecture, GeometricArchitecture } from './background_architectures.js';
+import { OrganicArchitecture } from './organic_architecture.js';
+import { FlowArchitecture } from './flow_architecture.js';
+import { AbstractArchitecture } from './abstract_architecture.js';
+import { GlitchArchitecture } from './glitch_architecture.js';
 
 class BackgroundSystem {
     constructor() {
@@ -109,10 +113,24 @@ class BackgroundSystem {
 
         const digitalBlueprints = ['Digital', 'TechnoUtopia', 'NeonCyber'];
         const geometricBlueprints = ['Crystalline', 'GlassySea', 'Papercraft', 'ArcaneCodex'];
+        const organicBlueprints = ['Organic', 'BioMechanical', 'FungalForest', 'SentientSwarm', 'CoralReef', 'GooeyMess', 'AbyssalHorror'];
+        const flowBlueprints = ['Aetherial', 'PhantomEcho', 'ChronoVerse', 'QuantumFoam', 'SonicScapes', 'ChromaticAberration', 'GlassySea'];
+        const abstractBlueprints = ['Painterly', 'StarForged', 'CelestialForge', 'LivingConstellation', 'StellarNursery', 'LivingInk', 'MoltenHeart', 'VolcanicForge'];
 
-        if (digitalBlueprints.includes(blueprintName)) this.architecture = new DigitalArchitecture();
-        else if (geometricBlueprints.includes(blueprintName)) this.architecture = new GeometricArchitecture();
-        else this.architecture = new CosmicArchitecture();
+        if (organicBlueprints.includes(blueprintName)) {
+            this.architecture = new OrganicArchitecture();
+        } else if (flowBlueprints.includes(blueprintName)) {
+            this.architecture = new FlowArchitecture();
+        } else if (abstractBlueprints.includes(blueprintName)) {
+            this.architecture = new AbstractArchitecture();
+        } else if (digitalBlueprints.includes(blueprintName)) {
+            // Mix Digital and Glitch for variety
+            this.architecture = this.rng() > 0.5 ? new GlitchArchitecture() : new DigitalArchitecture();
+        } else if (geometricBlueprints.includes(blueprintName)) {
+            this.architecture = new GeometricArchitecture();
+        } else {
+            this.architecture = new CosmicArchitecture();
+        }
 
         this.updateThemeColors();
         this.architecture.init(this);
@@ -159,6 +177,16 @@ class BackgroundSystem {
 
         if (!this.isDark && this.tick % 30 === 0) this.updateThemeColors();
 
+        this.ctx.save();
+
+        // Warp Distortion Effect (Radial Zoom)
+        if (this.speedMultiplier > 2) {
+            const zoom = 1 + (this.speedMultiplier - 1) * 0.002;
+            this.ctx.translate(this.width / 2, this.height / 2);
+            this.ctx.scale(zoom, zoom);
+            this.ctx.translate(-this.width / 2, -this.height / 2);
+        }
+
         if (this.gradient) {
             this.ctx.fillStyle = this.gradient;
             this.ctx.fillRect(0, 0, this.width, this.height);
@@ -168,11 +196,14 @@ class BackgroundSystem {
         this.architecture.draw(this);
         this.drawInteractiveEffects();
 
+        this.ctx.restore();
+
         requestAnimationFrame(this.loop);
     }
 
     drawInteractiveEffects() {
         const ctx = this.ctx;
+
         // Warp Speed Energy Sparks
         if (this.speedMultiplier > 5) {
             ctx.globalCompositeOperation = 'lighter';
@@ -220,6 +251,19 @@ class BackgroundSystem {
         // Gravity Well Visual (Enhanced)
         if (this.isGravityWell) {
              const pulse = Math.sin(this.tick * 0.2) * 5;
+
+             // Gravity Distortion (Visual Pull)
+             ctx.save();
+             ctx.globalCompositeOperation = 'soft-light';
+             const warpGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 400);
+             warpGrad.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
+             warpGrad.addColorStop(1, 'transparent');
+             ctx.fillStyle = warpGrad;
+             ctx.beginPath();
+             ctx.arc(mouse.x, mouse.y, 400, 0, Math.PI * 2);
+             ctx.fill();
+             ctx.restore();
+
              ctx.fillStyle = 'rgba(0, 0, 0, 1)';
              ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 40 + pulse, 0, Math.PI * 2); ctx.fill();
 

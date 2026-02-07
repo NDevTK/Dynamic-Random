@@ -109,6 +109,8 @@ export class FlowArchitecture extends Architecture {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
+        const headPath = new Path2D();
+
         this.particles.forEach(p => {
             const alpha = Math.max(0, p.life / p.maxLife);
 
@@ -129,12 +131,14 @@ export class FlowArchitecture extends Architecture {
             ctx.lineTo(p.x - (p.vx / speed || 0) * length, p.y - (p.vy / speed || 0) * length);
             ctx.stroke();
 
-            // Small glow at the head
-            ctx.fillStyle = `hsla(${p.hue}, 90%, 70%, ${alpha * 0.6})`;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, (p.size / 2) * alpha, 0, Math.PI * 2);
-            ctx.fill();
+            // Batched head glow
+            const headSize = (p.size / 2) * alpha;
+            headPath.moveTo(p.x + headSize, p.y);
+            headPath.arc(p.x, p.y, headSize, 0, Math.PI * 2);
         });
+
+        ctx.fillStyle = `hsla(${system.hue}, 90%, 70%, 0.4)`;
+        ctx.fill(headPath);
 
         ctx.restore();
     }

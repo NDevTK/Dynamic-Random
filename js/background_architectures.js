@@ -27,6 +27,8 @@ export class CosmicArchitecture extends Architecture {
         this.celestialObjects = [];
         this.pulsars = [];
         this.auroraOffset = 0;
+        this.constellationPath = null;
+        this.lastConstellationUpdate = 0;
     }
 
     init(system) {
@@ -416,46 +418,52 @@ export class CosmicArchitecture extends Architecture {
     drawConstellations(system) {
         if (system.speedMultiplier > 5) return;
         const ctx = system.ctx;
-        system.spatialGrid.clear();
-        this.stars.forEach(s => system.spatialGrid.insert(s));
 
-        const path = new Path2D();
         const mx = (mouse.x - system.width / 2) * 0.05;
         const my = (mouse.y - system.height / 2) * 0.05;
 
-        for (let i = 0; i < this.stars.length; i++) {
-            const s1 = this.stars[i];
-            const nearby = system.spatialGrid.getNearby(s1.x, s1.y, 150);
-            for (let j = 0; j < nearby.length; j++) {
-                const s2 = nearby[j];
-                if (s1.index >= s2.index) continue;
-                const dx = s1.x - s2.x;
-                const dy = s1.y - s2.y;
-                if (dx * dx + dy * dy < 22500) {
-                    let p1x = (s1.x - mx * s1.z) % (system.width + 100);
-                    if (p1x < -50) p1x += system.width + 100;
-                    else if (p1x > system.width + 50) p1x -= system.width + 100;
-                    let p1y = (s1.y - my * s1.z) % (system.height + 100);
-                    if (p1y < -50) p1y += system.height + 100;
-                    else if (p1y > system.height + 50) p1y -= system.height + 100;
+        // Throttle spatial grid and path updates
+        if (!this.constellationPath || system.tick - this.lastConstellationUpdate > 5) {
+            system.spatialGrid.clear();
+            this.stars.forEach(s => system.spatialGrid.insert(s));
 
-                    let p2x = (s2.x - mx * s2.z) % (system.width + 100);
-                    if (p2x < -50) p2x += system.width + 100;
-                    else if (p2x > system.width + 50) p2x -= system.width + 100;
-                    let p2y = (s2.y - my * s2.z) % (system.height + 100);
-                    if (p2y < -50) p2y += system.height + 100;
-                    else if (p2y > system.height + 50) p2y -= system.height + 100;
+            this.constellationPath = new Path2D();
+            for (let i = 0; i < this.stars.length; i++) {
+                const s1 = this.stars[i];
+                const nearby = system.spatialGrid.getNearby(s1.x, s1.y, 150);
+                for (let j = 0; j < nearby.length; j++) {
+                    const s2 = nearby[j];
+                    if (s1.index >= s2.index) continue;
+                    const dx = s1.x - s2.x;
+                    const dy = s1.y - s2.y;
+                    if (dx * dx + dy * dy < 22500) {
+                        let p1x = (s1.x - mx * s1.z) % (system.width + 100);
+                        if (p1x < -50) p1x += system.width + 100;
+                        else if (p1x > system.width + 50) p1x -= system.width + 100;
+                        let p1y = (s1.y - my * s1.z) % (system.height + 100);
+                        if (p1y < -50) p1y += system.height + 100;
+                        else if (p1y > system.height + 50) p1y -= system.height + 100;
 
-                    if (Math.abs(p1x - p2x) < 200 && Math.abs(p1y - p2y) < 200) {
-                        path.moveTo(p1x, p1y);
-                        path.lineTo(p2x, p2y);
+                        let p2x = (s2.x - mx * s2.z) % (system.width + 100);
+                        if (p2x < -50) p2x += system.width + 100;
+                        else if (p2x > system.width + 50) p2x -= system.width + 100;
+                        let p2y = (s2.y - my * s2.z) % (system.height + 100);
+                        if (p2y < -50) p2y += system.height + 100;
+                        else if (p2y > system.height + 50) p2y -= system.height + 100;
+
+                        if (Math.abs(p1x - p2x) < 200 && Math.abs(p1y - p2y) < 200) {
+                            this.constellationPath.moveTo(p1x, p1y);
+                            this.constellationPath.lineTo(p2x, p2y);
+                        }
                     }
                 }
             }
+            this.lastConstellationUpdate = system.tick;
         }
+
         ctx.strokeStyle = `rgba(255, 255, 255, 0.05)`;
         ctx.lineWidth = 1;
-        ctx.stroke(path);
+        ctx.stroke(this.constellationPath);
     }
 
     ctxDrawWrapped(ctx, sprite, x, y, size, rotation, system) {

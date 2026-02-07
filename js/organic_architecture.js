@@ -89,6 +89,7 @@ export class OrganicArchitecture extends Architecture {
         ctx.strokeStyle = `hsla(${system.hue}, 50%, 30%, 0.15)`;
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
+        const tendrilPath = new Path2D();
         for (let i = 0; i < this.nodes.length; i++) {
             const n1 = this.nodes[i];
             for (let j = i + 1; j < this.nodes.length; j++) {
@@ -98,13 +99,12 @@ export class OrganicArchitecture extends Architecture {
                 if (dx * dx + dy * dy < 62500) { // 250px
                     const midX = (n1.x + n2.x) / 2 + Math.sin(tick * 0.01 + i) * 30;
                     const midY = (n1.y + n2.y) / 2 + Math.cos(tick * 0.01 + j) * 30;
-                    ctx.beginPath();
-                    ctx.moveTo(n1.x, n1.y);
-                    ctx.quadraticCurveTo(midX, midY, n2.x, n2.y);
-                    ctx.stroke();
+                    tendrilPath.moveTo(n1.x, n1.y);
+                    tendrilPath.quadraticCurveTo(midX, midY, n2.x, n2.y);
                 }
             }
         }
+        ctx.stroke(tendrilPath);
 
         // Nodes (Bioluminescent organs)
         this.nodes.forEach(n => {

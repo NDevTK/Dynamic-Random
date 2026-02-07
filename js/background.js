@@ -10,6 +10,9 @@ import { OrganicArchitecture } from './organic_architecture.js';
 import { FlowArchitecture } from './flow_architecture.js';
 import { AbstractArchitecture } from './abstract_architecture.js';
 import { GlitchArchitecture } from './glitch_architecture.js';
+import { FabricArchitecture } from './fabric_architecture.js';
+import { VoxelArchitecture } from './voxel_architecture.js';
+import { FractalArchitecture } from './fractal_architecture.js';
 
 class BackgroundSystem {
     constructor() {
@@ -27,12 +30,17 @@ class BackgroundSystem {
         this.height = window.innerHeight;
         this.rng = Math.random;
 
+        // Offscreen canvas for background optimization
+        this.offscreenCanvas = document.createElement('canvas');
+        this.offscreenCtx = this.offscreenCanvas.getContext('2d', { alpha: false });
+
         // Theme properties
         this.hue = 0;
         this.isMonochrome = false;
         this.isDark = false;
         this.gradientColors = ['#0a050d', '#120510', '#000000'];
         this.gradient = null;
+        this.bgMutators = [];
 
         // Animation
         this.tick = 0;
@@ -92,6 +100,9 @@ class BackgroundSystem {
         this.height = window.innerHeight;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
+        this.offscreenCanvas.width = this.width;
+        this.offscreenCanvas.height = this.height;
+
         if (!this.spatialGrid) {
             this.spatialGrid = new SpatialGrid(this.width, this.height, this.cellSize);
         } else {
@@ -101,8 +112,12 @@ class BackgroundSystem {
     }
 
     updateGradient() {
-        this.gradient = this.ctx.createLinearGradient(0, 0, this.width, this.height);
+        const ctx = this.offscreenCtx;
+        this.gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
         this.gradientColors.forEach((c, i) => this.gradient.addColorStop(i / (this.gradientColors.length - 1), c));
+
+        ctx.fillStyle = this.gradient;
+        ctx.fillRect(0, 0, this.width, this.height);
     }
 
     setTheme(hue, isMonochrome, seededRandom, isDark, blueprintName) {
@@ -116,8 +131,17 @@ class BackgroundSystem {
         const organicBlueprints = ['Organic', 'BioMechanical', 'FungalForest', 'SentientSwarm', 'CoralReef', 'GooeyMess', 'AbyssalHorror'];
         const flowBlueprints = ['Aetherial', 'PhantomEcho', 'ChronoVerse', 'QuantumFoam', 'SonicScapes', 'ChromaticAberration', 'GlassySea'];
         const abstractBlueprints = ['Painterly', 'StarForged', 'CelestialForge', 'LivingConstellation', 'StellarNursery', 'LivingInk', 'MoltenHeart', 'VolcanicForge'];
+        const fabricBlueprints = ['SilkWeaver', 'CosmicWeb', 'PhantomEcho'];
+        const voxelBlueprints = ['TechnoUtopia', 'Geometric', 'Digital'];
+        const fractalBlueprints = ['Crystalline', 'Fractal', 'ArcaneCodex'];
 
-        if (organicBlueprints.includes(blueprintName)) {
+        if (fabricBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new FabricArchitecture();
+        } else if (voxelBlueprints.includes(blueprintName) && this.rng() > 0.6) {
+            this.architecture = new VoxelArchitecture();
+        } else if (fractalBlueprints.includes(blueprintName) && this.rng() > 0.6) {
+            this.architecture = new FractalArchitecture();
+        } else if (organicBlueprints.includes(blueprintName)) {
             this.architecture = new OrganicArchitecture();
         } else if (flowBlueprints.includes(blueprintName)) {
             this.architecture = new FlowArchitecture();
@@ -131,6 +155,12 @@ class BackgroundSystem {
         } else {
             this.architecture = new CosmicArchitecture();
         }
+
+        // Randomize background mutators based on seed
+        this.bgMutators = [];
+        if (this.rng() > 0.7) this.bgMutators.push('Vignette');
+        if (this.rng() > 0.8) this.bgMutators.push('Noise');
+        if (this.rng() > 0.9) this.bgMutators.push('Scanlines');
 
         this.updateThemeColors();
         this.architecture.init(this);
@@ -187,18 +217,49 @@ class BackgroundSystem {
             this.ctx.translate(-this.width / 2, -this.height / 2);
         }
 
-        if (this.gradient) {
-            this.ctx.fillStyle = this.gradient;
-            this.ctx.fillRect(0, 0, this.width, this.height);
-        }
+        // Draw cached gradient background
+        this.ctx.drawImage(this.offscreenCanvas, 0, 0);
 
         this.architecture.update(this);
         this.architecture.draw(this);
         this.drawInteractiveEffects();
+        this.applyBGMutators();
 
         this.ctx.restore();
 
         requestAnimationFrame(this.loop);
+    }
+
+    applyBGMutators() {
+        const ctx = this.ctx;
+        if (this.bgMutators.includes('Vignette')) {
+            const g = ctx.createRadialGradient(this.width/2, this.height/2, this.width/4, this.width/2, this.height/2, this.width*0.7);
+            g.addColorStop(0, 'transparent');
+            g.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
+        if (this.bgMutators.includes('Noise')) {
+            ctx.save();
+            ctx.globalAlpha = 0.03;
+            for(let i=0; i<10; i++) {
+                const x = this.rng() * this.width;
+                const y = this.rng() * this.height;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x, y, 1, 1);
+            }
+            ctx.restore();
+        }
+        if (this.bgMutators.includes('Scanlines')) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let y=0; y<this.height; y+=4) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(this.width, y);
+            }
+            ctx.stroke();
+        }
     }
 
     drawInteractiveEffects() {

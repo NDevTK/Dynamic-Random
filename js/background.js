@@ -21,6 +21,9 @@ import { TerrainArchitecture } from './terrain_architecture.js';
 import { LavaArchitecture } from './lava_architecture.js';
 import { LifeArchitecture } from './life_architecture.js';
 import { SynthwaveArchitecture } from './synthwave_architecture.js';
+import { PendulumArchitecture } from './pendulum_architecture.js';
+import { InkArchitecture } from './ink_architecture.js';
+import { CircuitGrowthArchitecture } from './circuit_growth_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -41,7 +44,10 @@ const ALL_ARCHITECTURES = [
     () => new TerrainArchitecture(),
     () => new LavaArchitecture(),
     () => new LifeArchitecture(),
-    () => new SynthwaveArchitecture()
+    () => new SynthwaveArchitecture(),
+    () => new PendulumArchitecture(),
+    () => new InkArchitecture(),
+    () => new CircuitGrowthArchitecture()
 ];
 
 class BackgroundSystem {
@@ -185,9 +191,28 @@ class BackgroundSystem {
         const lifeBlueprints = ['SentientSwarm', 'BioMechanical', 'Organic', 'FungalForest', 'CoralReef', 'QuantumFoam'];
         const synthwaveBlueprints = ['NeonCyber', 'TechnoUtopia', 'Digital', 'SonicScapes', 'ChromaticAberration'];
 
+        // Pendulum wave: physics-oriented / temporal / harmonic themes
+        const pendulumBlueprints = ['ChronoVerse', 'PhantomEcho', 'SonicScapes', 'GlacialDrift', 'Classical', 'Papercraft'];
+        // Ink diffusion: artistic / fluid / painterly themes
+        const inkBlueprints = ['Painterly', 'LivingInk', 'ChromaticAberration', 'GooeyMess', 'Aetherial'];
+        // Circuit growth: tech / digital / mechanical themes
+        const circuitGrowthBlueprints = ['Digital', 'TechnoUtopia', 'BioMechanical', 'NeonCyber', 'ArcaneCodex'];
+
         // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.18) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
+        }
+        // Pendulum wave: physics/temporal themes
+        else if (pendulumBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new PendulumArchitecture();
+        }
+        // Ink diffusion: artistic/fluid themes
+        else if (inkBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new InkArchitecture();
+        }
+        // Circuit growth: tech/digital themes
+        else if (circuitGrowthBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new CircuitGrowthArchitecture();
         }
         // Lava lamp: molten/gooey/abyssal themes
         else if (lavaBlueprints.includes(blueprintName) && this.rng() > 0.45) {
@@ -241,11 +266,14 @@ class BackgroundSystem {
         } else {
             // Default: choose from expanded set based on seed
             const roll = this.rng();
-            if (roll > 0.8) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.65) this.architecture = new LavaArchitecture();
-            else if (roll > 0.5) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.3) this.architecture = new AuroraArchitecture();
-            else if (roll > 0.15) this.architecture = new LifeArchitecture();
+            if (roll > 0.86) this.architecture = new PendulumArchitecture();
+            else if (roll > 0.72) this.architecture = new InkArchitecture();
+            else if (roll > 0.6) this.architecture = new CircuitGrowthArchitecture();
+            else if (roll > 0.5) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.4) this.architecture = new LavaArchitecture();
+            else if (roll > 0.3) this.architecture = new TerrainArchitecture();
+            else if (roll > 0.2) this.architecture = new AuroraArchitecture();
+            else if (roll > 0.1) this.architecture = new LifeArchitecture();
             else this.architecture = new CosmicArchitecture();
         }
 
@@ -278,7 +306,12 @@ class BackgroundSystem {
             const s = this.sparks[i];
             s.x += s.vx; s.y += s.vy; s.life--;
             s.vx *= 0.9; s.vy *= 0.9;
-            if (s.life <= 0) { this.sparkPool.push(this.sparks.splice(i, 1)[0]); continue; }
+            if (s.life <= 0) {
+                this.sparkPool.push(s);
+                this.sparks[i] = this.sparks[this.sparks.length - 1];
+                this.sparks.pop();
+                continue;
+            }
             const alpha = s.life / s.maxLife;
             this.ctx.fillStyle = `rgba(${s.color}, ${alpha})`;
             this.ctx.beginPath(); this.ctx.arc(s.x, s.y, s.size * alpha, 0, Math.PI * 2); this.ctx.fill();
@@ -338,14 +371,17 @@ class BackgroundSystem {
             ctx.fillRect(0, 0, this.width, this.height);
         }
         if (this.bgMutators.includes('Noise')) {
+            // Batched noise rendering: draw small random rectangles in a single path
             ctx.save();
             ctx.globalAlpha = 0.03;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
             for(let i=0; i<10; i++) {
                 const x = this.rng() * this.width;
                 const y = this.rng() * this.height;
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(x, y, 1, 1);
+                ctx.rect(x, y, 1, 1);
             }
+            ctx.fill();
             ctx.restore();
         }
         if (this.bgMutators.includes('Scanlines')) {
@@ -406,7 +442,12 @@ class BackgroundSystem {
                  const dx = p.x - mouse.x; const dy = p.y - mouse.y; const dist = Math.sqrt(dx*dx + dy*dy);
                  if (dist > 50 && dist < 300) { p.x -= (dx/dist) * 2; p.y -= (dy/dist) * 2; }
             }
-            if (p.life <= 0) { this.trailPool.push(this.trail.splice(i, 1)[0]); continue; }
+            if (p.life <= 0) {
+                this.trailPool.push(p);
+                this.trail[i] = this.trail[this.trail.length - 1];
+                this.trail.pop();
+                continue;
+            }
             ctx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.life})`;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
         }
@@ -455,7 +496,11 @@ class BackgroundSystem {
         for (let i = this.shockwaves.length - 1; i >= 0; i--) {
             const sw = this.shockwaves[i];
             sw.radius += sw.speed; sw.alpha = 1 - (sw.radius / sw.maxRadius);
-            if (sw.alpha <= 0) { this.shockwaves.splice(i, 1); continue; }
+            if (sw.alpha <= 0) {
+                this.shockwaves[i] = this.shockwaves[this.shockwaves.length - 1];
+                this.shockwaves.pop();
+                continue;
+            }
             ctx.beginPath(); ctx.strokeStyle = `rgba(255, 255, 255, ${sw.alpha * 0.3})`;
             ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2); ctx.stroke();
         }
@@ -467,7 +512,11 @@ class BackgroundSystem {
         for (let i = this.shootingStars.length - 1; i >= 0; i--) {
             const s = this.shootingStars[i];
             s.x += s.vx; s.y += s.vy; s.life--;
-            if (s.life <= 0) { this.shootingStars.splice(i, 1); continue; }
+            if (s.life <= 0) {
+                this.shootingStars[i] = this.shootingStars[this.shootingStars.length - 1];
+                this.shootingStars.pop();
+                continue;
+            }
             const opacity = s.life / s.maxLife;
             ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
             ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2); ctx.stroke();

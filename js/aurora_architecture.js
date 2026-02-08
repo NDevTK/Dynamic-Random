@@ -128,30 +128,36 @@ export class AuroraArchitecture extends Architecture {
         const mx = mouse.x;
         const my = mouse.y;
 
-        // Stars first (behind aurora)
+        // Stars first (behind aurora) - batch by color for fewer state changes
         ctx.save();
-        this.groundStars.forEach(s => {
+        ctx.fillStyle = '#fff';
+        for (let i = 0; i < this.groundStars.length; i++) {
+            const s = this.groundStars[i];
             const twinkle = Math.sin(tick * s.twinkleSpeed + s.twinkle) * 0.3 + 0.7;
             ctx.globalAlpha = s.alpha * twinkle;
-            ctx.fillStyle = '#fff';
             ctx.beginPath();
             ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
             ctx.fill();
-        });
+        }
         ctx.globalAlpha = 1;
         ctx.restore();
 
-        // Draw each curtain
+        // Draw each curtain using solid-color bands instead of per-strip gradients
+        // This eliminates hundreds of createLinearGradient calls per frame
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        this.curtains.forEach((curtain, ci) => {
-            const step = 3; // pixels between sample points
+        const step = 5; // Wider step for performance (was 3)
+        const bands = 4; // Number of vertical bands to approximate gradient
+
+        for (let ci = 0; ci < this.curtains.length; ci++) {
+            const curtain = this.curtains[ci];
             const { h, s, l } = curtain.color;
+            const h2 = (h + 20) % 360;
+            const s2 = s - 10;
+            const l2 = l - 10;
 
             for (let x = 0; x < system.width; x += step) {
-                const normX = x / system.width;
-
                 // Primary wave
                 const wave1 = Math.sin(x * curtain.frequency + tick * 0.01 * curtain.speed + curtain.phase + this.magneticPulse * 50) * curtain.amplitude;
                 // Secondary undulation
@@ -172,7 +178,8 @@ export class AuroraArchitecture extends Architecture {
                 }
 
                 // Wave disruptions from shockwaves
-                for (const d of this.disruptions) {
+                for (let di = 0; di < this.disruptions.length; di++) {
+                    const d = this.disruptions[di];
                     const ddx = x - d.x;
                     const ddy = yTop - d.y;
                     const dDist = Math.sqrt(ddx * ddx + ddy * ddy);
@@ -184,29 +191,33 @@ export class AuroraArchitecture extends Architecture {
                 // Shimmer: varying intensity along the curtain
                 const shimmer = (Math.sin(x * 0.02 + tick * curtain.shimmerSpeed) * 0.5 + 0.5);
                 const intensityHere = curtain.intensity * (0.5 + shimmer * 0.5);
-
-                // Height variation
                 const heightHere = curtain.height * (0.7 + shimmer * 0.3);
+                const bandH = heightHere / bands;
 
-                // Draw vertical gradient strip
-                const grad = ctx.createLinearGradient(x, yTop, x, yTop + heightHere);
-                grad.addColorStop(0, `hsla(${h}, ${s}%, ${l + 15}%, ${intensityHere * 1.5})`);
-                grad.addColorStop(0.3, `hsla(${h}, ${s}%, ${l}%, ${intensityHere})`);
-                grad.addColorStop(0.7, `hsla(${(h + 20) % 360}, ${s - 10}%, ${l - 10}%, ${intensityHere * 0.5})`);
-                grad.addColorStop(1, 'transparent');
-
-                ctx.fillStyle = grad;
-                ctx.fillRect(x, yTop, step + 1, heightHere);
+                // Draw 4 solid-color bands to approximate the vertical gradient
+                // Band 0 (top): bright, high alpha
+                ctx.fillStyle = `hsla(${h}, ${s}%, ${l + 15}%, ${intensityHere * 1.5})`;
+                ctx.fillRect(x, yTop, step + 1, bandH);
+                // Band 1: primary color
+                ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${intensityHere})`;
+                ctx.fillRect(x, yTop + bandH, step + 1, bandH);
+                // Band 2: shifted hue, lower alpha
+                ctx.fillStyle = `hsla(${h2}, ${s2}%, ${l2}%, ${intensityHere * 0.5})`;
+                ctx.fillRect(x, yTop + bandH * 2, step + 1, bandH);
+                // Band 3 (bottom): fading out
+                ctx.fillStyle = `hsla(${h2}, ${s2}%, ${l2}%, ${intensityHere * 0.15})`;
+                ctx.fillRect(x, yTop + bandH * 3, step + 1, bandH);
             }
-        });
+        }
 
         // Bright highlight streaks along the top edge of curtains
-        this.curtains.forEach(curtain => {
+        for (let ci = 0; ci < this.curtains.length; ci++) {
+            const curtain = this.curtains[ci];
             const { h, s, l } = curtain.color;
             ctx.strokeStyle = `hsla(${h}, ${s}%, ${l + 30}%, 0.15)`;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            for (let x = 0; x < system.width; x += 6) {
+            for (let x = 0; x < system.width; x += 8) {
                 const wave1 = Math.sin(x * curtain.frequency + tick * 0.01 * curtain.speed + curtain.phase + this.magneticPulse * 50) * curtain.amplitude;
                 const wave2 = Math.sin(x * curtain.secondaryFreq + tick * 0.02 * curtain.speed) * curtain.secondaryAmp;
                 const y = curtain.yBase + wave1 + wave2;
@@ -214,7 +225,7 @@ export class AuroraArchitecture extends Architecture {
                 else ctx.lineTo(x, y);
             }
             ctx.stroke();
-        });
+        }
 
         ctx.globalCompositeOperation = 'source-over';
         ctx.restore();

@@ -18,6 +18,9 @@ import { FireflyArchitecture } from './firefly_architecture.js';
 import { RaindropArchitecture } from './raindrop_architecture.js';
 import { KaleidoscopeArchitecture } from './kaleidoscope_architecture.js';
 import { TerrainArchitecture } from './terrain_architecture.js';
+import { LavaArchitecture } from './lava_architecture.js';
+import { LifeArchitecture } from './life_architecture.js';
+import { SynthwaveArchitecture } from './synthwave_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -35,7 +38,10 @@ const ALL_ARCHITECTURES = [
     () => new FireflyArchitecture(),
     () => new RaindropArchitecture(),
     () => new KaleidoscopeArchitecture(),
-    () => new TerrainArchitecture()
+    () => new TerrainArchitecture(),
+    () => new LavaArchitecture(),
+    () => new LifeArchitecture(),
+    () => new SynthwaveArchitecture()
 ];
 
 class BackgroundSystem {
@@ -174,11 +180,28 @@ class BackgroundSystem {
         const kaleidoscopeBlueprints = ['ChromaticAberration', 'ArcaneCodex', 'Crystalline', 'QuantumFoam', 'Eldritch'];
         const terrainBlueprints = ['Classical', 'StarForged', 'StellarNursery', 'CelestialForge', 'VolcanicForge', 'MoltenHeart'];
 
-        // Wildcard: 15% chance to pick a completely random architecture for maximum diversity
-        if (this.rng() < 0.15) {
+        // New architecture blueprint mappings
+        const lavaBlueprints = ['VolcanicForge', 'MoltenHeart', 'GooeyMess', 'AbyssalHorror', 'AbyssalZone'];
+        const lifeBlueprints = ['SentientSwarm', 'BioMechanical', 'Organic', 'FungalForest', 'CoralReef', 'QuantumFoam'];
+        const synthwaveBlueprints = ['NeonCyber', 'TechnoUtopia', 'Digital', 'SonicScapes', 'ChromaticAberration'];
+
+        // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
+        if (this.rng() < 0.18) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
         }
-        // New architectures get priority checks with seed-based randomness
+        // Lava lamp: molten/gooey/abyssal themes
+        else if (lavaBlueprints.includes(blueprintName) && this.rng() > 0.45) {
+            this.architecture = new LavaArchitecture();
+        }
+        // Particle life: swarm/bio/organic themes
+        else if (lifeBlueprints.includes(blueprintName) && this.rng() > 0.45) {
+            this.architecture = new LifeArchitecture();
+        }
+        // Synthwave: neon/digital/cyber themes
+        else if (synthwaveBlueprints.includes(blueprintName) && this.rng() > 0.4) {
+            this.architecture = new SynthwaveArchitecture();
+        }
+        // Existing architecture checks
         else if (auroraBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new AuroraArchitecture();
         } else if (fireflyBlueprints.includes(blueprintName) && this.rng() > 0.45) {
@@ -196,26 +219,33 @@ class BackgroundSystem {
         } else if (fractalBlueprints.includes(blueprintName) && this.rng() > 0.6) {
             this.architecture = new FractalArchitecture();
         } else if (organicBlueprints.includes(blueprintName)) {
-            // Organic blueprints can also get Firefly
-            this.architecture = this.rng() > 0.6 ? new FireflyArchitecture() : new OrganicArchitecture();
+            const roll = this.rng();
+            if (roll > 0.7) this.architecture = new LifeArchitecture();
+            else if (roll > 0.4) this.architecture = new FireflyArchitecture();
+            else this.architecture = new OrganicArchitecture();
         } else if (flowBlueprints.includes(blueprintName)) {
-            // Flow blueprints can also get Aurora
             this.architecture = this.rng() > 0.65 ? new AuroraArchitecture() : new FlowArchitecture();
         } else if (abstractBlueprints.includes(blueprintName)) {
-            // Abstract can get Kaleidoscope
-            this.architecture = this.rng() > 0.6 ? new KaleidoscopeArchitecture() : new AbstractArchitecture();
+            const roll = this.rng();
+            if (roll > 0.7) this.architecture = new LavaArchitecture();
+            else if (roll > 0.4) this.architecture = new KaleidoscopeArchitecture();
+            else this.architecture = new AbstractArchitecture();
         } else if (digitalBlueprints.includes(blueprintName)) {
             const roll = this.rng();
-            if (roll > 0.7) this.architecture = new RaindropArchitecture();
-            else if (roll > 0.4) this.architecture = new GlitchArchitecture();
+            if (roll > 0.75) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.55) this.architecture = new RaindropArchitecture();
+            else if (roll > 0.3) this.architecture = new GlitchArchitecture();
             else this.architecture = new DigitalArchitecture();
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from Cosmic, Terrain, or Aurora based on seed
+            // Default: choose from expanded set based on seed
             const roll = this.rng();
-            if (roll > 0.65) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.35) this.architecture = new AuroraArchitecture();
+            if (roll > 0.8) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.65) this.architecture = new LavaArchitecture();
+            else if (roll > 0.5) this.architecture = new TerrainArchitecture();
+            else if (roll > 0.3) this.architecture = new AuroraArchitecture();
+            else if (roll > 0.15) this.architecture = new LifeArchitecture();
             else this.architecture = new CosmicArchitecture();
         }
 

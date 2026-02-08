@@ -237,55 +237,100 @@ export class FireflyArchitecture extends Architecture {
         ctx.globalCompositeOperation = 'lighter';
 
         // Draw trails first (behind fireflies)
-        this.glowTrails.forEach(t => {
+        for (let i = 0; i < this.glowTrails.length; i++) {
+            const t = this.glowTrails[i];
             ctx.globalAlpha = t.life * 0.3;
             ctx.fillStyle = this.getFireflyColor({ personalHue: t.hue, phase: 0 }, t.life * 0.3);
             ctx.beginPath();
             ctx.arc(t.x, t.y, t.size * t.life, 0, Math.PI * 2);
             ctx.fill();
-        });
+        }
+        ctx.globalAlpha = 1;
 
-        // Draw fireflies
-        this.fireflies.forEach(fly => {
-            if (fly.brightness < 0.01) return;
+        // Draw fireflies - only create glow gradients for sufficiently bright ones
+        for (let i = 0; i < this.fireflies.length; i++) {
+            const fly = this.fireflies[i];
+            if (fly.brightness < 0.01) continue;
 
             const color = this.getFireflyColor(fly, fly.brightness);
 
-            // Outer glow
-            const glowRadius = fly.size * 4 * fly.brightness;
-            const grad = ctx.createRadialGradient(fly.x, fly.y, 0, fly.x, fly.y, glowRadius);
-            grad.addColorStop(0, color);
-            grad.addColorStop(1, 'transparent');
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(fly.x, fly.y, glowRadius, 0, Math.PI * 2);
-            ctx.fill();
+            // Only render expensive radial gradient for bright fireflies
+            if (fly.brightness > 0.15) {
+                const glowRadius = fly.size * 4 * fly.brightness;
+                const grad = ctx.createRadialGradient(fly.x, fly.y, 0, fly.x, fly.y, glowRadius);
+                grad.addColorStop(0, color);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(fly.x, fly.y, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             // Bright core
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(fly.x, fly.y, fly.size * fly.brightness, 0, Math.PI * 2);
             ctx.fill();
-        });
+        }
 
-        // Draw faint connection lines between nearby bright fireflies (constellation effect)
-        ctx.lineWidth = 0.5;
+        // Draw connection lines using spatial grid bucketing instead of O(n^2)
+        const connectionRange = 60;
+        const cellSize = connectionRange;
+        const cols = Math.ceil(system.width / cellSize);
+        const rows = Math.ceil(system.height / cellSize);
+        const grid = new Array(cols * rows);
+
+        // Build grid of bright fireflies only
+        const brightFlies = [];
         for (let i = 0; i < this.fireflies.length; i++) {
+            if (this.fireflies[i].brightness >= 0.3) brightFlies.push(i);
+        }
+
+        for (let k = 0; k < grid.length; k++) grid[k] = null;
+        for (let k = 0; k < brightFlies.length; k++) {
+            const f = this.fireflies[brightFlies[k]];
+            const cx = Math.floor(f.x / cellSize);
+            const cy = Math.floor(f.y / cellSize);
+            if (cx >= 0 && cx < cols && cy >= 0 && cy < rows) {
+                const idx = cy * cols + cx;
+                if (!grid[idx]) grid[idx] = [];
+                grid[idx].push(brightFlies[k]);
+            }
+        }
+
+        ctx.lineWidth = 0.5;
+        const rangeSq = connectionRange * connectionRange;
+        for (let k = 0; k < brightFlies.length; k++) {
+            const i = brightFlies[k];
             const f1 = this.fireflies[i];
-            if (f1.brightness < 0.3) continue;
-            for (let j = i + 1; j < this.fireflies.length; j++) {
-                const f2 = this.fireflies[j];
-                if (f2.brightness < 0.3) continue;
-                const dx = f1.x - f2.x;
-                const dy = f1.y - f2.y;
-                const distSq = dx * dx + dy * dy;
-                if (distSq < 3600) { // 60px
-                    const alpha = (1 - distSq / 3600) * f1.brightness * f2.brightness * 0.3;
-                    ctx.strokeStyle = `rgba(255, 255, 200, ${alpha})`;
-                    ctx.beginPath();
-                    ctx.moveTo(f1.x, f1.y);
-                    ctx.lineTo(f2.x, f2.y);
-                    ctx.stroke();
+            const cx = Math.floor(f1.x / cellSize);
+            const cy = Math.floor(f1.y / cellSize);
+
+            // Only check neighboring cells
+            for (let dy = 0; dy <= 1; dy++) {
+                for (let dx = (dy === 0 ? 1 : -1); dx <= 1; dx++) {
+                    const nx = cx + dx;
+                    const ny = cy + dy;
+                    if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+                    const cell = grid[ny * cols + nx];
+                    if (!cell) continue;
+
+                    for (let m = 0; m < cell.length; m++) {
+                        const j = cell[m];
+                        if (j <= i) continue;
+                        const f2 = this.fireflies[j];
+                        const ddx = f1.x - f2.x;
+                        const ddy = f1.y - f2.y;
+                        const distSq = ddx * ddx + ddy * ddy;
+                        if (distSq < rangeSq) {
+                            const alpha = (1 - distSq / rangeSq) * f1.brightness * f2.brightness * 0.3;
+                            ctx.strokeStyle = `rgba(255, 255, 200, ${alpha})`;
+                            ctx.beginPath();
+                            ctx.moveTo(f1.x, f1.y);
+                            ctx.lineTo(f2.x, f2.y);
+                            ctx.stroke();
+                        }
+                    }
                 }
             }
         }

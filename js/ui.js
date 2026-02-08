@@ -66,8 +66,8 @@ export function initializeEventListeners(pJS) {
         if (!isLeftMouseDown && !isRightMouseDown) ui.cursorGlow.classList.remove('active');
     });
 
+    let resizeTimeout;
     window.addEventListener('resize', () => {
-        let resizeTimeout;
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             if (pJS && currentSeed && !cataclysmInProgress) {

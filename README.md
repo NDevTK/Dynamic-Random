@@ -12,7 +12,22 @@ Use your mouse as a cosmic force to attract, repel, warp, shatter, and paint the
 
 *   **Procedural Universe Generation:** Every universe is generated from a unique, shareable seed string (e.g., `ASTRAL-WARP-4271`). No two universes are exactly alike.
 *   **Deeply Interactive Physics:** Your mouse isn't just a pointer; it's an extension of your will. Left and right clicks unleash unique powers determined by the universe's blueprint.
-*   **Immersive Background System:** A dynamic, procedurally generated background that reacts to your actions. Features include **Auroras**, **Warp Speed** star streaks, **Click Sparks**, and **Gravity Well** particle accretion.
+*   **Immersive Background System:** A dynamic, procedurally generated background with **15 unique visual architectures**, each deeply reactive to mouse interaction, gravity wells, and shockwaves. The background looks dramatically different depending on the universe seed, with a 15% wildcard chance of getting any architecture regardless of blueprint. Architectures include:
+    *   🌌 **Cosmic** — Animated starfields with nebula clouds, constellations, and shooting stars
+    *   💻 **Digital** — Circuit board nodes with glowing junctions, data packets flowing along right-angle paths, and bright character rain streams
+    *   💎 **Geometric** — Rotating crystal shards with mouse repulsion, per-shard glow, gravity well scatter, and shockwave response
+    *   🌿 **Organic** — Bioluminescent tendrils and cells with spore particle emission, gravity well flee behavior, and glowing nodes
+    *   🌊 **Flow** — Particle streams with persistent glow trails, dramatic spiral vortex on gravity well, per-particle hue shifting, and warp-mode bright core
+    *   🎨 **Abstract** — Morphing gradient blobs with glow halos, floating particles, blob-to-blob bridges, and gravity well deformation
+    *   📺 **Glitch** — Chromatic aberration (3-channel RGB), scan corruption strips, digital rain bursts, and chaotic gravity well scatter
+    *   🧵 **Fabric** — Cloth simulation grid always visible at rest, with ripple wave propagation, glow nodes, and gravity well vortex with spiral arms
+    *   🧊 **Voxel** — 3D-style block landscapes with depth shading
+    *   🌳 **Fractal** — Recursive branching trees with depth-based color coding, animated growth, tip particles with object pooling, and mouse-responsive bending
+    *   🌈 **Aurora** — Northern light curtains with wave physics, 4 seed-driven color palettes, magnetic field mouse disruption, and twinkling background stars
+    *   🪲 **Firefly** — Synchronized bioluminescent swarms with 5 formation types (spiral, rings, river, constellation, chaotic), phase coupling, and mouse lantern attraction
+    *   🌧️ **Raindrop** — Full weather system with 5 weather types (gentle rain, thunderstorm, neon cyberpunk, golden sun rain, snow), procedural lightning, puddle ripples, and mouse umbrella effect
+    *   🔮 **Kaleidoscope** — Symmetric mirrored patterns with variable fold symmetry (3-12), spirograph overlays, trail persistence, and mouse deformation
+    *   🏔️ **Terrain** — Parallax procedural landscapes with 5 times of day, multi-octave mountain generation, animated clouds, treelines, and weather effects
 *   **Ever-Expanding Universe Engine:** A complex system of interlocking, randomized components ensures immense variety:
     *   🌌 **Blueprints:** Each universe is based on one of **32+** fundamental themes. Existing blueprints are now joined by new ones like `StellarNursery`, `AbyssalZone`, `TechnoUtopia`, `FungalForest`, `GlassySea`, `Papercraft`, `ChromaticAberration`, `SilkWeaver`, `VolcanicForge`, `LivingConstellation`, `GooeyMess`, `HauntedRealm`, and `CoralReef`.
     *   🔀 **Mutators:** Universes can be warped by one or more of **36+** mutators, like `Hyperspeed`, `Rainbow Particles`, `Clustering` (now with a breathing effect!), `Gravity Waves`, and new additions such as `PairBonding`, `Fragmenting`, `PhotonSails`, `ChaoticOrbits`, `TidalForces`, `Self-Propelled`, `ReflectiveEdges`, `Noctilucent`, `BrownianMotion`, `SupernovaRemains`, `Choral`, `Carnival`, and `ParticleChains`.
@@ -69,6 +84,39 @@ The JavaScript code is organized into a modular structure:
 *   **`js/drawing.js`**: Contains functions for drawing custom visual effects on the canvas.
 *   **`js/utils.js`**: A collection of utility functions, such as color conversion and seeding algorithms.
 *   **`js/config.js`**: Stores the base configuration for the particles.js library.
+
+### Background Architecture Files
+
+Each background visual style lives in its own module, extending a shared `Architecture` base class with `init()`, `update()`, and `draw()` methods:
+
+*   **`js/background.js`**: Central orchestrator — maps universe blueprints to architectures, manages rendering loop, handles wildcard selection and performance features (object pooling, Path2D caching).
+*   **`js/background_architectures.js`**: Contains the `Architecture` base class plus **Cosmic**, **Digital**, and **Geometric** architectures.
+*   **`js/organic_architecture.js`**: Organic tendrils, bioluminescent cells, and spore particles.
+*   **`js/flow_architecture.js`**: Particle flow fields with glow trails and spiral vortex.
+*   **`js/abstract_architecture.js`**: Morphing gradient blobs with bridges and floating particles.
+*   **`js/glitch_architecture.js`**: Chromatic aberration, scan corruption, and digital rain.
+*   **`js/fabric_architecture.js`**: Cloth simulation with ripple waves and gravity vortex.
+*   **`js/voxel_architecture.js`**: 3D-style voxel block landscapes.
+*   **`js/fractal_architecture.js`**: Recursive branching trees with depth coloring and tip particles.
+*   **`js/aurora_architecture.js`**: Northern light curtains with wave physics.
+*   **`js/firefly_architecture.js`**: Synchronized bioluminescent swarm with formation patterns.
+*   **`js/raindrop_architecture.js`**: Weather system with rain, snow, lightning, and puddles.
+*   **`js/kaleidoscope_architecture.js`**: Symmetric mirrored patterns with variable fold symmetry.
+*   **`js/terrain_architecture.js`**: Parallax procedural landscapes with time-of-day lighting.
+*   **`js/spatial_grid.js`**: Spatial partitioning grid for efficient neighbor queries.
+*   **`js/post_processing.js`**: Post-processing visual effects pipeline.
+
+---
+
+## ⚡ Performance
+
+The background system uses several techniques to maintain smooth frame rates:
+
+*   **Object Pooling:** Particles, sparks, and spores are recycled from pre-allocated pools to minimize garbage collection pauses.
+*   **Path2D Caching:** Static geometric paths (scanlines, constellation lines, circuit connections) are computed once and reused across frames.
+*   **Offscreen Canvas:** Gradient backgrounds are pre-rendered to offscreen canvases and drawn as images each frame.
+*   **Spatial Partitioning:** `SpatialGrid` enables efficient distance queries for neighbor lookups without O(n²) comparisons.
+*   **Additive Blending:** Glow effects use `globalCompositeOperation = 'lighter'` for GPU-friendly additive blending instead of layered transparency.
 
 ---
 

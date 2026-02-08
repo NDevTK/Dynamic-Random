@@ -13,6 +13,30 @@ import { GlitchArchitecture } from './glitch_architecture.js';
 import { FabricArchitecture } from './fabric_architecture.js';
 import { VoxelArchitecture } from './voxel_architecture.js';
 import { FractalArchitecture } from './fractal_architecture.js';
+import { AuroraArchitecture } from './aurora_architecture.js';
+import { FireflyArchitecture } from './firefly_architecture.js';
+import { RaindropArchitecture } from './raindrop_architecture.js';
+import { KaleidoscopeArchitecture } from './kaleidoscope_architecture.js';
+import { TerrainArchitecture } from './terrain_architecture.js';
+
+// All available architectures for wildcard selection
+const ALL_ARCHITECTURES = [
+    () => new CosmicArchitecture(),
+    () => new DigitalArchitecture(),
+    () => new GeometricArchitecture(),
+    () => new OrganicArchitecture(),
+    () => new FlowArchitecture(),
+    () => new AbstractArchitecture(),
+    () => new GlitchArchitecture(),
+    () => new FabricArchitecture(),
+    () => new VoxelArchitecture(),
+    () => new FractalArchitecture(),
+    () => new AuroraArchitecture(),
+    () => new FireflyArchitecture(),
+    () => new RaindropArchitecture(),
+    () => new KaleidoscopeArchitecture(),
+    () => new TerrainArchitecture()
+];
 
 class BackgroundSystem {
     constructor() {
@@ -23,6 +47,7 @@ class BackgroundSystem {
         this.trailPool = [];
         this.shockwaves = [];
         this.sparks = [];
+        this.sparkPool = [];
         this.shootingStars = [];
         this.spatialGrid = null;
         this.cellSize = 150;
@@ -33,6 +58,10 @@ class BackgroundSystem {
         // Offscreen canvas for background optimization
         this.offscreenCanvas = document.createElement('canvas');
         this.offscreenCtx = this.offscreenCanvas.getContext('2d', { alpha: false });
+
+        // Cached scanlines path (performance optimization)
+        this.cachedScanlinesPath = null;
+        this.cachedScanlinesHeight = 0;
 
         // Theme properties
         this.hue = 0;
@@ -108,6 +137,8 @@ class BackgroundSystem {
         } else {
             this.spatialGrid.updateDimensions(this.width, this.height);
         }
+        // Invalidate cached scanlines on resize
+        this.cachedScanlinesPath = null;
         this.updateGradient();
     }
 
@@ -126,6 +157,7 @@ class BackgroundSystem {
         this.isDark = isDark;
         this.rng = seededRandom || Math.random;
 
+        // Blueprint-to-architecture mapping with new architectures integrated
         const digitalBlueprints = ['Digital', 'TechnoUtopia', 'NeonCyber'];
         const geometricBlueprints = ['Crystalline', 'GlassySea', 'Papercraft', 'ArcaneCodex'];
         const organicBlueprints = ['Organic', 'BioMechanical', 'FungalForest', 'SentientSwarm', 'CoralReef', 'GooeyMess', 'AbyssalHorror'];
@@ -135,25 +167,56 @@ class BackgroundSystem {
         const voxelBlueprints = ['TechnoUtopia', 'Geometric', 'Digital'];
         const fractalBlueprints = ['Crystalline', 'Fractal', 'ArcaneCodex'];
 
-        if (fabricBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+        // New architecture mappings
+        const auroraBlueprints = ['Aetherial', 'GlacialDrift', 'AbyssalZone', 'VoidTouched', 'StarForged'];
+        const fireflyBlueprints = ['Organic', 'FungalForest', 'SentientSwarm', 'CoralReef', 'HauntedRealm', 'AbyssalHorror'];
+        const raindropBlueprints = ['Aetherial', 'GlacialDrift', 'Painterly', 'LivingInk', 'AbyssalZone'];
+        const kaleidoscopeBlueprints = ['ChromaticAberration', 'ArcaneCodex', 'Crystalline', 'QuantumFoam', 'Eldritch'];
+        const terrainBlueprints = ['Classical', 'StarForged', 'StellarNursery', 'CelestialForge', 'VolcanicForge', 'MoltenHeart'];
+
+        // Wildcard: 15% chance to pick a completely random architecture for maximum diversity
+        if (this.rng() < 0.15) {
+            this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
+        }
+        // New architectures get priority checks with seed-based randomness
+        else if (auroraBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new AuroraArchitecture();
+        } else if (fireflyBlueprints.includes(blueprintName) && this.rng() > 0.45) {
+            this.architecture = new FireflyArchitecture();
+        } else if (raindropBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new RaindropArchitecture();
+        } else if (kaleidoscopeBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new KaleidoscopeArchitecture();
+        } else if (terrainBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TerrainArchitecture();
+        } else if (fabricBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new FabricArchitecture();
         } else if (voxelBlueprints.includes(blueprintName) && this.rng() > 0.6) {
             this.architecture = new VoxelArchitecture();
         } else if (fractalBlueprints.includes(blueprintName) && this.rng() > 0.6) {
             this.architecture = new FractalArchitecture();
         } else if (organicBlueprints.includes(blueprintName)) {
-            this.architecture = new OrganicArchitecture();
+            // Organic blueprints can also get Firefly
+            this.architecture = this.rng() > 0.6 ? new FireflyArchitecture() : new OrganicArchitecture();
         } else if (flowBlueprints.includes(blueprintName)) {
-            this.architecture = new FlowArchitecture();
+            // Flow blueprints can also get Aurora
+            this.architecture = this.rng() > 0.65 ? new AuroraArchitecture() : new FlowArchitecture();
         } else if (abstractBlueprints.includes(blueprintName)) {
-            this.architecture = new AbstractArchitecture();
+            // Abstract can get Kaleidoscope
+            this.architecture = this.rng() > 0.6 ? new KaleidoscopeArchitecture() : new AbstractArchitecture();
         } else if (digitalBlueprints.includes(blueprintName)) {
-            // Mix Digital and Glitch for variety
-            this.architecture = this.rng() > 0.5 ? new GlitchArchitecture() : new DigitalArchitecture();
+            const roll = this.rng();
+            if (roll > 0.7) this.architecture = new RaindropArchitecture();
+            else if (roll > 0.4) this.architecture = new GlitchArchitecture();
+            else this.architecture = new DigitalArchitecture();
         } else if (geometricBlueprints.includes(blueprintName)) {
-            this.architecture = new GeometricArchitecture();
+            this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            this.architecture = new CosmicArchitecture();
+            // Default: choose from Cosmic, Terrain, or Aurora based on seed
+            const roll = this.rng();
+            if (roll > 0.65) this.architecture = new TerrainArchitecture();
+            else if (roll > 0.35) this.architecture = new AuroraArchitecture();
+            else this.architecture = new CosmicArchitecture();
         }
 
         // Randomize background mutators based on seed
@@ -170,7 +233,12 @@ class BackgroundSystem {
         this.shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(this.width, this.height) * 0.8, speed: 10, strength: 2, alpha: 1 });
         for(let i=0; i<30; i++) {
             const angle = this.rng() * Math.PI * 2; const speed = this.rng() * 10 + 5;
-            this.sparks.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 50 + this.rng() * 30, maxLife: 80, size: this.rng() * 3 + 1, color: '255, 255, 200' });
+            let spark = this.sparkPool.length > 0 ? this.sparkPool.pop() : {};
+            spark.x = x; spark.y = y;
+            spark.vx = Math.cos(angle) * speed; spark.vy = Math.sin(angle) * speed;
+            spark.life = 50 + this.rng() * 30; spark.maxLife = 80;
+            spark.size = this.rng() * 3 + 1; spark.color = '255, 255, 200';
+            this.sparks.push(spark);
         }
     }
 
@@ -180,7 +248,7 @@ class BackgroundSystem {
             const s = this.sparks[i];
             s.x += s.vx; s.y += s.vy; s.life--;
             s.vx *= 0.9; s.vy *= 0.9;
-            if (s.life <= 0) { this.sparks.splice(i, 1); continue; }
+            if (s.life <= 0) { this.sparkPool.push(this.sparks.splice(i, 1)[0]); continue; }
             const alpha = s.life / s.maxLife;
             this.ctx.fillStyle = `rgba(${s.color}, ${alpha})`;
             this.ctx.beginPath(); this.ctx.arc(s.x, s.y, s.size * alpha, 0, Math.PI * 2); this.ctx.fill();
@@ -251,14 +319,18 @@ class BackgroundSystem {
             ctx.restore();
         }
         if (this.bgMutators.includes('Scanlines')) {
+            // Cache the scanlines Path2D for performance
+            if (!this.cachedScanlinesPath || this.cachedScanlinesHeight !== this.height) {
+                this.cachedScanlinesPath = new Path2D();
+                for(let y=0; y<this.height; y+=4) {
+                    this.cachedScanlinesPath.moveTo(0, y);
+                    this.cachedScanlinesPath.lineTo(this.width, y);
+                }
+                this.cachedScanlinesHeight = this.height;
+            }
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.lineWidth = 1;
-            ctx.beginPath();
-            for(let y=0; y<this.height; y+=4) {
-                ctx.moveTo(0, y);
-                ctx.lineTo(this.width, y);
-            }
-            ctx.stroke();
+            ctx.stroke(this.cachedScanlinesPath);
         }
     }
 
@@ -271,12 +343,12 @@ class BackgroundSystem {
             for(let i=0; i<3; i++) {
                 const angle = this.rng() * Math.PI * 2;
                 const dist = this.rng() * 100;
-                this.sparks.push({
-                    x: this.width/2 + Math.cos(angle) * dist,
-                    y: this.height/2 + Math.sin(angle) * dist,
-                    vx: Math.cos(angle) * 30, vy: Math.sin(angle) * 30,
-                    life: 20, maxLife: 20, size: 2, color: '200, 230, 255'
-                });
+                let spark = this.sparkPool.length > 0 ? this.sparkPool.pop() : {};
+                spark.x = this.width/2 + Math.cos(angle) * dist;
+                spark.y = this.height/2 + Math.sin(angle) * dist;
+                spark.vx = Math.cos(angle) * 30; spark.vy = Math.sin(angle) * 30;
+                spark.life = 20; spark.maxLife = 20; spark.size = 2; spark.color = '200, 230, 255';
+                this.sparks.push(spark);
             }
             ctx.globalCompositeOperation = 'source-over';
         }

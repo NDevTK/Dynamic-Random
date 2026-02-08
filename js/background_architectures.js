@@ -480,41 +480,178 @@ export class CosmicArchitecture extends Architecture {
 }
 
 /**
- * Digital architecture with a glowing perspective grid.
+ * Digital architecture with glowing perspective grid, circuit board nodes,
+ * data packets, and enhanced character streams.
  */
 export class DigitalArchitecture extends Architecture {
     constructor() {
         super();
         this.streams = [];
+        this.nodes = [];
+        this.circuitPaths = [];
+        this.packets = [];
         this.offsetY = 0;
     }
 
     init(system) {
         this.generateStreams(system);
+        this.generateCircuitBoard(system);
     }
 
     generateStreams(system) {
+        this.streams = [];
         const count = 30;
         for (let i = 0; i < count; i++) {
+            const chars = [];
+            const len = Math.floor(system.rng() * 8) + 8;
+            for (let j = 0; j < len; j++) {
+                chars.push(system.rng() > 0.5 ? '1' : '0');
+            }
             this.streams.push({
                 x: system.rng() * system.width,
                 y: system.rng() * system.height,
                 speed: system.rng() * 5 + 2,
-                chars: Array.from({length: 10}, () => system.rng() > 0.5 ? '1' : '0'),
-                opacity: system.rng() * 0.5 + 0.2
+                chars: chars,
+                opacity: system.rng() * 0.5 + 0.2,
+                headBrightness: 1.0
             });
+        }
+    }
+
+    generateCircuitBoard(system) {
+        this.nodes = [];
+        this.circuitPaths = [];
+        this.packets = [];
+
+        // Generate circuit board nodes across the upper portion of the screen
+        const nodeCount = Math.floor(system.rng() * 15) + 20;
+        for (let i = 0; i < nodeCount; i++) {
+            this.nodes.push({
+                x: system.rng() * system.width,
+                y: system.rng() * system.height * 0.5,
+                size: system.rng() * 3 + 2,
+                pulsePhase: system.rng() * Math.PI * 2,
+                brightness: 0,
+                connections: []
+            });
+        }
+
+        // Connect nearby nodes with right-angle circuit paths
+        for (let i = 0; i < this.nodes.length; i++) {
+            for (let j = i + 1; j < this.nodes.length; j++) {
+                const a = this.nodes[i];
+                const b = this.nodes[j];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const distSq = dx * dx + dy * dy;
+
+                // Connect nodes within range, limit connections per node
+                if (distSq < 60000 && a.connections.length < 3 && b.connections.length < 3) {
+                    // Right-angle path: go horizontal first, then vertical
+                    const midX = b.x;
+                    const midY = a.y;
+                    const path = {
+                        from: i,
+                        to: j,
+                        segments: [
+                            { x1: a.x, y1: a.y, x2: midX, y2: midY },
+                            { x1: midX, y1: midY, x2: b.x, y2: b.y }
+                        ],
+                        totalLength: Math.abs(b.x - a.x) + Math.abs(b.y - a.y)
+                    };
+                    this.circuitPaths.push(path);
+                    a.connections.push(this.circuitPaths.length - 1);
+                    b.connections.push(this.circuitPaths.length - 1);
+                }
+            }
+        }
+
+        // Spawn initial data packets on random paths
+        const packetCount = Math.min(this.circuitPaths.length, Math.floor(system.rng() * 8) + 5);
+        for (let i = 0; i < packetCount; i++) {
+            const pathIdx = Math.floor(system.rng() * this.circuitPaths.length);
+            this.packets.push({
+                pathIndex: pathIdx,
+                progress: system.rng(),
+                speed: system.rng() * 0.008 + 0.003,
+                size: system.rng() * 2 + 1.5,
+                forward: system.rng() > 0.5
+            });
+        }
+    }
+
+    /**
+     * Returns the (x,y) position along a circuit path at the given progress [0..1].
+     */
+    getPositionOnPath(path, progress) {
+        const seg0Len = Math.abs(path.segments[0].x2 - path.segments[0].x1) + Math.abs(path.segments[0].y2 - path.segments[0].y1);
+        const total = path.totalLength;
+        if (total === 0) return { x: path.segments[0].x1, y: path.segments[0].y1 };
+
+        const dist = progress * total;
+        if (dist <= seg0Len) {
+            // On first segment
+            const t = seg0Len > 0 ? dist / seg0Len : 0;
+            const seg = path.segments[0];
+            return {
+                x: seg.x1 + (seg.x2 - seg.x1) * t,
+                y: seg.y1 + (seg.y2 - seg.y1) * t
+            };
+        } else {
+            // On second segment
+            const seg1Len = total - seg0Len;
+            const t = seg1Len > 0 ? (dist - seg0Len) / seg1Len : 0;
+            const seg = path.segments[1];
+            return {
+                x: seg.x1 + (seg.x2 - seg.x1) * t,
+                y: seg.y1 + (seg.y2 - seg.y1) * t
+            };
         }
     }
 
     update(system) {
         this.offsetY += 1 * system.speedMultiplier;
+
+        // Update character streams
         this.streams.forEach(s => {
             s.y += s.speed * system.speedMultiplier;
-            if (s.y > system.height) {
-                s.y = -100;
+            if (s.y > system.height + s.chars.length * 15) {
+                s.y = -s.chars.length * 15;
                 s.x = system.rng() * system.width;
             }
         });
+
+        // Update data packets
+        this.packets.forEach(p => {
+            if (p.forward) {
+                p.progress += p.speed * system.speedMultiplier;
+                if (p.progress >= 1) {
+                    p.progress = 1;
+                    p.forward = false;
+                }
+            } else {
+                p.progress -= p.speed * system.speedMultiplier;
+                if (p.progress <= 0) {
+                    p.progress = 0;
+                    p.forward = true;
+                }
+            }
+        });
+
+        // Update node brightness based on mouse proximity
+        for (let i = 0; i < this.nodes.length; i++) {
+            const node = this.nodes[i];
+            const dx = node.x - mouse.x;
+            const dy = node.y - mouse.y;
+            const distSq = dx * dx + dy * dy;
+            const mouseRadius = 40000; // ~200px radius
+
+            if (distSq < mouseRadius) {
+                node.brightness = Math.min(1, node.brightness + 0.08);
+            } else {
+                node.brightness = Math.max(0, node.brightness - 0.02);
+            }
+        }
     }
 
     draw(system) {
@@ -523,6 +660,7 @@ export class DigitalArchitecture extends Architecture {
         const centerX = system.width / 2;
         const horizon = system.height * 0.4;
 
+        // --- Perspective Grid (kept as original) ---
         ctx.strokeStyle = `hsla(${h}, 100%, 50%, 0.15)`;
         ctx.lineWidth = 1;
         for (let x = -system.width; x <= system.width * 2; x += 150) {
@@ -546,6 +684,7 @@ export class DigitalArchitecture extends Architecture {
             ctx.stroke();
         }
 
+        // --- Horizontal Grid Lines (kept as original) ---
         for (let y = 0; y <= 20; y++) {
             const pos = Math.pow(y / 20, 2);
             const drawYBase = horizon + pos * (system.height - horizon);
@@ -569,26 +708,130 @@ export class DigitalArchitecture extends Architecture {
             ctx.stroke();
         }
 
+        // --- Circuit Board Paths ---
+        ctx.strokeStyle = `hsla(${h}, 80%, 40%, 0.12)`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < this.circuitPaths.length; i++) {
+            const path = this.circuitPaths[i];
+            for (let s = 0; s < path.segments.length; s++) {
+                const seg = path.segments[s];
+                ctx.moveTo(seg.x1, seg.y1);
+                ctx.lineTo(seg.x2, seg.y2);
+            }
+        }
+        ctx.stroke();
+
+        // --- Circuit Board Nodes (with glow) ---
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const pulse = Math.sin(system.tick * 0.05);
+        for (let i = 0; i < this.nodes.length; i++) {
+            const node = this.nodes[i];
+            const basePulse = Math.sin(system.tick * 0.03 + node.pulsePhase) * 0.3 + 0.7;
+            const bright = node.brightness;
+            const nodeAlpha = 0.3 + bright * 0.7;
+            const glowRadius = node.size * (3 + bright * 5 + pulse * 0.5);
+
+            // Outer glow
+            if (bright > 0.05 || basePulse > 0.5) {
+                const grad = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glowRadius);
+                grad.addColorStop(0, `hsla(${h}, 100%, 80%, ${nodeAlpha * 0.5 * basePulse})`);
+                grad.addColorStop(0.5, `hsla(${h}, 100%, 60%, ${nodeAlpha * 0.2 * basePulse})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Core dot
+            ctx.fillStyle = `hsla(${h}, 100%, ${70 + bright * 30}%, ${nodeAlpha * basePulse})`;
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, node.size * (1 + bright * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // --- Data Packets (with glow) ---
+        for (let i = 0; i < this.packets.length; i++) {
+            const p = this.packets[i];
+            const path = this.circuitPaths[p.pathIndex];
+            if (!path) continue;
+
+            const pos = this.getPositionOnPath(path, p.progress);
+            const packetPulse = Math.sin(system.tick * 0.1 + i * 2) * 0.3 + 0.7;
+
+            // Glow around packet
+            const gRad = p.size * 5;
+            const grad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, gRad);
+            grad.addColorStop(0, `hsla(${(h + 40) % 360}, 100%, 85%, ${0.6 * packetPulse})`);
+            grad.addColorStop(0.4, `hsla(${(h + 40) % 360}, 100%, 60%, ${0.2 * packetPulse})`);
+            grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, gRad, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Packet core
+            ctx.fillStyle = `hsla(${(h + 40) % 360}, 100%, 90%, ${0.9 * packetPulse})`;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // --- Character Streams (with glowing head) ---
         ctx.font = '14px monospace';
         this.streams.forEach(s => {
-            ctx.fillStyle = `hsla(${h}, 100%, 70%, ${s.opacity})`;
-            s.chars.forEach((c, i) => {
-                ctx.fillText(c, s.x, s.y + i * 15);
-            });
+            const charCount = s.chars.length;
+            for (let i = 0; i < charCount; i++) {
+                const charY = s.y + i * 15;
+                if (charY < -15 || charY > system.height + 15) continue;
+
+                const isHead = (i === 0);
+                const fadeProgress = i / charCount;
+
+                if (isHead) {
+                    // Glowing head character - brighter, with lighter composite
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    // Head glow aura
+                    const headGlow = ctx.createRadialGradient(s.x + 4, charY, 0, s.x + 4, charY, 12);
+                    headGlow.addColorStop(0, `hsla(${h}, 100%, 90%, ${s.opacity * 0.5})`);
+                    headGlow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = headGlow;
+                    ctx.fillRect(s.x - 8, charY - 12, 24, 24);
+                    // Head character
+                    ctx.fillStyle = `hsla(${h}, 100%, 95%, ${Math.min(1, s.opacity + 0.6)})`;
+                    ctx.fillText(s.chars[i], s.x, charY);
+                    ctx.restore();
+                } else {
+                    // Trail characters - fade out toward tail
+                    const trailAlpha = s.opacity * (1 - fadeProgress * 0.7);
+                    const lightness = 70 - fadeProgress * 30;
+                    ctx.fillStyle = `hsla(${h}, 100%, ${lightness}%, ${trailAlpha})`;
+                    ctx.fillText(s.chars[i], s.x, charY);
+                }
+            }
         });
     }
 }
 
 /**
- * Geometric architecture with floating shards and connecting lines.
+ * Geometric architecture with interactive floating shards, mouse repulsion,
+ * gravity well scatter, shockwave response, per-shard brightness/glow,
+ * hue variation, and batched connection lines.
  */
 export class GeometricArchitecture extends Architecture {
     constructor() {
         super();
         this.shards = [];
+        this.connectionPath = null;
+        this.lastConnectionUpdate = 0;
     }
 
     init(system) {
+        this.shards = [];
         const count = 50;
         for (let i = 0; i < count; i++) {
             this.shards.push({
@@ -599,16 +842,70 @@ export class GeometricArchitecture extends Architecture {
                 size: system.rng() * 20 + 10,
                 rotation: system.rng() * Math.PI * 2,
                 rotationSpeed: (system.rng() - 0.5) * 0.02,
-                sides: Math.floor(system.rng() * 3) + 3
+                sides: Math.floor(system.rng() * 3) + 3,
+                brightness: 0,
+                hueOffset: (system.rng() - 0.5) * 60
             });
         }
     }
 
     update(system) {
+        const mouseRepelRadius = 180;
+        const mouseRepelRadiusSq = mouseRepelRadius * mouseRepelRadius;
+
         this.shards.forEach(s => {
+            // --- Mouse repulsion ---
+            const mdx = s.x - mouse.x;
+            const mdy = s.y - mouse.y;
+            const mDistSq = mdx * mdx + mdy * mdy;
+
+            if (system.isGravityWell) {
+                // Gravity well: dramatic scatter - push shards violently outward
+                if (mDistSq < 250000 && mDistSq > 1) { // ~500px radius
+                    const mDist = Math.sqrt(mDistSq);
+                    const force = (500 - mDist) / 500 * 6;
+                    s.vx += (mdx / mDist) * force;
+                    s.vy += (mdy / mDist) * force;
+                    s.brightness = Math.min(1, s.brightness + 0.15);
+                    s.rotationSpeed += (mdx > 0 ? 0.01 : -0.01);
+                }
+            } else if (mDistSq < mouseRepelRadiusSq && mDistSq > 1) {
+                // Normal mouse repulsion
+                const mDist = Math.sqrt(mDistSq);
+                const push = (mouseRepelRadius - mDist) / mouseRepelRadius * 2;
+                s.vx += (mdx / mDist) * push;
+                s.vy += (mdy / mDist) * push;
+                s.brightness = Math.min(1, s.brightness + 0.05);
+            }
+
+            // --- Shockwave response ---
+            system.shockwaves.forEach(sw => {
+                const sdx = s.x - sw.x;
+                const sdy = s.y - sw.y;
+                const sDistSq = sdx * sdx + sdy * sdy;
+                const sDist = Math.sqrt(sDistSq);
+                if (sDist > 1 && Math.abs(sDist - sw.radius) < 60) {
+                    const push = (1 - Math.abs(sDist - sw.radius) / 60) * sw.strength;
+                    s.vx += (sdx / sDist) * push * 8;
+                    s.vy += (sdy / sDist) * push * 8;
+                    s.brightness = Math.min(1, s.brightness + 0.2);
+                }
+            });
+
+            // --- Physics integration ---
             s.x += s.vx * system.speedMultiplier;
             s.y += s.vy * system.speedMultiplier;
             s.rotation += s.rotationSpeed * system.speedMultiplier;
+
+            // Friction / damping
+            s.vx *= 0.96;
+            s.vy *= 0.96;
+            s.rotationSpeed *= 0.995;
+
+            // Brightness decay over time
+            s.brightness = Math.max(0, s.brightness - 0.008);
+
+            // Wrap around screen edges
             if (s.x < -s.size) s.x = system.width + s.size;
             else if (s.x > system.width + s.size) s.x = -s.size;
             if (s.y < -s.size) s.y = system.height + s.size;
@@ -618,36 +915,75 @@ export class GeometricArchitecture extends Architecture {
 
     draw(system) {
         const ctx = system.ctx;
-        ctx.strokeStyle = `hsla(${system.hue}, 50%, 70%, 0.2)`;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let i = 0; i < this.shards.length; i++) {
-            for (let j = i + 1; j < this.shards.length; j++) {
-                const s1 = this.shards[i];
-                const s2 = this.shards[j];
-                const dx = s1.x - s2.x;
-                const dy = s1.y - s2.y;
-                if (dx * dx + dy * dy < 40000) {
-                    ctx.moveTo(s1.x, s1.y);
-                    ctx.lineTo(s2.x, s2.y);
+        const h = system.hue;
+
+        // --- Batched connection lines using Path2D ---
+        // Throttle connection path rebuilds for performance
+        if (!this.connectionPath || system.tick - this.lastConnectionUpdate > 3) {
+            this.connectionPath = new Path2D();
+            for (let i = 0; i < this.shards.length; i++) {
+                for (let j = i + 1; j < this.shards.length; j++) {
+                    const s1 = this.shards[i];
+                    const s2 = this.shards[j];
+                    const dx = s1.x - s2.x;
+                    const dy = s1.y - s2.y;
+                    if (dx * dx + dy * dy < 40000) {
+                        this.connectionPath.moveTo(s1.x, s1.y);
+                        this.connectionPath.lineTo(s2.x, s2.y);
+                    }
                 }
             }
+            this.lastConnectionUpdate = system.tick;
         }
-        ctx.stroke();
 
-        ctx.fillStyle = `hsla(${system.hue}, 50%, 50%, 0.1)`;
+        ctx.strokeStyle = `hsla(${h}, 50%, 70%, 0.2)`;
+        ctx.lineWidth = 1;
+        ctx.stroke(this.connectionPath);
+
+        // --- Draw shards with per-shard brightness, hue offset, and glow ---
         this.shards.forEach(s => {
+            const shardHue = (h + s.hueOffset + 360) % 360;
+            const bright = s.brightness;
+
             ctx.save();
             ctx.translate(s.x, s.y);
             ctx.rotate(s.rotation);
+
+            // Glow effect for bright shards (radialGradient with 'lighter' composite)
+            if (bright > 0.05) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const glowRadius = s.size * (1.5 + bright * 2);
+                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
+                grad.addColorStop(0, `hsla(${shardHue}, 80%, 70%, ${bright * 0.4})`);
+                grad.addColorStop(0.5, `hsla(${shardHue}, 80%, 50%, ${bright * 0.15})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Shard polygon
             ctx.beginPath();
             for (let i = 0; i < s.sides; i++) {
                 const angle = (i / s.sides) * Math.PI * 2;
                 ctx.lineTo(Math.cos(angle) * s.size, Math.sin(angle) * s.size);
             }
             ctx.closePath();
+
+            // Fill with brightness-responsive alpha
+            const fillAlpha = 0.1 + bright * 0.3;
+            ctx.fillStyle = `hsla(${shardHue}, 50%, ${50 + bright * 30}%, ${fillAlpha})`;
             ctx.fill();
+
+            // Stroke with enhanced alpha: 0.15 base + brightness * 0.4
+            const strokeAlpha = 0.15 + bright * 0.4;
+            ctx.strokeStyle = `hsla(${shardHue}, 60%, ${70 + bright * 20}%, ${strokeAlpha})`;
+            ctx.lineWidth = 1 + bright * 0.5;
             ctx.stroke();
+
             ctx.restore();
         });
     }

@@ -30,7 +30,7 @@ export function setRandomGradient(hue, isMonochrome, seededRandom, isDark, bluep
  * Updates the URL to reflect the current seed without reloading the page.
  */
 export function updateUI() {
-    history.replaceState(null, '', `?seed=${currentSeed}`);
+    history.replaceState(null, '', `?seed=${encodeURIComponent(currentSeed)}`);
 }
 
 /**

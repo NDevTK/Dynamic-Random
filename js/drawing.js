@@ -290,8 +290,13 @@ function drawCosmicRivers(ctx) {
 export function drawEffects(ctx) {
     const tick = getTick();
 
-    // Apply a global bloom effect for certain aesthetics
-    if (universeProfile.blueprintName === 'Aether' || universeProfile.blueprintName === 'VoidTouched' || universeProfile.blueprintName === 'ArcaneCodex') {
+    // Apply a global bloom effect for certain aesthetics.
+    // Use save/restore to prevent filter and blend mode from leaking
+    // into subsequent particle drawing, which causes a browser DoS from
+    // the expensive blur filter and prevents canvas clearing via 'lighter' mode.
+    const useBloom = universeProfile.blueprintName === 'Aetherial' || universeProfile.blueprintName === 'VoidTouched' || universeProfile.blueprintName === 'ArcaneCodex';
+    if (useBloom) {
+        ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.filter = 'blur(4px)';
     }
@@ -317,4 +322,8 @@ export function drawEffects(ctx) {
     drawCosmicNurseries(ctx);
     drawCoralConnections(ctx);
     drawCosmicRivers(ctx);
+
+    if (useBloom) {
+        ctx.restore();
+    }
 }

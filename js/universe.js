@@ -20,7 +20,9 @@ import { background } from './background.js';
 export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     resetGlobalState();
     postProcess.reset();
-    const newSeed = isNewSeed || !seed ? generateRandomSeed() : seed;
+    // Limit seed length to prevent DoS from extremely long seed strings
+    const safeSeed = seed && seed.length > 64 ? seed.slice(0, 64) : seed;
+    const newSeed = isNewSeed || !safeSeed ? generateRandomSeed() : safeSeed;
     setCurrentSeed(newSeed);
     const seededRandom = mulberry32(stringToSeed(newSeed));
     setSeededRandom(seededRandom);

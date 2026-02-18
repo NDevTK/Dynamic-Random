@@ -79,27 +79,30 @@ body.cataclysm-bleed::after {
     position: fixed;
     top: 0;
     left: 0;
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 50%);
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%);
     border-radius: 50%;
     pointer-events: none;
     z-index: 100;
     transform: translate(-50%, -50%);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+                height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+                opacity 0.3s ease;
     animation: cursorBreathe 5s ease-in-out infinite;
+    mix-blend-mode: screen;
 }
 
 #cursor-glow.active {
-    width: 700px;
-    height: 700px;
-    background: radial-gradient(circle, var(--glow-color, rgba(255, 255, 255, 0.12)) 0%, rgba(255, 255, 255, 0) 40%);
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, var(--glow-color, rgba(255, 255, 255, 0.1)) 0%, rgba(255, 255, 255, 0) 40%);
     animation-play-state: paused;
 }
 
 @keyframes cursorBreathe {
     0% {
-        opacity: 0.8;
+        opacity: 0.7;
         transform: translate(-50%, -50%) scale(0.95);
     }
 
@@ -109,9 +112,27 @@ body.cataclysm-bleed::after {
     }
 
     100% {
-        opacity: 0.8;
+        opacity: 0.7;
         transform: translate(-50%, -50%) scale(0.95);
     }
+}
+
+/* New effect canvas layers */
+#cursor-effects-canvas {
+    image-rendering: auto;
+}
+
+#cursor-trail-canvas {
+    image-rendering: auto;
+}
+
+#ambient-fx-canvas {
+    image-rendering: auto;
+    opacity: 0.85;
+}
+
+#warp-field-canvas {
+    image-rendering: auto;
 }
 
 #particles-js {

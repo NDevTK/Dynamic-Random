@@ -9,6 +9,11 @@ import { mulberry32, stringToSeed, generateRandomSeed, hslToHex, tagParticles } 
 import { setRandomGradient, updateUI } from './ui.js';
 import { postProcess } from './post_processing.js';
 import { background } from './background.js';
+import { generatePalette } from './color_palettes.js';
+import { cursorEffects } from './cursor_effects.js';
+import { cursorTrails } from './cursor_trails.js';
+import { ambientFX } from './ambient_fx.js';
+import { warpField } from './warp_field.js';
 
 /**
  * Generates a new universe based on a seed.
@@ -66,6 +71,13 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     } else if (blueprintName === 'CelestialForge') {
         postProcess.setFilter('blur', 1);
     }
+
+    // Configure fancy cursor, trail, ambient and warp effects from seed
+    const fxPalette = generatePalette(baseHue, seededRandom);
+    cursorEffects.configure(seededRandom, fxPalette);
+    cursorTrails.configure(seededRandom, fxPalette);
+    ambientFX.configure(seededRandom, fxPalette);
+    warpField.configure(seededRandom, fxPalette);
 
     setUniverseProfile(profile);
     setUniverseState({ energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 });

@@ -67,6 +67,12 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
         postProcess.setFilter('blur', 1);
     }
 
+    // Workaround for browser freeze with specific blueprints/particles.js interactions
+    if (blueprintName === 'VoidTouched' || blueprintName === 'ArcaneCodex') {
+        pJS.fn.particlesDraw = function() {};
+        pJS.fn.particlesUpdate = function() {};
+    }
+
     setUniverseProfile(profile);
     setUniverseState({ energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 });
 

@@ -198,10 +198,12 @@ export class CircuitGrowthArchitecture extends Architecture {
                 tip.lastNodeIndex = this.nodes.length - 1;
 
                 // Chance to branch
-                if (rng() < this.branchChance + tip.generation * 0.005) {
+                if (rng() < this.branchChance + tip.generation * 0.005 && this.growthTips.length < 1000) {
                     const branchCount = rng() < 0.3 ? 2 : 1;
                     for (let b = 0; b < branchCount; b++) {
+                        if (this.growthTips.length >= 1000) break;
                         const branchAngle = tip.angle + (rng() > 0.5 ? 1 : -1) * (Math.PI / 4 + rng() * Math.PI / 4);
+                        const nextInterval = Math.max(5, tip.nodeInterval * (0.8 + rng() * 0.4));
                         this.growthTips.push({
                             x: newX,
                             y: newY,
@@ -213,7 +215,7 @@ export class CircuitGrowthArchitecture extends Architecture {
                             generation: tip.generation + 1,
                             lastNodeIndex: this.nodes.length - 1,
                             distSinceNode: 0,
-                            nodeInterval: tip.nodeInterval * (0.8 + rng() * 0.4),
+                            nodeInterval: nextInterval,
                             wobble: rng() * Math.PI * 2,
                             wobbleAmp: tip.wobbleAmp
                         });

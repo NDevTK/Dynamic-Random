@@ -24,6 +24,10 @@ import { SynthwaveArchitecture } from './synthwave_architecture.js';
 import { PendulumArchitecture } from './pendulum_architecture.js';
 import { InkArchitecture } from './ink_architecture.js';
 import { CircuitGrowthArchitecture } from './circuit_growth_architecture.js';
+import { ReactionDiffusionArchitecture } from './reaction_diffusion_architecture.js';
+import { VoronoiArchitecture } from './voronoi_architecture.js';
+import { MagneticFieldArchitecture } from './magnetic_field_architecture.js';
+import { FluidArchitecture } from './fluid_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -47,7 +51,11 @@ const ALL_ARCHITECTURES = [
     () => new SynthwaveArchitecture(),
     () => new PendulumArchitecture(),
     () => new InkArchitecture(),
-    () => new CircuitGrowthArchitecture()
+    () => new CircuitGrowthArchitecture(),
+    () => new ReactionDiffusionArchitecture(),
+    () => new VoronoiArchitecture(),
+    () => new MagneticFieldArchitecture(),
+    () => new FluidArchitecture()
 ];
 
 class BackgroundSystem {
@@ -198,9 +206,35 @@ class BackgroundSystem {
         // Circuit growth: tech / digital / mechanical themes
         const circuitGrowthBlueprints = ['Digital', 'TechnoUtopia', 'BioMechanical', 'NeonCyber', 'ArcaneCodex'];
 
+        // New architecture blueprint mappings
+        // Reaction-diffusion: organic/biological/quantum themes
+        const reactionDiffusionBlueprints = ['Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'QuantumFoam', 'SentientSwarm', 'GooeyMess'];
+        // Voronoi: crystalline/geometric/abstract themes
+        const voronoiBlueprints = ['Crystalline', 'GlassySea', 'ArcaneCodex', 'Papercraft', 'Eldritch', 'AbyssalZone'];
+        // Magnetic field: electromagnetic/cosmic/forge themes
+        const magneticFieldBlueprints = ['StarForged', 'CelestialForge', 'StellarNursery', 'VolcanicForge', 'MoltenHeart', 'SonicScapes'];
+        // Fluid dynamics: fluid/ink/painterly themes
+        const fluidBlueprints = ['LivingInk', 'Painterly', 'Aetherial', 'GooeyMess', 'ChromaticAberration', 'PhantomEcho'];
+
         // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.18) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
+        }
+        // Reaction-diffusion: organic/bio themes
+        else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ReactionDiffusionArchitecture();
+        }
+        // Voronoi: crystalline/geometric themes
+        else if (voronoiBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new VoronoiArchitecture();
+        }
+        // Magnetic field: electromagnetic/cosmic themes
+        else if (magneticFieldBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new MagneticFieldArchitecture();
+        }
+        // Fluid dynamics: fluid/painterly themes
+        else if (fluidBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new FluidArchitecture();
         }
         // Pendulum wave: physics/temporal themes
         else if (pendulumBlueprints.includes(blueprintName) && this.rng() > 0.55) {
@@ -264,16 +298,21 @@ class BackgroundSystem {
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from expanded set based on seed
+            // Default: choose from expanded set based on seed (25 architectures)
             const roll = this.rng();
-            if (roll > 0.86) this.architecture = new PendulumArchitecture();
-            else if (roll > 0.72) this.architecture = new InkArchitecture();
-            else if (roll > 0.6) this.architecture = new CircuitGrowthArchitecture();
-            else if (roll > 0.5) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.4) this.architecture = new LavaArchitecture();
-            else if (roll > 0.3) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.2) this.architecture = new AuroraArchitecture();
-            else if (roll > 0.1) this.architecture = new LifeArchitecture();
+            if (roll > 0.96) this.architecture = new ReactionDiffusionArchitecture();
+            else if (roll > 0.92) this.architecture = new VoronoiArchitecture();
+            else if (roll > 0.88) this.architecture = new MagneticFieldArchitecture();
+            else if (roll > 0.84) this.architecture = new FluidArchitecture();
+            else if (roll > 0.78) this.architecture = new PendulumArchitecture();
+            else if (roll > 0.70) this.architecture = new InkArchitecture();
+            else if (roll > 0.62) this.architecture = new CircuitGrowthArchitecture();
+            else if (roll > 0.54) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.46) this.architecture = new LavaArchitecture();
+            else if (roll > 0.38) this.architecture = new TerrainArchitecture();
+            else if (roll > 0.30) this.architecture = new AuroraArchitecture();
+            else if (roll > 0.22) this.architecture = new LifeArchitecture();
+            else if (roll > 0.11) this.architecture = new KaleidoscopeArchitecture();
             else this.architecture = new CosmicArchitecture();
         }
 

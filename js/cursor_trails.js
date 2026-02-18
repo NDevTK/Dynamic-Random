@@ -470,17 +470,228 @@ function drawVapor(sys) {
 }
 
 // ═══════════════════════════════════════════════
+//  TRAIL: Magnetic Ink
+// ═══════════════════════════════════════════════
+function initMagneticInk(sys) {
+    sys.state.blobs = [];
+    sys.state.pool = [];
+    sys.state.maxBlobs = 80 + Math.floor(sys.rng() * 40);
+    sys.state.magnetStrength = 0.02 + sys.rng() * 0.04;
+    sys.state.inkColor = sys.palette.primary[Math.floor(sys.rng() * sys.palette.primary.length)];
+    sys.state.secondColor = sys.palette.primary[(Math.floor(sys.rng() * sys.palette.primary.length) + 1) % sys.palette.primary.length];
+    sys.state.fieldAngle = sys.rng() * Math.PI * 2;
+    sys.state.fieldDrift = 0.005 + sys.rng() * 0.01;
+}
+
+function drawMagneticInk(sys) {
+    const { ctx, state } = sys;
+    state.fieldAngle += state.fieldDrift;
+    const fieldX = Math.cos(state.fieldAngle);
+    const fieldY = Math.sin(state.fieldAngle);
+
+    if (sys.mouseSpeed > 1 && sys.tick % 2 === 0) {
+        const count = Math.min(3, Math.ceil(sys.mouseSpeed * 0.2));
+        for (let i = 0; i < count && state.blobs.length < state.maxBlobs; i++) {
+            const p = state.pool.length > 0 ? state.pool.pop() : {};
+            p.x = mouse.x + (sys.rng() - 0.5) * 8;
+            p.y = mouse.y + (sys.rng() - 0.5) * 8;
+            p.vx = (sys.rng() - 0.5) * 1.5;
+            p.vy = (sys.rng() - 0.5) * 1.5;
+            p.size = 3 + sys.rng() * 8;
+            p.life = 1.0;
+            p.decay = 0.003 + sys.rng() * 0.005;
+            p.polarity = sys.rng() > 0.5 ? 1 : -1;
+            p.color = p.polarity > 0 ? state.inkColor : state.secondColor;
+            state.blobs.push(p);
+        }
+    }
+
+    for (let i = state.blobs.length - 1; i >= 0; i--) {
+        const p = state.blobs[i];
+        p.vx += fieldX * state.magnetStrength * p.polarity;
+        p.vy += fieldY * state.magnetStrength * p.polarity;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+        p.size *= 0.999;
+
+        if (p.life <= 0) {
+            state.pool.push(p);
+            state.blobs[i] = state.blobs[state.blobs.length - 1];
+            state.blobs.pop();
+            continue;
+        }
+
+        ctx.globalCompositeOperation = 'lighter';
+        const spikes = 5 + Math.floor(p.size);
+        ctx.fillStyle = withAlpha(p.color, p.life * 0.4);
+        ctx.beginPath();
+        for (let s = 0; s < spikes; s++) {
+            const a = (TAU / spikes) * s + p.polarity * sys.tick * 0.02;
+            const spikeLen = p.size * (0.8 + 0.4 * Math.sin(a * 3 + sys.tick * 0.05));
+            const midA = a + TAU / spikes / 2;
+            const midR = p.size * 0.4;
+            if (s === 0) {
+                ctx.moveTo(p.x + Math.cos(a) * spikeLen, p.y + Math.sin(a) * spikeLen);
+            } else {
+                ctx.lineTo(p.x + Math.cos(a) * spikeLen, p.y + Math.sin(a) * spikeLen);
+            }
+            ctx.lineTo(p.x + Math.cos(midA) * midR, p.y + Math.sin(midA) * midR);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+}
+
+// ═══════════════════════════════════════════════
+//  TRAIL: Pixel Dissolve
+// ═══════════════════════════════════════════════
+function initPixelDissolve(sys) {
+    sys.state.pixels = [];
+    sys.state.pool = [];
+    sys.state.maxPixels = 200 + Math.floor(sys.rng() * 100);
+    sys.state.pixelSize = 3 + Math.floor(sys.rng() * 5);
+    sys.state.dissolveStyle = Math.floor(sys.rng() * 3);
+    sys.state.hueShift = sys.rng() * 360;
+}
+
+function drawPixelDissolve(sys) {
+    const { ctx, state } = sys;
+    const emitCount = Math.min(Math.ceil(sys.mouseSpeed * 0.5), 6);
+
+    for (let i = 0; i < emitCount && state.pixels.length < state.maxPixels; i++) {
+        const p = state.pool.length > 0 ? state.pool.pop() : {};
+        const s = state.pixelSize;
+        p.x = Math.floor(mouse.x / s) * s;
+        p.y = Math.floor(mouse.y / s) * s;
+        p.vx = (sys.rng() - 0.5) * 3;
+        p.vy = (sys.rng() - 0.5) * 3;
+        p.life = 1.0;
+        p.decay = 0.008 + sys.rng() * 0.012;
+        p.size = s;
+        p.hue = (state.hueShift + sys.tick * 1.5 + sys.rng() * 40) % 360;
+        p.glitch = sys.rng() > 0.7;
+        state.pixels.push(p);
+    }
+
+    for (let i = state.pixels.length - 1; i >= 0; i--) {
+        const p = state.pixels[i];
+        p.life -= p.decay;
+
+        switch (state.dissolveStyle) {
+            case 0: p.vy += 0.08; p.x += p.vx; p.y += p.vy; break;
+            case 1: p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.vy *= 0.99; break;
+            case 2: p.vy -= 0.02; p.x += p.vx + Math.sin(sys.tick * 0.05 + i) * 0.3; p.y += p.vy; break;
+        }
+
+        if (p.life <= 0) {
+            state.pool.push(p);
+            state.pixels[i] = state.pixels[state.pixels.length - 1];
+            state.pixels.pop();
+            continue;
+        }
+
+        const visSize = p.size * Math.min(1, p.life * 2);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 55%, ${p.life * 0.7})`;
+        ctx.fillRect(p.x, p.y, visSize, visSize);
+
+        if (p.glitch && sys.tick % 4 === 0) {
+            ctx.globalAlpha = p.life * 0.3;
+            ctx.fillStyle = `hsla(${(p.hue + 120) % 360}, 100%, 60%, ${p.life * 0.3})`;
+            ctx.fillRect(p.x + (sys.rng() - 0.5) * 10, p.y, visSize, visSize);
+            ctx.globalAlpha = 1;
+        }
+        ctx.globalCompositeOperation = 'source-over';
+    }
+}
+
+// ═══════════════════════════════════════════════
+//  TRAIL: Calligraphy
+// ═══════════════════════════════════════════════
+function initCalligraphy(sys) {
+    sys.state.points = [];
+    sys.state.maxPoints = 60 + Math.floor(sys.rng() * 40);
+    sys.state.nib = Math.floor(sys.rng() * 3);
+    sys.state.nibAngle = sys.rng() * Math.PI;
+    sys.state.maxWidth = 6 + sys.rng() * 10;
+    sys.state.inkColor = sys.palette.primary[Math.floor(sys.rng() * sys.palette.primary.length)];
+    sys.state.flourish = sys.rng() > 0.5;
+    sys.state.mouseAngle = 0;
+}
+
+function drawCalligraphy(sys) {
+    const { ctx, state } = sys;
+    const dx = mouse.x - sys.prevMouse.x;
+    const dy = mouse.y - sys.prevMouse.y;
+    state.mouseAngle = Math.atan2(dy, dx);
+
+    if (sys.mouseSpeed > 0.3) {
+        state.points.push({
+            x: mouse.x, y: mouse.y,
+            speed: sys.mouseSpeed,
+            angle: state.mouseAngle
+        });
+        if (state.points.length > state.maxPoints) state.points.shift();
+    }
+    if (state.points.length < 3) return;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (let i = 1; i < state.points.length; i++) {
+        const prev = state.points[i - 1];
+        const curr = state.points[i];
+        const t = i / state.points.length;
+
+        let width;
+        switch (state.nib) {
+            case 0: width = Math.abs(Math.sin(curr.angle - state.nibAngle)) * state.maxWidth + 1; break;
+            case 1: width = state.maxWidth * (1 - Math.min(1, curr.speed / 15)); break;
+            case 2: width = state.maxWidth * Math.sin(t * Math.PI) * (1 - Math.min(0.8, curr.speed / 20)); break;
+            default: width = state.maxWidth;
+        }
+
+        const alpha = 0.3 + t * 0.5;
+        ctx.strokeStyle = withAlpha(state.inkColor, alpha);
+        ctx.lineWidth = Math.max(0.5, width);
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(curr.x, curr.y);
+        ctx.stroke();
+
+        if (state.flourish && width > 3) {
+            const offset = width * 0.6;
+            const nx = Math.cos(curr.angle + Math.PI / 2) * offset;
+            const ny = Math.sin(curr.angle + Math.PI / 2) * offset;
+            ctx.strokeStyle = withAlpha(state.inkColor, alpha * 0.2);
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(prev.x + nx, prev.y + ny);
+            ctx.lineTo(curr.x + nx, curr.y + ny);
+            ctx.stroke();
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════
 //  TRAIL SYSTEM
 // ═══════════════════════════════════════════════
 const TRAIL_MODES = {
-    ribbon:   { init: initRibbon, draw: drawRibbon },
-    fire:     { init: initFire, draw: drawFire },
-    ice:      { init: initIce, draw: drawIce },
-    ink:      { init: initInk, draw: drawInk },
-    stardust: { init: initStardust, draw: drawStardust },
-    neon:     { init: initNeon, draw: drawNeon },
-    glitch:   { init: initGlitch, draw: drawGlitch },
-    vapor:    { init: initVapor, draw: drawVapor }
+    ribbon:       { init: initRibbon, draw: drawRibbon },
+    fire:         { init: initFire, draw: drawFire },
+    ice:          { init: initIce, draw: drawIce },
+    ink:          { init: initInk, draw: drawInk },
+    stardust:     { init: initStardust, draw: drawStardust },
+    neon:         { init: initNeon, draw: drawNeon },
+    glitch:       { init: initGlitch, draw: drawGlitch },
+    vapor:        { init: initVapor, draw: drawVapor },
+    magneticInk:  { init: initMagneticInk, draw: drawMagneticInk },
+    pixelDissolve:{ init: initPixelDissolve, draw: drawPixelDissolve },
+    calligraphy:  { init: initCalligraphy, draw: drawCalligraphy }
 };
 
 class CursorTrailSystem {

@@ -1006,6 +1006,419 @@ function drawWaveform(sys) {
 }
 
 // ═══════════════════════════════════════════════
+//  STYLE: Gravitational Lensing
+// ═══════════════════════════════════════════════
+function initLensing(sys) {
+    sys.state.distortRadius = 50 + sys.rng() * 40;
+    sys.state.starField = [];
+    const count = 200 + Math.floor(sys.rng() * 200);
+    for (let i = 0; i < count; i++) {
+        sys.state.starField.push({
+            x: sys.rng() * sys.width,
+            y: sys.rng() * sys.height,
+            size: 0.5 + sys.rng() * 2,
+            brightness: 0.3 + sys.rng() * 0.7,
+            hue: sys.rng() * 60 + 180
+        });
+    }
+    sys.state.einsteinRings = 1 + Math.floor(sys.rng() * 3);
+    sys.state.lensPower = 80 + sys.rng() * 120;
+}
+
+function drawLensing(sys) {
+    const { ctx, palette, state } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const clicking = isLeftMouseDown || isRightMouseDown;
+    const power = state.lensPower * (clicking ? 2 : 1);
+    const radius = state.distortRadius * (clicking ? 1.5 : 1);
+
+    // Draw background stars with gravitational lensing distortion
+    ctx.globalCompositeOperation = 'lighter';
+    for (const star of state.starField) {
+        const dx = star.x - mx;
+        const dy = star.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        let drawX = star.x;
+        let drawY = star.y;
+
+        if (dist < radius * 3 && dist > 5) {
+            // Gravitational lensing formula: deflect away from center
+            const deflection = power / (dist * dist) * radius;
+            drawX = mx + (dx / dist) * (dist + deflection);
+            drawY = my + (dy / dist) * (dist + deflection);
+
+            // Amplification: stars near the Einstein ring appear brighter
+            const einsteinDist = Math.abs(dist - radius);
+            const amplification = einsteinDist < 20 ? 2 + (20 - einsteinDist) * 0.2 : 1;
+
+            ctx.fillStyle = withAlpha(palette.primary[0], star.brightness * amplification);
+            ctx.beginPath();
+            ctx.arc(drawX, drawY, star.size * amplification, 0, TAU);
+            ctx.fill();
+
+            // Ghost/mirrored image on opposite side
+            if (dist < radius * 1.5) {
+                const mirrorX = mx - (dx / dist) * (radius * 2 - dist) * 0.4;
+                const mirrorY = my - (dy / dist) * (radius * 2 - dist) * 0.4;
+                ctx.fillStyle = withAlpha(palette.accent[0], star.brightness * 0.3);
+                ctx.beginPath();
+                ctx.arc(mirrorX, mirrorY, star.size * 0.7, 0, TAU);
+                ctx.fill();
+            }
+        } else {
+            ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(drawX, drawY, star.size, 0, TAU);
+            ctx.fill();
+        }
+    }
+
+    // Einstein rings
+    for (let r = 0; r < state.einsteinRings; r++) {
+        const ringR = radius * (0.8 + r * 0.4);
+        const wobble = Math.sin(sys.tick * 0.03 + r) * 3;
+        const grad = ctx.createRadialGradient(mx, my, ringR - 3, mx, my, ringR + 3);
+        grad.addColorStop(0, 'transparent');
+        grad.addColorStop(0.5, withAlpha(palette.glow[0], 0.15 + 0.05 * Math.sin(sys.tick * 0.05)));
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(mx, my, ringR + wobble, 0, TAU);
+        ctx.fill();
+    }
+
+    // Space distortion visual near center
+    const cg = ctx.createRadialGradient(mx, my, 0, mx, my, 20);
+    cg.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
+    cg.addColorStop(0.7, withAlpha(palette.glow[0], 0.2));
+    cg.addColorStop(1, 'transparent');
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(mx, my, 20, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ═══════════════════════════════════════════════
+//  STYLE: Time Crystal
+// ═══════════════════════════════════════════════
+function initTimeCrystal(sys) {
+    sys.state.echoes = [];
+    sys.state.maxEchoes = 8 + Math.floor(sys.rng() * 8);
+    sys.state.echoInterval = 4 + Math.floor(sys.rng() * 6);
+    sys.state.facets = 4 + Math.floor(sys.rng() * 5);
+    sys.state.rotSpeed = 0.01 + sys.rng() * 0.02;
+    sys.state.pulseFreq = 0.03 + sys.rng() * 0.04;
+    sys.state.innerGeometry = Math.floor(sys.rng() * 3); // 0=nested, 1=fractal, 2=web
+}
+
+function drawTimeCrystal(sys) {
+    const { ctx, palette, state } = sys;
+    const mx = mouse.x, my = mouse.y;
+
+    // Record echo positions
+    if (sys.tick % state.echoInterval === 0) {
+        state.echoes.push({ x: mx, y: my, tick: sys.tick, alpha: 1.0 });
+        if (state.echoes.length > state.maxEchoes) state.echoes.shift();
+    }
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Draw temporal echoes (past positions with fading crystal shapes)
+    for (let e = 0; e < state.echoes.length; e++) {
+        const echo = state.echoes[e];
+        const age = (sys.tick - echo.tick) / (state.echoInterval * state.maxEchoes);
+        const alpha = (1 - age) * 0.4;
+        if (alpha <= 0) continue;
+
+        const rot = echo.tick * state.rotSpeed;
+        const size = 15 + age * 20; // Echoes grow as they age
+        const timeFracture = Math.sin(echo.tick * state.pulseFreq) * 5;
+
+        ctx.save();
+        ctx.translate(echo.x, echo.y);
+        ctx.rotate(rot);
+
+        // Crystal facets
+        ctx.strokeStyle = withAlpha(palette.primary[e % palette.primary.length], alpha);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i <= state.facets; i++) {
+            const a = (TAU / state.facets) * i;
+            const r = size + timeFracture * Math.sin(a * 2);
+            const px = Math.cos(a) * r;
+            const py = Math.sin(a) * r;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Inner patterns
+        if (state.innerGeometry === 0) {
+            // Nested crystals
+            ctx.strokeStyle = withAlpha(palette.accent[0], alpha * 0.5);
+            ctx.beginPath();
+            for (let i = 0; i <= state.facets; i++) {
+                const a = (TAU / state.facets) * i + TAU / state.facets / 2;
+                const r = size * 0.5;
+                const px = Math.cos(a) * r;
+                const py = Math.sin(a) * r;
+                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        } else if (state.innerGeometry === 1) {
+            // Fractal lines from vertices to center
+            for (let i = 0; i < state.facets; i++) {
+                const a = (TAU / state.facets) * i;
+                const r = size + timeFracture * Math.sin(a * 2);
+                ctx.strokeStyle = withAlpha(palette.glow[0], alpha * 0.3);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                ctx.stroke();
+            }
+        }
+
+        ctx.restore();
+    }
+
+    // Current crystal (bright, pulsing)
+    const pulse = 1 + 0.15 * Math.sin(sys.tick * state.pulseFreq);
+    const rot = sys.tick * state.rotSpeed;
+    const size = 20 * pulse;
+
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(rot);
+
+    // Glowing core crystal
+    ctx.strokeStyle = withAlpha(palette.glow[0], 0.8);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= state.facets; i++) {
+        const a = (TAU / state.facets) * i;
+        const r = size;
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Glow
+    ctx.strokeStyle = withAlpha(palette.glow[0], 0.2);
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // Temporal connectors to echoes
+    ctx.restore();
+    for (let e = 0; e < state.echoes.length; e++) {
+        const echo = state.echoes[e];
+        const age = (sys.tick - echo.tick) / (state.echoInterval * state.maxEchoes);
+        const alpha = (1 - age) * 0.15;
+        if (alpha <= 0) continue;
+
+        ctx.strokeStyle = withAlpha(palette.primary[0], alpha);
+        ctx.lineWidth = 0.5;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(mx, my);
+        ctx.lineTo(echo.x, echo.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Core glow
+    const cg = ctx.createRadialGradient(mx, my, 0, mx, my, 12);
+    cg.addColorStop(0, withAlpha(palette.glow[0], 0.6));
+    cg.addColorStop(1, 'transparent');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(mx, my, 12, 0, TAU); ctx.fill();
+
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ═══════════════════════════════════════════════
+//  STYLE: Fractal Zoom (Julia Set)
+// ═══════════════════════════════════════════════
+function initFractalZoom(sys) {
+    sys.state.offscreen = document.createElement('canvas');
+    sys.state.offscreen.width = 80;
+    sys.state.offscreen.height = 80;
+    sys.state.offCtx = sys.state.offscreen.getContext('2d');
+    sys.state.imageData = sys.state.offCtx.createImageData(80, 80);
+    sys.state.cReal = -0.7 + sys.rng() * 0.5;
+    sys.state.cImag = 0.2 + sys.rng() * 0.3 * (sys.rng() > 0.5 ? 1 : -1);
+    sys.state.maxIter = 30 + Math.floor(sys.rng() * 20);
+    sys.state.zoom = 2 + sys.rng() * 1.5;
+    sys.state.hueOffset = sys.rng() * 360;
+    sys.state.renderSize = 60 + Math.floor(sys.rng() * 40);
+}
+
+function drawFractalZoom(sys) {
+    const { ctx, palette, state } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const size = state.offscreen.width;
+    const data = state.imageData.data;
+    const maxIter = state.maxIter;
+
+    // Slowly evolve the Julia set parameters
+    const cR = state.cReal + Math.sin(sys.tick * 0.003) * 0.1;
+    const cI = state.cImag + Math.cos(sys.tick * 0.004) * 0.1;
+    const zoom = state.zoom + Math.sin(sys.tick * 0.005) * 0.3;
+
+    for (let py = 0; py < size; py++) {
+        for (let px = 0; px < size; px++) {
+            let zr = (px - size / 2) / (size / 2) * zoom;
+            let zi = (py - size / 2) / (size / 2) * zoom;
+
+            let iter = 0;
+            while (iter < maxIter && zr * zr + zi * zi < 4) {
+                const tmp = zr * zr - zi * zi + cR;
+                zi = 2 * zr * zi + cI;
+                zr = tmp;
+                iter++;
+            }
+
+            const pi = (py * size + px) * 4;
+            if (iter === maxIter) {
+                data[pi] = data[pi + 1] = data[pi + 2] = 0;
+            } else {
+                const t = iter / maxIter;
+                const hue = (state.hueOffset + t * 360 + sys.tick * 0.5) % 360;
+                const sat = 80 + t * 20;
+                const light = 10 + t * 50;
+                const c = (1 - Math.abs(2 * light / 100 - 1)) * (sat / 100);
+                const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+                const m = light / 100 - c / 2;
+                let r, g, b;
+                if (hue < 60) { r = c; g = x; b = 0; }
+                else if (hue < 120) { r = x; g = c; b = 0; }
+                else if (hue < 180) { r = 0; g = c; b = x; }
+                else if (hue < 240) { r = 0; g = x; b = c; }
+                else if (hue < 300) { r = x; g = 0; b = c; }
+                else { r = c; g = 0; b = x; }
+                data[pi] = (r + m) * 255;
+                data[pi + 1] = (g + m) * 255;
+                data[pi + 2] = (b + m) * 255;
+            }
+            data[pi + 3] = 255;
+        }
+    }
+
+    state.offCtx.putImageData(state.imageData, 0, 0);
+
+    // Draw as circular portal at cursor
+    const renderR = state.renderSize / 2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Clip to circle
+    ctx.beginPath();
+    ctx.arc(mx, my, renderR, 0, TAU);
+    ctx.clip();
+    ctx.drawImage(state.offscreen, mx - renderR, my - renderR, renderR * 2, renderR * 2);
+    ctx.restore();
+
+    // Ring glow around the fractal portal
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(mx, my, renderR - 5, mx, my, renderR + 8);
+    g.addColorStop(0, 'transparent');
+    g.addColorStop(0.5, withAlpha(palette.glow[0], 0.4));
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(mx, my, renderR + 8, 0, TAU);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ═══════════════════════════════════════════════
+//  STYLE: Particle Vortex
+// ═══════════════════════════════════════════════
+function initVortex(sys) {
+    sys.state.particles = [];
+    const count = 60 + Math.floor(sys.rng() * 80);
+    for (let i = 0; i < count; i++) {
+        sys.state.particles.push({
+            angle: sys.rng() * TAU,
+            dist: 10 + sys.rng() * 80,
+            speed: 0.02 + sys.rng() * 0.04,
+            size: 0.5 + sys.rng() * 2,
+            hue: sys.rng() * 60,
+            trail: [],
+            trailMax: 5 + Math.floor(sys.rng() * 10)
+        });
+    }
+    sys.state.armCount = 2 + Math.floor(sys.rng() * 3);
+    sys.state.swirlTight = 0.02 + sys.rng() * 0.04;
+    sys.state.rotDir = sys.rng() > 0.5 ? 1 : -1;
+}
+
+function drawVortex(sys) {
+    const { ctx, palette, state } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const boost = isLeftMouseDown ? 3 : 1;
+    const suck = isRightMouseDown;
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (const p of state.particles) {
+        // Spiral motion
+        p.angle += p.speed * state.rotDir * boost;
+        if (suck) {
+            p.dist = Math.max(5, p.dist - 0.5);
+        } else {
+            // Breathe in and out
+            const targetDist = 10 + (p.dist > 50 ? -0.1 : 0.05) + Math.sin(sys.tick * 0.01 + p.angle) * 0.3;
+            p.dist += targetDist > p.dist ? 0.2 : -0.1;
+        }
+
+        const spiralAngle = p.angle + p.dist * state.swirlTight;
+        const x = mx + Math.cos(spiralAngle) * p.dist;
+        const y = my + Math.sin(spiralAngle) * p.dist;
+
+        // Store trail
+        p.trail.push({ x, y });
+        if (p.trail.length > p.trailMax) p.trail.shift();
+
+        // Draw trail
+        if (p.trail.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(p.trail[0].x, p.trail[0].y);
+            for (let i = 1; i < p.trail.length; i++) {
+                ctx.lineTo(p.trail[i].x, p.trail[i].y);
+            }
+            const hue = (sys.palette.strategy === 'volcanic' ? 20 : (sys.state.particles.indexOf(p) * 3 + sys.tick * 0.5)) % 360;
+            ctx.strokeStyle = withAlpha(palette.primary[0], 0.2 * (p.trail.length / p.trailMax));
+            ctx.lineWidth = p.size;
+            ctx.stroke();
+        }
+
+        // Particle head
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, p.size * 3);
+        glow.addColorStop(0, withAlpha(palette.glow[0], 0.6));
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(x, y, p.size * 3, 0, TAU); ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(x, y, p.size * 0.5, 0, TAU); ctx.fill();
+    }
+
+    // Center vortex eye
+    const cg = ctx.createRadialGradient(mx, my, 0, mx, my, 15);
+    cg.addColorStop(0, withAlpha(palette.glow[0], 0.5));
+    cg.addColorStop(0.5, withAlpha(palette.primary[0], 0.15));
+    cg.addColorStop(1, 'transparent');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(mx, my, 15, 0, TAU); ctx.fill();
+
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ═══════════════════════════════════════════════
 //  CURSOR EFFECTS SYSTEM
 // ═══════════════════════════════════════════════
 const CURSOR_STYLES = {
@@ -1022,7 +1435,11 @@ const CURSOR_STYLES = {
     fireflies:     { init: initFireflies, draw: drawFireflies },
     runic:         { init: initRunic, draw: drawRunic },
     constellation: { init: initConstellation, draw: drawConstellation },
-    waveform:      { init: initWaveform, draw: drawWaveform }
+    waveform:      { init: initWaveform, draw: drawWaveform },
+    lensing:       { init: initLensing, draw: drawLensing },
+    timeCrystal:   { init: initTimeCrystal, draw: drawTimeCrystal },
+    fractalZoom:   { init: initFractalZoom, draw: drawFractalZoom },
+    vortex:        { init: initVortex, draw: drawVortex }
 };
 
 class CursorEffectsSystem {

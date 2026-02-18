@@ -6,6 +6,7 @@
 
 import { mouse, isLeftMouseDown, isRightMouseDown } from './state.js';
 import { withAlpha } from './color_palettes.js';
+import { EXTRA_CURSOR_STYLES } from './cursor_effects_extra.js';
 
 const TAU = Math.PI * 2;
 
@@ -1439,7 +1440,8 @@ const CURSOR_STYLES = {
     lensing:       { init: initLensing, draw: drawLensing },
     timeCrystal:   { init: initTimeCrystal, draw: drawTimeCrystal },
     fractalZoom:   { init: initFractalZoom, draw: drawFractalZoom },
-    vortex:        { init: initVortex, draw: drawVortex }
+    vortex:        { init: initVortex, draw: drawVortex },
+    ...EXTRA_CURSOR_STYLES
 };
 
 class CursorEffectsSystem {

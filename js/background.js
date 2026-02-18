@@ -28,6 +28,11 @@ import { ReactionDiffusionArchitecture } from './reaction_diffusion_architecture
 import { VoronoiArchitecture } from './voronoi_architecture.js';
 import { MagneticFieldArchitecture } from './magnetic_field_architecture.js';
 import { FluidArchitecture } from './fluid_architecture.js';
+import { ParticleEcosystemArchitecture } from './particle_ecosystem_architecture.js';
+import { TopologyArchitecture } from './topology_architecture.js';
+import { DimensionalRiftArchitecture } from './dimensional_rift_architecture.js';
+import { NeuralWebArchitecture } from './neural_web_architecture.js';
+import { InterferenceArchitecture } from './interference_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -55,7 +60,12 @@ const ALL_ARCHITECTURES = [
     () => new ReactionDiffusionArchitecture(),
     () => new VoronoiArchitecture(),
     () => new MagneticFieldArchitecture(),
-    () => new FluidArchitecture()
+    () => new FluidArchitecture(),
+    () => new ParticleEcosystemArchitecture(),
+    () => new TopologyArchitecture(),
+    () => new DimensionalRiftArchitecture(),
+    () => new NeuralWebArchitecture(),
+    () => new InterferenceArchitecture()
 ];
 
 class BackgroundSystem {
@@ -216,9 +226,40 @@ class BackgroundSystem {
         // Fluid dynamics: fluid/ink/painterly themes
         const fluidBlueprints = ['LivingInk', 'Painterly', 'Aetherial', 'GooeyMess', 'ChromaticAberration', 'PhantomEcho'];
 
-        // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
-        if (this.rng() < 0.18) {
+        // Particle ecosystem: emergent life/swarm/quantum themes
+        const particleEcosystemBlueprints = ['SentientSwarm', 'QuantumFoam', 'CoralReef', 'FungalForest', 'BioMechanical', 'GooeyMess'];
+        // Topology: terrain/cosmic/cartographic themes
+        const topologyBlueprints = ['Classical', 'StarForged', 'StellarNursery', 'GlacialDrift', 'AbyssalZone', 'Papercraft'];
+        // Dimensional rift: void/eldritch/phantom themes
+        const dimensionalRiftBlueprints = ['VoidTouched', 'Eldritch', 'PhantomEcho', 'HauntedRealm', 'AbyssalHorror', 'ArcaneCodex'];
+        // Neural web: bio/digital/connected themes
+        const neuralWebBlueprints = ['BioMechanical', 'Digital', 'SentientSwarm', 'CosmicWeb', 'NeonCyber', 'TechnoUtopia'];
+        // Interference: quantum/sonic/chromatic themes
+        const interferenceBlueprints = ['QuantumFoam', 'SonicScapes', 'ChromaticAberration', 'ChronoVerse', 'Aetherial'];
+
+        // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
+        if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
+        }
+        // Particle ecosystem: emergent artificial life
+        else if (particleEcosystemBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ParticleEcosystemArchitecture();
+        }
+        // Topology: animated topographic contour maps
+        else if (topologyBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TopologyArchitecture();
+        }
+        // Dimensional rift: reality tears showing other dimensions
+        else if (dimensionalRiftBlueprints.includes(blueprintName) && this.rng() > 0.45) {
+            this.architecture = new DimensionalRiftArchitecture();
+        }
+        // Neural web: living neural network
+        else if (neuralWebBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new NeuralWebArchitecture();
+        }
+        // Interference: wave interference patterns
+        else if (interferenceBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new InterferenceArchitecture();
         }
         // Reaction-diffusion: organic/bio themes
         else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -298,17 +339,22 @@ class BackgroundSystem {
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from expanded set based on seed (25 architectures)
+            // Default: choose from expanded set based on seed (30 architectures)
             const roll = this.rng();
-            if (roll > 0.96) this.architecture = new ReactionDiffusionArchitecture();
-            else if (roll > 0.92) this.architecture = new VoronoiArchitecture();
-            else if (roll > 0.88) this.architecture = new MagneticFieldArchitecture();
-            else if (roll > 0.84) this.architecture = new FluidArchitecture();
-            else if (roll > 0.78) this.architecture = new PendulumArchitecture();
-            else if (roll > 0.70) this.architecture = new InkArchitecture();
-            else if (roll > 0.62) this.architecture = new CircuitGrowthArchitecture();
-            else if (roll > 0.54) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.46) this.architecture = new LavaArchitecture();
+            if (roll > 0.97) this.architecture = new InterferenceArchitecture();
+            else if (roll > 0.94) this.architecture = new NeuralWebArchitecture();
+            else if (roll > 0.91) this.architecture = new DimensionalRiftArchitecture();
+            else if (roll > 0.88) this.architecture = new TopologyArchitecture();
+            else if (roll > 0.85) this.architecture = new ParticleEcosystemArchitecture();
+            else if (roll > 0.82) this.architecture = new ReactionDiffusionArchitecture();
+            else if (roll > 0.79) this.architecture = new VoronoiArchitecture();
+            else if (roll > 0.76) this.architecture = new MagneticFieldArchitecture();
+            else if (roll > 0.73) this.architecture = new FluidArchitecture();
+            else if (roll > 0.68) this.architecture = new PendulumArchitecture();
+            else if (roll > 0.62) this.architecture = new InkArchitecture();
+            else if (roll > 0.56) this.architecture = new CircuitGrowthArchitecture();
+            else if (roll > 0.50) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.44) this.architecture = new LavaArchitecture();
             else if (roll > 0.38) this.architecture = new TerrainArchitecture();
             else if (roll > 0.30) this.architecture = new AuroraArchitecture();
             else if (roll > 0.22) this.architecture = new LifeArchitecture();

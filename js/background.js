@@ -28,6 +28,12 @@ import { ReactionDiffusionArchitecture } from './reaction_diffusion_architecture
 import { VoronoiArchitecture } from './voronoi_architecture.js';
 import { MagneticFieldArchitecture } from './magnetic_field_architecture.js';
 import { FluidArchitecture } from './fluid_architecture.js';
+import { ConstellationArchitecture } from './constellation_architecture.js';
+import { GravityPoolArchitecture } from './gravity_pool_architecture.js';
+import { DNAArchitecture } from './dna_architecture.js';
+import { TopographyArchitecture } from './topography_architecture.js';
+import { PixelSortArchitecture } from './pixel_sort_architecture.js';
+import { WeatherArchitecture } from './weather_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -55,7 +61,13 @@ const ALL_ARCHITECTURES = [
     () => new ReactionDiffusionArchitecture(),
     () => new VoronoiArchitecture(),
     () => new MagneticFieldArchitecture(),
-    () => new FluidArchitecture()
+    () => new FluidArchitecture(),
+    () => new ConstellationArchitecture(),
+    () => new GravityPoolArchitecture(),
+    () => new DNAArchitecture(),
+    () => new TopographyArchitecture(),
+    () => new PixelSortArchitecture(),
+    () => new WeatherArchitecture()
 ];
 
 class BackgroundSystem {
@@ -82,6 +94,10 @@ class BackgroundSystem {
         // Cached scanlines path (performance optimization)
         this.cachedScanlinesPath = null;
         this.cachedScanlinesHeight = 0;
+
+        // Cached vignette gradient
+        this.cachedVignetteGradient = null;
+        this.cachedVignetteWidth = 0;
 
         // Theme properties
         this.hue = 0;
@@ -216,9 +232,46 @@ class BackgroundSystem {
         // Fluid dynamics: fluid/ink/painterly themes
         const fluidBlueprints = ['LivingInk', 'Painterly', 'Aetherial', 'GooeyMess', 'ChromaticAberration', 'PhantomEcho'];
 
+        // Constellation: celestial/stellar/void themes
+        const constellationBlueprints = ['Classical', 'StarForged', 'LivingConstellation', 'StellarNursery', 'CelestialForge', 'VoidTouched'];
+        // Gravity pool: aquatic/fluid/glass themes
+        const gravityPoolBlueprints = ['GlassySea', 'Aetherial', 'CoralReef', 'AbyssalZone', 'GlacialDrift'];
+        // DNA: biological/organic/swarm themes
+        const dnaBlueprints = ['BioMechanical', 'Organic', 'FungalForest', 'SentientSwarm', 'CoralReef'];
+        // Topography: terrain/forge/classical themes
+        const topographyBlueprints = ['Classical', 'VolcanicForge', 'MoltenHeart', 'GlacialDrift', 'Papercraft'];
+        // Pixel sort: glitch/digital/neon themes
+        const pixelSortBlueprints = ['NeonCyber', 'Digital', 'ChromaticAberration', 'TechnoUtopia', 'GlitchArchitecture'];
+        // Weather: aetherial/glacial/abyssal themes
+        const weatherBlueprints = ['Aetherial', 'GlacialDrift', 'AbyssalZone', 'Classical', 'HauntedRealm'];
+
         // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.18) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
+        }
+        // Constellation: celestial themes
+        else if (constellationBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new ConstellationArchitecture();
+        }
+        // Gravity pool: aquatic themes
+        else if (gravityPoolBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GravityPoolArchitecture();
+        }
+        // DNA: biological themes
+        else if (dnaBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new DNAArchitecture();
+        }
+        // Topography: terrain themes
+        else if (topographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new TopographyArchitecture();
+        }
+        // Pixel sort: glitch/digital themes
+        else if (pixelSortBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new PixelSortArchitecture();
+        }
+        // Weather: atmospheric themes
+        else if (weatherBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new WeatherArchitecture();
         }
         // Reaction-diffusion: organic/bio themes
         else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -298,19 +351,25 @@ class BackgroundSystem {
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from expanded set based on seed (25 architectures)
+            // Default: choose from expanded set based on seed (31 architectures)
             const roll = this.rng();
-            if (roll > 0.96) this.architecture = new ReactionDiffusionArchitecture();
-            else if (roll > 0.92) this.architecture = new VoronoiArchitecture();
-            else if (roll > 0.88) this.architecture = new MagneticFieldArchitecture();
-            else if (roll > 0.84) this.architecture = new FluidArchitecture();
-            else if (roll > 0.78) this.architecture = new PendulumArchitecture();
-            else if (roll > 0.70) this.architecture = new InkArchitecture();
-            else if (roll > 0.62) this.architecture = new CircuitGrowthArchitecture();
-            else if (roll > 0.54) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.46) this.architecture = new LavaArchitecture();
-            else if (roll > 0.38) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.30) this.architecture = new AuroraArchitecture();
+            if (roll > 0.97) this.architecture = new ReactionDiffusionArchitecture();
+            else if (roll > 0.94) this.architecture = new VoronoiArchitecture();
+            else if (roll > 0.91) this.architecture = new MagneticFieldArchitecture();
+            else if (roll > 0.88) this.architecture = new FluidArchitecture();
+            else if (roll > 0.85) this.architecture = new ConstellationArchitecture();
+            else if (roll > 0.82) this.architecture = new GravityPoolArchitecture();
+            else if (roll > 0.79) this.architecture = new DNAArchitecture();
+            else if (roll > 0.76) this.architecture = new TopographyArchitecture();
+            else if (roll > 0.73) this.architecture = new PixelSortArchitecture();
+            else if (roll > 0.70) this.architecture = new WeatherArchitecture();
+            else if (roll > 0.65) this.architecture = new PendulumArchitecture();
+            else if (roll > 0.59) this.architecture = new InkArchitecture();
+            else if (roll > 0.53) this.architecture = new CircuitGrowthArchitecture();
+            else if (roll > 0.47) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.41) this.architecture = new LavaArchitecture();
+            else if (roll > 0.35) this.architecture = new TerrainArchitecture();
+            else if (roll > 0.29) this.architecture = new AuroraArchitecture();
             else if (roll > 0.22) this.architecture = new LifeArchitecture();
             else if (roll > 0.11) this.architecture = new KaleidoscopeArchitecture();
             else this.architecture = new CosmicArchitecture();
@@ -403,10 +462,14 @@ class BackgroundSystem {
     applyBGMutators() {
         const ctx = this.ctx;
         if (this.bgMutators.includes('Vignette')) {
-            const g = ctx.createRadialGradient(this.width/2, this.height/2, this.width/4, this.width/2, this.height/2, this.width*0.7);
-            g.addColorStop(0, 'transparent');
-            g.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
-            ctx.fillStyle = g;
+            // Cache vignette gradient (only recreate on resize)
+            if (!this.cachedVignetteGradient || this.cachedVignetteWidth !== this.width) {
+                this.cachedVignetteGradient = ctx.createRadialGradient(this.width/2, this.height/2, this.width/4, this.width/2, this.height/2, this.width*0.7);
+                this.cachedVignetteGradient.addColorStop(0, 'transparent');
+                this.cachedVignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+                this.cachedVignetteWidth = this.width;
+            }
+            ctx.fillStyle = this.cachedVignetteGradient;
             ctx.fillRect(0, 0, this.width, this.height);
         }
         if (this.bgMutators.includes('Noise')) {

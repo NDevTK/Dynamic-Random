@@ -498,12 +498,27 @@ function applyHeavyParticles(p, pJS) {
     }
 }
 
-function applyChoral(p, pJS) {
+// Pre-computed average velocity for Choral mutator (avoids O(n^2))
+let choralAvgVx = 0, choralAvgVy = 0;
+
+function precomputeChoralAverage(pJS) {
+    if (!universeProfile.mutators.includes('Choral')) return;
+    const arr = pJS.particles.array;
+    const len = arr.length;
+    if (len === 0) return;
+    let sumVx = 0, sumVy = 0;
+    for (let i = 0; i < len; i++) {
+        sumVx += arr[i].vx;
+        sumVy += arr[i].vy;
+    }
+    choralAvgVx = sumVx / len;
+    choralAvgVy = sumVy / len;
+}
+
+function applyChoral(p) {
     if (universeProfile.mutators.includes('Choral')) {
-        const avg_vx = pJS.particles.array.reduce((acc, p) => acc + p.vx, 0) / pJS.particles.array.length;
-        const avg_vy = pJS.particles.array.reduce((acc, p) => acc + p.vy, 0) / pJS.particles.array.length;
-        p.vx += (avg_vx - p.vx) * 0.001;
-        p.vy += (avg_vy - p.vy) * 0.001;
+        p.vx += (choralAvgVx - p.vx) * 0.001;
+        p.vy += (choralAvgVy - p.vy) * 0.001;
     }
 }
 
@@ -553,18 +568,31 @@ function applyParticleChains(p, pJS) {
     }
 }
 
-function applyCosmicRivers(p) {
+// Pre-computed river sample points (avoids recalculating Bezier per particle)
+let riverSamples = [];
+
+function precomputeRiverSamples() {
+    riverSamples = [];
     for (const river of activeEffects.cosmicRivers) {
+        const samples = [];
         for (let t = 0; t < 1; t += 0.05) {
             const pt = getBezierXY(t, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2);
-            const dx = p.x - pt.x;
-            const dy = p.y - pt.y;
-            const dSq = dx * dx + dy * dy;
-            if (dSq < river.width * river.width) {
-                const nextPt = getBezierXY(t + 0.01, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2);
-                const riverAngle = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x);
-                p.vx += Math.cos(riverAngle) * river.strength * 0.05;
-                p.vy += Math.sin(riverAngle) * river.strength * 0.05;
+            const nextPt = getBezierXY(t + 0.01, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2);
+            const angle = Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x);
+            samples.push({ x: pt.x, y: pt.y, angle, widthSq: river.width * river.width, strength: river.strength });
+        }
+        riverSamples.push(samples);
+    }
+}
+
+function applyCosmicRivers(p) {
+    for (const samples of riverSamples) {
+        for (const s of samples) {
+            const dx = p.x - s.x;
+            const dy = p.y - s.y;
+            if (dx * dx + dy * dy < s.widthSq) {
+                p.vx += Math.cos(s.angle) * s.strength * 0.05;
+                p.vy += Math.sin(s.angle) * s.strength * 0.05;
                 break;
             }
         }
@@ -595,7 +623,7 @@ function applyMutatorForces(p, i, pJS, isPhased) {
     applyPhaseScattering(p);
     applyBrownianMotion(p);
     applyHeavyParticles(p, pJS);
-    applyChoral(p, pJS);
+    applyChoral(p);
     applyCarnival(p, tick);
     applyParticleChains(p, pJS);
     applyCosmicRivers(p);
@@ -728,6 +756,8 @@ export function update(pJS) {
 
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);
+    precomputeChoralAverage(pJS);
+    precomputeRiverSamples();
 
     const worldMouse = { ...mouse };
     updateAllParticles(pJS, worldMouse);

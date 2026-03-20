@@ -4,6 +4,7 @@
  */
 
 import { mouse } from './state.js';
+import { deviceSensors } from './device_sensors.js';
 import { SpatialGrid } from './spatial_grid.js';
 import { CosmicArchitecture, DigitalArchitecture, GeometricArchitecture } from './background_architectures.js';
 import { OrganicArchitecture } from './organic_architecture.js';
@@ -541,6 +542,10 @@ class BackgroundSystem {
     animate() {
         this.tick++;
         this.speedMultiplier += (this.targetSpeed - this.speedMultiplier) * 0.1;
+
+        // Expose device sensor data for architectures
+        this.deviceTilt = deviceSensors.tilt;
+        this.deviceShake = deviceSensors.shake;
 
         if (!this.isDark && this.tick % 30 === 0) this.updateThemeColors();
 

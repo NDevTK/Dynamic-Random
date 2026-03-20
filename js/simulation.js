@@ -10,6 +10,7 @@ import { getBezierXY, tagParticles } from './utils.js';
 import { drawEffects } from './drawing.js';
 import { incrementTick, getTick } from './state.js';
 import { SpatialGrid } from './spatial_grid.js';
+import { deviceSensors } from './device_sensors.js';
 
 // --- Simulation Sub-modules ---
 
@@ -648,6 +649,17 @@ function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
         }
     }
 
+    // Device tilt adds global gravity vector
+    if (deviceSensors.supported) {
+        p.vx += deviceSensors.tilt.x * 0.5;
+        p.vy += deviceSensors.tilt.y * 0.5;
+        // Shake boosts speed temporarily
+        if (deviceSensors.shake > 0.3) {
+            p.vx *= 1 + deviceSensors.shake * 0.3;
+            p.vy *= 1 + deviceSensors.shake * 0.3;
+        }
+    }
+
     if (p.radius > p.radius_initial && !universeProfile.mutators.includes('Pulsing Particles')) { p.radius -= 0.05; }
     p.vx *= physics.friction; p.vy *= physics.friction;
 }
@@ -753,6 +765,9 @@ export function update(pJS) {
     for (let i = 0; i < pJS.particles.array.length; i++) {
         particleGrid.insert(pJS.particles.array[i]);
     }
+
+    // Update device sensors for tilt/shake input
+    deviceSensors.update();
 
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);

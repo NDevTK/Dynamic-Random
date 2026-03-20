@@ -15,6 +15,7 @@ import { cursorTrails } from './cursor_trails.js';
 import { ambientFX } from './ambient_fx.js';
 import { warpField } from './warp_field.js';
 import { ambientSound } from './ambient_sound.js';
+import { deviceSensors } from './device_sensors.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ambientFX.init();
     warpField.init();
     ambientSound.init();
+    deviceSensors.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

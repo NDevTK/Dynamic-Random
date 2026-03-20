@@ -23,6 +23,10 @@ export const hud = (() => {
     let lastFrameTime = 0;
     let smoothFps = 60;
 
+    // Change detection for badge updates
+    let _lastGamepadOn = false, _lastMicOn = false, _lastCameraOn = false, _lastSpeechOn = false;
+    let _lastTabCount = 0;
+
     function makeDot(color) {
         const dot = document.createElement('span');
         dot.style.cssText = `display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin:0 3px;transition:background 0.3s;`;
@@ -165,16 +169,18 @@ export const hud = (() => {
         const anomaly = universeProfile.anomaly;
         anomalyEl.textContent = anomaly ? String(anomaly) : '';
 
-        // Input badges
-        badgeGamepad.style.background = gamepadInput.connected ? '#00ff88' : 'rgba(255,255,255,0.2)';
-        badgeMic.style.background     = micReactive.active    ? '#4488ff' : 'rgba(255,255,255,0.2)';
-        badgeCamera.style.background  = cameraInput.active    ? '#ff4444' : 'rgba(255,255,255,0.2)';
-        badgeSpeech.style.background  = speechInput.active    ? '#cc44ff' : 'rgba(255,255,255,0.2)';
+        // Input badges (only update DOM when state changes)
+        const gpOn = gamepadInput.connected, micOn = micReactive.active;
+        const camOn = cameraInput.active, spkOn = speechInput.active;
+        if (gpOn !== _lastGamepadOn) { badgeGamepad.style.background = gpOn ? '#00ff88' : 'rgba(255,255,255,0.2)'; _lastGamepadOn = gpOn; }
+        if (micOn !== _lastMicOn) { badgeMic.style.background = micOn ? '#4488ff' : 'rgba(255,255,255,0.2)'; _lastMicOn = micOn; }
+        if (camOn !== _lastCameraOn) { badgeCamera.style.background = camOn ? '#ff4444' : 'rgba(255,255,255,0.2)'; _lastCameraOn = camOn; }
+        if (spkOn !== _lastSpeechOn) { badgeSpeech.style.background = spkOn ? '#cc44ff' : 'rgba(255,255,255,0.2)'; _lastSpeechOn = spkOn; }
 
-        if (tabSync.tabCount > 1) {
-            badgeTab.textContent = tabSync.tabCount + ' tabs';
-        } else {
-            badgeTab.textContent = '';
+        const tc = tabSync.tabCount;
+        if (tc !== _lastTabCount) {
+            badgeTab.textContent = tc > 1 ? tc + ' tabs' : '';
+            _lastTabCount = tc;
         }
 
         // Auto-hide after 5 seconds of no mouse movement

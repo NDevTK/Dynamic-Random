@@ -3,19 +3,7 @@
  * @description Visual architecture selector palette overlay.
  */
 
-import { background } from './background.js';
-
-const ARCH_NAMES = [
-    'Cosmic', 'Digital', 'Geometric', 'Organic', 'Flow', 'Abstract', 'Glitch',
-    'Fabric', 'Voxel', 'Fractal', 'Aurora', 'Firefly', 'Raindrop', 'Kaleidoscope',
-    'Terrain', 'Lava', 'Life', 'Synthwave', 'Pendulum', 'Ink', 'CircuitGrowth',
-    'ReactionDiffusion', 'Voronoi', 'MagneticField', 'Fluid', 'Constellation',
-    'GravityPool', 'DNA', 'Topography', 'PixelSort', 'Weather', 'ShatteredMirror',
-    'Mycelium', 'Interference', 'DimensionalRift', 'DeepSea', 'GlitchFabric',
-    'Typography', 'Origami', 'NeuralNet', 'TidalPool', 'SpeechTypography',
-    'CameraTexture', 'Cloth', 'Softbody', 'WebGPUParticle', 'WebGPUFluid',
-    'Attractor', 'SacredGeometry', 'FractalExplorer', 'Spirograph', 'Truchet', 'LSystem'
-];
+import { background, ARCH_DISPLAY_NAMES } from './background.js';
 
 export const archSelector = {
     overlay: null,
@@ -56,7 +44,7 @@ export const archSelector = {
         this.grid = grid;
 
         // Cards
-        ARCH_NAMES.forEach((name, index) => {
+        ARCH_DISPLAY_NAMES.forEach((name, index) => {
             const card = document.createElement('button');
             card.dataset.index = String(index);
             card.style.cssText = [
@@ -99,11 +87,7 @@ export const archSelector = {
 
     _styleCard(card) {
         const idx = parseInt(card.dataset.index, 10);
-        const isActive = background._currentArchIndex === idx ||
-            (background._currentArchIndex === -1 &&
-                background.architecture &&
-                ARCH_NAMES[idx] &&
-                background.architecture.constructor.name.startsWith(ARCH_NAMES[idx]));
+        const isActive = background._currentArchIndex === idx;
 
         card.style.background = isActive ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.06)';
         card.style.borderColor = isActive ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.1)';

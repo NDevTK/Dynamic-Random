@@ -49,7 +49,9 @@ export const screenshot = {
       for (const canvas of layers) {
         try {
           ctx.drawImage(canvas, 0, 0, composite.width, composite.height);
-        } catch (_) {}
+        } catch (err) {
+          console.warn('[screenshot] Could not draw layer:', err.message ?? err);
+        }
       }
 
       composite.toBlob((blob) => resolve(blob), 'image/png');

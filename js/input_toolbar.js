@@ -96,8 +96,12 @@ export const inputToolbar = {
             const btn = _makeButton('🎤', ACCENTS.mic);
             btn.addEventListener('click', async () => {
                 if (btn.dataset.active === 'false') {
-                    await micReactive.activate();
-                    _setActive(btn, true, true);
+                    try {
+                        await micReactive.activate();
+                        _setActive(btn, true, true);
+                    } catch (err) {
+                        console.warn('[inputToolbar] Mic activation failed:', err.message ?? err);
+                    }
                 } else {
                     _setActive(btn, false, false);
                 }
@@ -110,8 +114,12 @@ export const inputToolbar = {
             const btn = _makeButton('📷', ACCENTS.camera);
             btn.addEventListener('click', async () => {
                 if (btn.dataset.active === 'false') {
-                    await cameraInput.activate();
-                    _setActive(btn, true, false);
+                    try {
+                        await cameraInput.activate();
+                        _setActive(btn, true, false);
+                    } catch (err) {
+                        console.warn('[inputToolbar] Camera activation failed:', err.message ?? err);
+                    }
                 } else {
                     cameraInput.deactivate();
                     _setActive(btn, false, false);
@@ -125,8 +133,12 @@ export const inputToolbar = {
             const btn = _makeButton('💬', ACCENTS.speech);
             btn.addEventListener('click', async () => {
                 if (btn.dataset.active === 'false') {
-                    await speechInput.activate();
-                    _setActive(btn, true, true);
+                    try {
+                        await speechInput.activate();
+                        _setActive(btn, true, true);
+                    } catch (err) {
+                        console.warn('[inputToolbar] Speech activation failed:', err.message ?? err);
+                    }
                 } else {
                     speechInput.deactivate();
                     _setActive(btn, false, false);

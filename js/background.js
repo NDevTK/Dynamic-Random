@@ -122,6 +122,15 @@ const ALL_ARCHITECTURES = [
     () => new LSystemArchitecture()
 ];
 
+// Cached constructor names to avoid creating throwaway instances in cycleArchitecture()
+const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
+    const instance = fn();
+    return instance.constructor.name;
+});
+
+// Display-friendly names for the architecture selector UI
+export const ARCH_DISPLAY_NAMES = ARCH_CONSTRUCTOR_NAMES.map(n => n.replace(/Architecture$/, ''));
+
 class BackgroundSystem {
     constructor() {
         this.canvas = document.createElement('canvas');
@@ -224,9 +233,9 @@ class BackgroundSystem {
 
     cycleArchitecture(direction) {
         if (this._currentArchIndex === -1) {
-            // Find current architecture's index in ALL_ARCHITECTURES
+            // Find current architecture's index using cached names (no throwaway instances)
             const currentName = this.architecture.constructor.name;
-            this._currentArchIndex = ALL_ARCHITECTURES.findIndex(fn => fn().constructor.name === currentName);
+            this._currentArchIndex = ARCH_CONSTRUCTOR_NAMES.indexOf(currentName);
             if (this._currentArchIndex === -1) this._currentArchIndex = 0;
         }
         this._currentArchIndex = (this._currentArchIndex + direction + ALL_ARCHITECTURES.length) % ALL_ARCHITECTURES.length;
@@ -770,8 +779,8 @@ class BackgroundSystem {
                 );
             }
 
-            // Volume modulates speed multiplier
-            this.speedMultiplier = Math.max(this.speedMultiplier, 1 + micReactive.volume * 8);
+            // Volume modulates speed — use targetSpeed so lerp in animate() naturally decays
+            this.targetSpeed = Math.max(this.targetSpeed, 1 + micReactive.volume * 8);
         } else {
             this.audioHueShift = 0;
         }

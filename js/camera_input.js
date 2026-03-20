@@ -177,8 +177,11 @@ export const cameraInput = {
             this.motionLevel = 0;
         }
 
-        // Store a copy of the current frame for the next diff
-        this._prevPixels = new Uint8ClampedArray(pixels);
+        // Reuse previous frame buffer instead of allocating a new one each time
+        if (!this._prevPixels || this._prevPixels.length !== pixels.length) {
+            this._prevPixels = new Uint8ClampedArray(pixels.length);
+        }
+        this._prevPixels.set(pixels);
 
         // --- Per-region sampling (GRID_COLS x GRID_ROWS) ---
         const cellW = CANVAS_W / GRID_COLS;

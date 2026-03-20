@@ -84,6 +84,7 @@ export const touchGestures = {
             }
             this._swipeStart = null;
             const now = Date.now(), t = e.changedTouches[0];
+            if (!t) return;
             if (this._lastTap) {
                 const dx = t.clientX - this._lastTap.x, dy = t.clientY - this._lastTap.y;
                 if (now - this._lastTap.time < 300 && dx * dx + dy * dy < 900) {

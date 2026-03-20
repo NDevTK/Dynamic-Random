@@ -3,12 +3,16 @@ export const perfMonitor = {
   qualityScale: 1.0,
   qualityLevel: 'ultra',
 
-  _timestamps: [],
+  _buffer: new Float64Array(64),
+  _bufferIndex: 0,
+  _bufferCount: 0,
   _frameCount: 0,
   _checksAboveThreshold: 0,
 
   init() {
-    this._timestamps = [];
+    this._buffer = new Float64Array(64);
+    this._bufferIndex = 0;
+    this._bufferCount = 0;
     this._frameCount = 0;
     this._checksAboveThreshold = 0;
     this.fps = 60;
@@ -18,15 +22,15 @@ export const perfMonitor = {
 
   update() {
     const now = performance.now();
-    this._timestamps.push(now);
-    if (this._timestamps.length > 60) {
-      this._timestamps.shift();
-    }
+    this._buffer[this._bufferIndex] = now;
+    this._bufferIndex = (this._bufferIndex + 1) & 63; // mod 64
+    if (this._bufferCount < 64) this._bufferCount++;
 
-    if (this._timestamps.length >= 2) {
-      const elapsed = this._timestamps[this._timestamps.length - 1] - this._timestamps[0];
-      const rawFps = (this._timestamps.length - 1) / elapsed * 1000;
-      this.fps = this.fps * (1 - 0.1) + rawFps * 0.1;
+    if (this._bufferCount >= 2) {
+      const oldest = this._buffer[(this._bufferIndex - this._bufferCount + 64) & 63];
+      const elapsed = now - oldest;
+      const rawFps = (this._bufferCount - 1) / elapsed * 1000;
+      this.fps = this.fps * 0.9 + rawFps * 0.1;
     }
 
     this._frameCount++;

@@ -8,6 +8,7 @@
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
 import { createNoise2D } from './simplex_noise.js';
+import { cliffordAttractor, deJongAttractor, normalizePoints } from './math_patterns.js';
 
 export class InterferenceArchitecture extends Architecture {
     constructor() {
@@ -82,6 +83,19 @@ export class InterferenceArchitecture extends Architecture {
             });
         }
 
+        // Attractor-based movement paths (seed-dependent)
+        if (rng() > 0.4) {
+            for (let i = 0; i < this.sources.length; i++) {
+                const s = this.sources[i];
+                const points = rng() > 0.5
+                    ? normalizePoints(cliffordAttractor(2000, rng))
+                    : normalizePoints(deJongAttractor(2000, rng));
+                s.attractorPath = points;
+                s.pathIndex = Math.floor(rng() * points.length);
+                s.useAttractor = true;
+            }
+        }
+
         this.lastMouseX = system.width / 2;
         this.lastMouseY = system.height / 2;
     }
@@ -99,14 +113,24 @@ export class InterferenceArchitecture extends Architecture {
         for (let i = 0; i < this.sources.length; i++) {
             const s = this.sources[i];
             s.phase += s.phaseSpeed * system.speedMultiplier;
-            s.x += s.vx * system.speedMultiplier;
-            s.y += s.vy * system.speedMultiplier;
 
-            // Bounce off edges
-            if (s.x < 0 || s.x > system.width) s.vx *= -1;
-            if (s.y < 0 || s.y > system.height) s.vy *= -1;
-            s.x = Math.max(0, Math.min(system.width, s.x));
-            s.y = Math.max(0, Math.min(system.height, s.y));
+            if (s.useAttractor) {
+                // Advance along the pre-computed attractor trajectory
+                s.pathIndex = (s.pathIndex + 1) % s.attractorPath.length;
+                const pt = s.attractorPath[s.pathIndex];
+                // pt.x and pt.y are normalised to [-1, 1]; map to canvas coordinates
+                s.x = (pt.x + 1) * 0.5 * system.width;
+                s.y = (pt.y + 1) * 0.5 * system.height;
+            } else {
+                s.x += s.vx * system.speedMultiplier;
+                s.y += s.vy * system.speedMultiplier;
+
+                // Bounce off edges
+                if (s.x < 0 || s.x > system.width) s.vx *= -1;
+                if (s.y < 0 || s.y > system.height) s.vy *= -1;
+                s.x = Math.max(0, Math.min(system.width, s.x));
+                s.y = Math.max(0, Math.min(system.height, s.y));
+            }
 
             // Noise-driven organic movement
             const t = tick * 0.005;

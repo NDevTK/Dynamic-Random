@@ -7,6 +7,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { roseCurve, lissajousCurve, superformula, seededPalette } from './math_patterns.js';
 
 export class KaleidoscopeArchitecture extends Architecture {
     constructor() {
@@ -32,9 +33,9 @@ export class KaleidoscopeArchitecture extends Architecture {
         this.innerRotation = 0;
 
         // Pattern type
-        this.patternType = Math.floor(rng() * 5);
+        this.patternType = Math.floor(rng() * 6);
         // 0 = geometric shapes, 1 = orbital dots, 2 = spirograph curves
-        // 3 = crystalline shards, 4 = organic tendrils
+        // 3 = crystalline shards, 4 = organic tendrils, 5 = mathematical
 
         // Color scheme
         const baseHue = system.hue;
@@ -56,23 +57,40 @@ export class KaleidoscopeArchitecture extends Architecture {
 
         // Generate elements that will be mirrored
         this.elements = [];
-        const elementCount = 8 + Math.floor(rng() * 12);
-        for (let i = 0; i < elementCount; i++) {
-            this.elements.push({
-                distFromCenter: 50 + rng() * (Math.min(system.width, system.height) * 0.4),
-                angle: rng() * (Math.PI * 2 / this.symmetry), // Only in one sector
-                size: 5 + rng() * 30,
-                speed: 0.001 + rng() * 0.005,
-                radialSpeed: (rng() - 0.5) * 0.3,
-                phase: rng() * Math.PI * 2,
-                colorIdx: Math.floor(rng() * this.colorScheme.length),
-                shapeType: Math.floor(rng() * 4), // 0=circle, 1=square, 2=triangle, 3=line
-                pulsePhase: rng() * Math.PI * 2,
-                pulseSpeed: 0.01 + rng() * 0.03,
-                trailLength: Math.floor(rng() * 5),
-                orbitAmplitude: rng() * 40,
-                orbitFreq: 0.005 + rng() * 0.02
+        if (this.patternType === 5) {
+            // Mathematical: rose curve points mapped to a single sector
+            const sectorRadius = Math.min(system.width, system.height) * 0.4;
+            const rose = roseCurve(200, rng);
+            rose.points.forEach(point => {
+                this.elements.push({
+                    x: point.x * sectorRadius,
+                    y: point.y * sectorRadius,
+                    size: 2 + Math.abs(point.r) * 6,
+                    type: 'dot',
+                    colorIdx: Math.floor(rng() * this.colorScheme.length),
+                    pulsePhase: rng() * Math.PI * 2,
+                    pulseSpeed: 0.01 + rng() * 0.02
+                });
             });
+        } else {
+            const elementCount = 8 + Math.floor(rng() * 12);
+            for (let i = 0; i < elementCount; i++) {
+                this.elements.push({
+                    distFromCenter: 50 + rng() * (Math.min(system.width, system.height) * 0.4),
+                    angle: rng() * (Math.PI * 2 / this.symmetry), // Only in one sector
+                    size: 5 + rng() * 30,
+                    speed: 0.001 + rng() * 0.005,
+                    radialSpeed: (rng() - 0.5) * 0.3,
+                    phase: rng() * Math.PI * 2,
+                    colorIdx: Math.floor(rng() * this.colorScheme.length),
+                    shapeType: Math.floor(rng() * 4), // 0=circle, 1=square, 2=triangle, 3=line
+                    pulsePhase: rng() * Math.PI * 2,
+                    pulseSpeed: 0.01 + rng() * 0.03,
+                    trailLength: Math.floor(rng() * 5),
+                    orbitAmplitude: rng() * 40,
+                    orbitFreq: 0.005 + rng() * 0.02
+                });
+            }
         }
 
         // Trail canvas for persistence effect
@@ -133,52 +151,77 @@ export class KaleidoscopeArchitecture extends Architecture {
                     tctx.scale(1, -1);
                 }
 
-                this.elements.forEach(e => {
-                    const pulse = 1 + Math.sin(tick * e.pulseSpeed + e.pulsePhase) * 0.3;
-                    const x = Math.cos(e.angle + this.innerRotation) * e.distFromCenter;
-                    const y = Math.sin(e.angle + this.innerRotation) * e.distFromCenter;
-                    const size = e.size * pulse;
-                    const hue = this.colorScheme[e.colorIdx];
-                    const lightness = 40 + Math.sin(tick * 0.01 + e.phase) * 15;
-
-                    tctx.fillStyle = `hsla(${hue}, 70%, ${lightness}%, 0.15)`;
-                    tctx.strokeStyle = `hsla(${hue}, 80%, ${lightness + 20}%, 0.2)`;
+                if (this.patternType === 5) {
+                    // Mathematical rose curve: draw dots and connecting lines
+                    const hue = this.colorScheme[0];
+                    const lightness = 50 + Math.sin(tick * 0.01) * 15;
+                    tctx.strokeStyle = `hsla(${hue}, 80%, ${lightness}%, 0.18)`;
                     tctx.lineWidth = 1;
+                    tctx.beginPath();
+                    this.elements.forEach((e, i) => {
+                        if (i === 0) tctx.moveTo(e.x, e.y);
+                        else tctx.lineTo(e.x, e.y);
+                    });
+                    tctx.stroke();
 
-                    switch (e.shapeType) {
-                        case 0: // Circle
-                            tctx.beginPath();
-                            tctx.arc(x, y, size, 0, Math.PI * 2);
-                            tctx.fill();
-                            break;
-                        case 1: // Square
-                            tctx.save();
-                            tctx.translate(x, y);
-                            tctx.rotate(tick * 0.005 + e.phase);
-                            tctx.fillRect(-size / 2, -size / 2, size, size);
-                            tctx.restore();
-                            break;
-                        case 2: // Triangle
-                            tctx.beginPath();
-                            for (let v = 0; v < 3; v++) {
-                                const va = (v / 3) * Math.PI * 2 + tick * 0.005;
-                                const vx = x + Math.cos(va) * size;
-                                const vy = y + Math.sin(va) * size;
-                                if (v === 0) tctx.moveTo(vx, vy);
-                                else tctx.lineTo(vx, vy);
-                            }
-                            tctx.closePath();
-                            tctx.fill();
-                            tctx.stroke();
-                            break;
-                        case 3: // Line from center
-                            tctx.beginPath();
-                            tctx.moveTo(0, 0);
-                            tctx.lineTo(x, y);
-                            tctx.stroke();
-                            break;
-                    }
-                });
+                    this.elements.forEach(e => {
+                        const pulse = 1 + Math.sin(tick * e.pulseSpeed + e.pulsePhase) * 0.3;
+                        const size = e.size * pulse;
+                        const hue = this.colorScheme[e.colorIdx];
+                        const lightness = 50 + Math.sin(tick * 0.01 + e.pulsePhase) * 15;
+                        tctx.fillStyle = `hsla(${hue}, 80%, ${lightness}%, 0.25)`;
+                        tctx.beginPath();
+                        tctx.arc(e.x, e.y, size, 0, Math.PI * 2);
+                        tctx.fill();
+                    });
+                } else {
+                    this.elements.forEach(e => {
+                        const pulse = 1 + Math.sin(tick * e.pulseSpeed + e.pulsePhase) * 0.3;
+                        const x = Math.cos(e.angle + this.innerRotation) * e.distFromCenter;
+                        const y = Math.sin(e.angle + this.innerRotation) * e.distFromCenter;
+                        const size = e.size * pulse;
+                        const hue = this.colorScheme[e.colorIdx];
+                        const lightness = 40 + Math.sin(tick * 0.01 + e.phase) * 15;
+
+                        tctx.fillStyle = `hsla(${hue}, 70%, ${lightness}%, 0.15)`;
+                        tctx.strokeStyle = `hsla(${hue}, 80%, ${lightness + 20}%, 0.2)`;
+                        tctx.lineWidth = 1;
+
+                        switch (e.shapeType) {
+                            case 0: // Circle
+                                tctx.beginPath();
+                                tctx.arc(x, y, size, 0, Math.PI * 2);
+                                tctx.fill();
+                                break;
+                            case 1: // Square
+                                tctx.save();
+                                tctx.translate(x, y);
+                                tctx.rotate(tick * 0.005 + e.phase);
+                                tctx.fillRect(-size / 2, -size / 2, size, size);
+                                tctx.restore();
+                                break;
+                            case 2: // Triangle
+                                tctx.beginPath();
+                                for (let v = 0; v < 3; v++) {
+                                    const va = (v / 3) * Math.PI * 2 + tick * 0.005;
+                                    const vx = x + Math.cos(va) * size;
+                                    const vy = y + Math.sin(va) * size;
+                                    if (v === 0) tctx.moveTo(vx, vy);
+                                    else tctx.lineTo(vx, vy);
+                                }
+                                tctx.closePath();
+                                tctx.fill();
+                                tctx.stroke();
+                                break;
+                            case 3: // Line from center
+                                tctx.beginPath();
+                                tctx.moveTo(0, 0);
+                                tctx.lineTo(x, y);
+                                tctx.stroke();
+                                break;
+                        }
+                    });
+                }
 
                 tctx.restore();
             }

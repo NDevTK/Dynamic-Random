@@ -8,6 +8,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { vogelSpiral, fibonacciSpiral } from './math_patterns.js';
 
 export class ConstellationArchitecture extends Architecture {
     constructor() {
@@ -46,6 +47,33 @@ export class ConstellationArchitecture extends Architecture {
                 sizeClass,
                 revealed: 0
             });
+        }
+
+        // Seed-driven clustering pass: add Vogel spiral clusters on top of the random field
+        if (rng() > 0.5) {
+            const clusterCount = 3 + Math.floor(rng() * 3); // 3-5 clusters
+            for (let c = 0; c < clusterCount; c++) {
+                const cx = rng() * system.width;
+                const cy = rng() * system.height;
+                const pointCount = 20 + Math.floor(rng() * 21); // 20-40 points
+                const spread = 30 + rng() * 70;
+                const points = vogelSpiral(pointCount, spread);
+                for (const [px, py] of points) {
+                    const brightness = rng() * 0.5; // cluster stars lean dim-to-bright
+                    const sizeClass = brightness > 0.4 ? 'bright' : 'dim';
+                    this.stars.push({
+                        x: cx + px,
+                        y: cy + py,
+                        size: sizeClass === 'bright' ? 1.2 + rng() * 1.5 : 0.4 + rng() * 0.8,
+                        brightness: sizeClass === 'bright' ? 0.5 + rng() * 0.3 : 0.1 + rng() * 0.2,
+                        twinklePhase: rng() * Math.PI * 2,
+                        twinkleSpeed: 0.01 + rng() * 0.04,
+                        colorShift: rng() * 60 - 30,
+                        sizeClass,
+                        revealed: 0
+                    });
+                }
+            }
         }
 
         // Generate constellation patterns (groups of connected stars)

@@ -57,7 +57,7 @@ export class TruchetArchitecture extends Architecture {
             this.mouseOffY = 0;
         } else {
             this.conformal = conformalMap(rng);
-            // Pre-compute grid of mapped coordinates
+            // Pre-compute a grid of mapped coordinates for the visible area
             const spacing = 28;
             this.gridCols = Math.ceil(system.width / spacing) + 1;
             this.gridRows = Math.ceil(system.height / spacing) + 1;
@@ -80,7 +80,7 @@ export class TruchetArchitecture extends Architecture {
 
     update(system) {
         if (this.mode === 0) {
-            // Randomly flip 1-2 tiles per frame
+            // Pick 1-2 tiles per frame to transition
             const flips = 1 + Math.floor(system.rng() * 2);
             for (let i = 0; i < flips; i++) {
                 const idx = Math.floor(system.rng() * this.tiles.length);
@@ -101,7 +101,7 @@ export class TruchetArchitecture extends Architecture {
                     t.targetRotation = (t.targetRotation + 1) % 4;
                     t.transitioning = true;
                 }
-                // Animate toward target rotation (in steps of 0.25 turn = 90°)
+                // Animate toward target rotation
                 if (t.transitioning) {
                     const diff = t.targetRotation - t.displayRotation;
                     const step = diff > 0 ? t.transitionSpeed : (diff < 0 ? -t.transitionSpeed : 0);
@@ -114,25 +114,23 @@ export class TruchetArchitecture extends Architecture {
                 }
             }
         } else if (this.mode === 1) {
-            // Smoothly shift pattern center toward mouse
+            // Mouse position shifts the pattern center
             const cx = mouse.x - system.width / 2;
             const cy = mouse.y - system.height / 2;
             this.mouseOffX += (cx * 0.004 - this.mouseOffX) * 0.06;
             this.mouseOffY += (cy * 0.004 - this.mouseOffY) * 0.06;
         }
-        // Mode 2: no per-frame state needed; animation is driven by tick in draw
+        // Mode 2: animation is driven entirely by tick in draw
     }
 
     draw(system) {
         const ctx = system.ctx;
-        const tick = system.tick;
-
         if (this.mode === 0) {
             this._drawTruchet(ctx);
         } else if (this.mode === 1) {
-            this._drawMoire(ctx, system.width, system.height, tick);
+            this._drawMoire(ctx, system.width, system.height, system.tick);
         } else {
-            this._drawConformal(ctx, system.width, system.height, tick);
+            this._drawConformal(ctx, system.width, system.height, system.tick);
         }
     }
 
@@ -144,10 +142,8 @@ export class TruchetArchitecture extends Architecture {
         ctx.lineCap = 'round';
 
         for (const t of this.tiles) {
-            const x = t.col * CELL;
-            const y = t.row * CELL;
-            const cx = x + CELL / 2;
-            const cy = y + CELL / 2;
+            const cx = t.col * CELL + CELL / 2;
+            const cy = t.row * CELL + CELL / 2;
             const color = p[t.variant % p.length];
 
             ctx.save();
@@ -166,11 +162,15 @@ export class TruchetArchitecture extends Architecture {
                 ctx.moveTo(-CELL / 2, -CELL / 2);
                 ctx.lineTo(CELL / 2, CELL / 2);
             } else {
-                // Triangle fill (stroked)
+                // Triangle fill + stroke
                 ctx.moveTo(-CELL / 2, -CELL / 2);
                 ctx.lineTo(CELL / 2, -CELL / 2);
                 ctx.lineTo(-CELL / 2, CELL / 2);
                 ctx.closePath();
+                ctx.globalAlpha = 0.15;
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.globalAlpha = 1;
             }
 
             ctx.stroke();
@@ -186,44 +186,39 @@ export class TruchetArchitecture extends Architecture {
         const offX = this.mouseOffX;
         const offY = this.mouseOffY;
 
-        // Parse palette HSL colors into a simple brightness-mapped band
-        // Render as vertical strips of 2px for performance
+        // Render as vertical strips of 2px: for each pixel column, compute the
+        // moiré value and draw a full-height gradient strip with palette colors.
         for (let px = 0; px < width; px += 2) {
-            // Sample a few vertical points to get an average value for this column
-            // and draw a gradient strip. Using canvas fillRect per row is too slow,
-            // so we draw full-height rect per column with a linear gradient.
             const normX = (px / width) * 2 - 1 + offX;
-
-            // Build gradient stops from vertical samples
             const grad = ctx.createLinearGradient(0, 0, 0, height);
-            const steps = 12;
+            const steps = 10;
             for (let s = 0; s <= steps; s++) {
                 const normY = (s / steps) * 2 - 1 + offY;
                 const v1 = this.moire1(normX * 60, normY * 60, t);
                 const v2 = this.moire2(normX * 60 + 10, normY * 60 + 10, t + 0.5);
-                const combined = (v1 * v2 + 1) * 0.5; // 0..1
-                const palIdx = Math.floor(combined * (p.length - 1));
-                const alpha = 0.6 + combined * 0.4;
-                grad.addColorStop(s / steps, this._withAlpha(p[palIdx], alpha));
+                // Both moire functions return 0..1; combine as interference product
+                const combined = (v1 * v2 + 1) * 0.5;
+                const palIdx = Math.min(p.length - 1, Math.floor(combined * p.length));
+                grad.addColorStop(s / steps, this._withAlpha(p[palIdx], 0.6 + combined * 0.4));
             }
-
             ctx.fillStyle = grad;
             ctx.fillRect(px, 0, 2, height);
         }
     }
 
-    // ── Mode 2: Conformal map dot grid ──────────────────────────────────────
+    // ── Mode 2: Conformal map dot/line grid ──────────────────────────────────
 
     _drawConformal(ctx, width, height, tick) {
         const p = this.palette;
         const t = tick * 0.008;
         const mx = mouse.x, my = mouse.y;
-        const mouseDistortRadius = 120;
+        const distortRadius = 120;
         const cols = this.gridCols;
         const pts = this.gridPts;
         const n = pts.length;
 
-        // First pass: compute screen positions for all grid points
+        // First pass: compute warped screen positions for all grid points.
+        // Slowly animate by shifting conformal input coordinates with time.
         const sx = new Float32Array(n);
         const sy = new Float32Array(n);
         const disp = new Float32Array(n);
@@ -237,46 +232,43 @@ export class TruchetArchitecture extends Architecture {
             let x = pt.ox + mapped.x * 18;
             let y = pt.oy + mapped.y * 18;
 
-            // Local mouse distortion
+            // Mouse creates a local distortion bubble
             const ddx = x - mx, ddy = y - my;
             const d = Math.sqrt(ddx * ddx + ddy * ddy);
-            if (d < mouseDistortRadius && d > 0.5) {
-                const push = (mouseDistortRadius - d) / mouseDistortRadius;
+            if (d < distortRadius && d > 0.5) {
+                const push = (distortRadius - d) / distortRadius;
                 x += (ddx / d) * push * 30;
                 y += (ddy / d) * push * 30;
             }
 
             sx[i] = x;
             sy[i] = y;
+            // Displacement from original grid position → used for color-by-distance
             const ex = x - pt.ox, ey = y - pt.oy;
             disp[i] = Math.sqrt(ex * ex + ey * ey);
         }
 
-        // Second pass: draw connecting lines between grid neighbors
         ctx.save();
         ctx.lineWidth = 0.5;
+
+        // Second pass: draw lines between neighboring grid points (original grid
+        // is regular, mapped positions create mesmerizing distortions)
         for (let i = 0; i < n; i++) {
             if (disp[i] > 80) continue;
             const col = i % cols;
+            const palIdx = Math.min(p.length - 1, Math.floor(Math.min(1, disp[i] / 60) * p.length));
+            ctx.strokeStyle = this._withAlpha(p[palIdx], 0.2);
+
             // Right neighbor
-            if (col < cols - 1) {
-                const j = i + 1;
-                if (disp[j] < 80) {
-                    const colorT = Math.min(1, disp[i] / 60);
-                    const palIdx = Math.min(p.length - 1, Math.floor(colorT * p.length));
-                    ctx.strokeStyle = this._withAlpha(p[palIdx], 0.2);
-                    ctx.beginPath();
-                    ctx.moveTo(sx[i], sy[i]);
-                    ctx.lineTo(sx[j], sy[j]);
-                    ctx.stroke();
-                }
+            if (col < cols - 1 && disp[i + 1] < 80) {
+                ctx.beginPath();
+                ctx.moveTo(sx[i], sy[i]);
+                ctx.lineTo(sx[i + 1], sy[i + 1]);
+                ctx.stroke();
             }
             // Down neighbor
             const j = i + cols;
             if (j < n && disp[j] < 80) {
-                const colorT = Math.min(1, disp[i] / 60);
-                const palIdx = Math.min(p.length - 1, Math.floor(colorT * p.length));
-                ctx.strokeStyle = this._withAlpha(p[palIdx], 0.2);
                 ctx.beginPath();
                 ctx.moveTo(sx[i], sy[i]);
                 ctx.lineTo(sx[j], sy[j]);
@@ -284,14 +276,13 @@ export class TruchetArchitecture extends Architecture {
             }
         }
 
-        // Third pass: draw dots on top
+        // Third pass: draw dots at mapped grid vertices colored by displacement
         for (let i = 0; i < n; i++) {
             const colorT = Math.min(1, disp[i] / 60);
             const palIdx = Math.min(p.length - 1, Math.floor(colorT * p.length));
-            const radius = 1.5 + colorT * 2;
             ctx.fillStyle = this._withAlpha(p[palIdx], 0.7 + colorT * 0.3);
             ctx.beginPath();
-            ctx.arc(sx[i], sy[i], radius, 0, TAU);
+            ctx.arc(sx[i], sy[i], 1.5 + colorT * 1.5, 0, TAU);
             ctx.fill();
         }
 
@@ -301,11 +292,9 @@ export class TruchetArchitecture extends Architecture {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     /**
-     * Returns an hsla(...) string with adjusted alpha.
-     * Palette colors are hsl(...) strings; we inject an alpha channel.
+     * Converts an hsl(...) palette string to hsla(...) with the given alpha.
      */
     _withAlpha(hslStr, alpha) {
-        // hsl(h, s%, l%) → hsla(h, s%, l%, alpha)
         return hslStr.replace('hsl(', 'hsla(').replace(')', `, ${alpha.toFixed(2)})`);
     }
 }

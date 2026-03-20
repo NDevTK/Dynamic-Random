@@ -443,7 +443,7 @@ function applyPairBonding(p, pJS) {
 function applyFragmenting(p, pJS) {
     if (universeProfile.mutators.includes('Fragmenting') && seededRandom() < 0.0001 && p.radius > 1 && pJS.particles.array.length < pJS.particles.number.value_max) {
         p.radius /= 2;
-        const newP = pJS.fn.modes.pushParticles(1, { x: p.x, y: p.y })[0];
+        const newP = safePush(pJS, 1, { x: p.x, y: p.y });
         if (newP) {
             newP.radius = p.radius;
             tagParticles([newP], universeProfile, false, seededRandom);
@@ -777,17 +777,23 @@ function updateEntangledGroups(pJS) {
     });
 }
 
+// Safe wrapper: pushParticles may return undefined instead of an array
+function safePush(pJS, count, pos) {
+    const result = pJS.fn.modes.pushParticles(count, pos);
+    return Array.isArray(result) ? result[0] : undefined;
+}
+
 function updateAnomalies(pJS) {
     activeEffects.whiteHoles.forEach(h => { h.tick++; if (h.tick * h.spawnRate > 1 && pJS.particles.array.length < pJS.particles.number.value_max) { h.tick = 0; pJS.fn.modes.pushParticles(1, { x: h.x, y: h.y }); } });
-    activeEffects.quasars.forEach(q => { q.tick++; if (q.tick > q.period) { q.tick = 0; q.isFiring = true; setTimeout(() => q.isFiring = false, q.duration * 16); } if (q.isFiring && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: q.x, y: q.y })[0]; if (newP) { newP.vx = Math.cos(q.angle) * q.strength; newP.vy = Math.sin(q.angle) * q.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.quasars.forEach(q => { q.tick++; if (q.tick > q.period) { q.tick = 0; q.isFiring = true; setTimeout(() => q.isFiring = false, q.duration * 16); } if (q.isFiring && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = safePush(pJS, 1, { x: q.x, y: q.y }); if (newP) { newP.vx = Math.cos(q.angle) * q.strength; newP.vy = Math.sin(q.angle) * q.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
     activeEffects.blackHoles.forEach(h => { if (h.isWandering) { h.x += (seededRandom() - 0.5) * 0.5; h.y += (seededRandom() - 0.5) * 0.5; if (h.x < 0 || h.x > pJS.canvas.w || h.y < 0 || h.y > pJS.canvas.h) { h.x = pJS.canvas.w / 2; h.y = pJS.canvas.h / 2; } } });
     activeEffects.magneticStorms.forEach(s => { s.lastFlip++; if (s.lastFlip > s.period) { s.lastFlip = 0; s.attract = !s.attract; pJS.particles.move.attract.enable = s.attract; } });
-    activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if (s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn = 0; const newP = pJS.fn.modes.pushParticles(1, { x: s.x, y: s.y })[0]; if (newP) { newP.vx = (seededRandom() - 0.5) * 5; newP.vy = (seededRandom() - 0.5) * 5; tagParticles([newP], universeProfile, false, seededRandom); } } });
-    activeEffects.cosmicGeysers.forEach(g => { g.tick++; if (g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick = 0; const newP = pJS.fn.modes.pushParticles(1, { x: g.x + (seededRandom() - 0.5) * g.width, y: g.y })[0]; if (newP) { newP.vy = -g.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
-    activeEffects.temporalRifts.forEach((r, i) => { r.life--; if (r.life <= 0) { activeEffects.temporalRifts.splice(i, 1); return; } if (seededRandom() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: r.x, y: r.y })[0]; if (newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP], universeProfile, false, seededRandom); } } });
-    activeEffects.solarFlares.forEach(f => { f.tick++; if (f.tick > f.period) { f.tick = 0; for (let i = 0; i < 30; i++) { if (pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, { x: pJS.canvas.w / 2, y: pJS.canvas.h / 2 })[0]; if (newP) { newP.vx = Math.cos(f.angle) * f.strength; newP.vy = Math.sin(f.angle) * f.strength; tagParticles([newP], universeProfile, false, seededRandom); } } } } });
+    activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if (s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn = 0; const newP = safePush(pJS, 1, { x: s.x, y: s.y }); if (newP) { newP.vx = (seededRandom() - 0.5) * 5; newP.vy = (seededRandom() - 0.5) * 5; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.cosmicGeysers.forEach(g => { g.tick++; if (g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick = 0; const newP = safePush(pJS, 1, { x: g.x + (seededRandom() - 0.5) * g.width, y: g.y }); if (newP) { newP.vy = -g.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.temporalRifts.forEach((r, i) => { r.life--; if (r.life <= 0) { activeEffects.temporalRifts.splice(i, 1); return; } if (seededRandom() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = safePush(pJS, 1, { x: r.x, y: r.y }); if (newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.solarFlares.forEach(f => { f.tick++; if (f.tick > f.period) { f.tick = 0; for (let i = 0; i < 30; i++) { if (pJS.particles.array.length < pJS.particles.number.value_max) { const newP = safePush(pJS, 1, { x: pJS.canvas.w / 2, y: pJS.canvas.h / 2 }); if (newP) { newP.vx = Math.cos(f.angle) * f.strength; newP.vy = Math.sin(f.angle) * f.strength; tagParticles([newP], universeProfile, false, seededRandom); } } } } });
     activeEffects.spacetimeFoam.forEach((f, i) => { f.life--; if (f.life <= 0) activeEffects.spacetimeFoam.splice(i, 1); });
-    activeEffects.cosmicNurseries.forEach(n => { n.tick++; if (n.tick > n.period && pJS.particles.array.length < pJS.particles.number.value_max) { n.tick = 0; const newP = pJS.fn.modes.pushParticles(1, { x: n.x + (seededRandom() - 0.5) * n.radius, y: n.y + (seededRandom() - 0.5) * n.radius })[0]; if (newP) { newP.vx = (seededRandom() - 0.5) * 2; newP.vy = (seededRandom() - 0.5) * 2; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    activeEffects.cosmicNurseries.forEach(n => { n.tick++; if (n.tick > n.period && pJS.particles.array.length < pJS.particles.number.value_max) { n.tick = 0; const newP = safePush(pJS, 1, { x: n.x + (seededRandom() - 0.5) * n.radius, y: n.y + (seededRandom() - 0.5) * n.radius }); if (newP) { newP.vx = (seededRandom() - 0.5) * 2; newP.vy = (seededRandom() - 0.5) * 2; tagParticles([newP], universeProfile, false, seededRandom); } } });
 }
 
 function enforceParticleLimit(pJS) {

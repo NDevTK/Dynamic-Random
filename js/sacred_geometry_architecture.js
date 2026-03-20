@@ -70,7 +70,6 @@ export class SacredGeometryArchitecture extends Architecture {
         this.angularVelocities = this.fibPoints.map(() => (system.rng() - 0.5) * 0.0005);
         this.elementPhases = this.fibPoints.map(() => system.rng() * TAU);
     }
-
     _initPenrose(system) {
         this.tiles = penroseTiling(this.cx, this.cy, this.baseRadius, 4 + Math.floor(system.rng() * 2), system.rng);
         this.elementPhases = this.tiles.map(() => system.rng() * TAU);
@@ -161,8 +160,6 @@ export class SacredGeometryArchitecture extends Architecture {
         return Math.max(0, 1 - Math.sqrt((lx - wx) ** 2 + (ly - wy) ** 2) / radius);
     }
 
-    // ── Mode 0: Flower of Life ────────────────────────────────────────────────
-
     _drawFlowerOfLife(ctx, t) {
         ctx.globalCompositeOperation = 'source-over';
         this.circles.forEach((c, i) => {
@@ -199,8 +196,6 @@ export class SacredGeometryArchitecture extends Architecture {
         });
         ctx.restore();
     }
-
-    // ── Mode 1: Fibonacci + Vogel ─────────────────────────────────────────────
 
     _drawFibonacci(ctx, t) {
         const pts = this.fibPoints;
@@ -257,8 +252,6 @@ export class SacredGeometryArchitecture extends Architecture {
         ctx.restore();
     }
 
-    // ── Mode 2: Penrose Tiling ────────────────────────────────────────────────
-
     _drawPenrose(ctx, t) {
         if (!this.tiles.length) return;
         const hue0 = this._hue(0), hue1 = this._hue(2);
@@ -300,40 +293,25 @@ export class SacredGeometryArchitecture extends Architecture {
         ctx.restore();
     }
 
-    // ── Mode 3: Metatron's Cube ───────────────────────────────────────────────
-
     _drawMetatron(ctx, t) {
         const verts = this.metaVerts;
         const hue0 = this._hue(0), hue1 = this._hue(1), hue2 = this._hue(2);
 
-        // Edges — thin lines, lighter composite for ethereal glow
+        // Edges as thin glowing lines
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        ctx.lineWidth = 0.45;
         this.metaEdges.forEach(([a, b]) => {
             const va = verts[a], vb = verts[b];
-            const midX = (va.x + vb.x) / 2, midY = (va.y + vb.y) / 2;
-            const wv = this.wave(midX * 0.007, midY * 0.007, t) * 0.5 + 0.5;
-            const alpha = 0.04 + wv * 0.06;
-            ctx.strokeStyle = `hsla(${hue0}, 70%, 65%, ${alpha})`;
-            ctx.lineWidth = 0.45;
-            ctx.beginPath();
-            ctx.moveTo(va.x, va.y);
-            ctx.lineTo(vb.x, vb.y);
-            ctx.stroke();
+            const wv = this.wave((va.x + vb.x) * 0.0035, (va.y + vb.y) * 0.0035, t) * 0.5 + 0.5;
+            ctx.strokeStyle = `hsla(${hue0}, 70%, 65%, ${0.04 + wv * 0.06})`;
+            ctx.beginPath(); ctx.moveTo(va.x, va.y); ctx.lineTo(vb.x, vb.y); ctx.stroke();
         });
-        ctx.restore();
 
-        // Nested platonic projections: tetrahedron (3), cube (4), octahedron (8), hexagon (6)
-        const shapes = [
-            { sides: 3, r: this.baseRadius * 0.28, rot: 0, hue: hue0 },
-            { sides: 4, r: this.baseRadius * 0.42, rot: Math.PI / 4, hue: hue1 },
-            { sides: 3, r: this.baseRadius * 0.56, rot: Math.PI / 3, hue: hue2 },
-            { sides: 6, r: this.baseRadius * 0.72, rot: 0, hue: hue0 },
-            { sides: 8, r: this.baseRadius * 0.88, rot: Math.PI / 8, hue: hue1 },
-        ];
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        shapes.forEach(({ sides, r, rot, hue }, si) => {
+        // Nested platonic projections (tetrahedron, square, tri2, hexagon, octagon)
+        [[3, 0.28, 0, hue0], [4, 0.42, Math.PI / 4, hue1], [3, 0.56, Math.PI / 3, hue2],
+         [6, 0.72, 0, hue0], [8, 0.88, Math.PI / 8, hue1]].forEach(([sides, rf, rot, hue], si) => {
+            const r = this.baseRadius * rf;
             const pulse = 0.5 + Math.sin(t * 0.7 + r * 0.01 + si) * 0.5;
             ctx.strokeStyle = `hsla(${hue}, 75%, 70%, ${0.06 + pulse * 0.07})`;
             ctx.lineWidth = 0.7;
@@ -345,108 +323,77 @@ export class SacredGeometryArchitecture extends Architecture {
             }
             ctx.stroke();
         });
-        ctx.restore();
 
-        // Vertex glow dots — slow drift via angular velocities
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
+        // Vertex glow dots with slow angular drift
         verts.forEach((v, i) => {
-            // Drift each vertex slightly around its origin
             const driftA = this.angularVelocities[i] * t * 30;
-            const vr = Math.sqrt(v.x * v.x + v.y * v.y);
-            const baseA = Math.atan2(v.y, v.x);
-            const dx = Math.cos(baseA + driftA) * vr;
-            const dy = Math.sin(baseA + driftA) * vr;
-
+            const vr = Math.hypot(v.x, v.y), baseA = Math.atan2(v.y, v.x);
+            const dx = Math.cos(baseA + driftA) * vr, dy = Math.sin(baseA + driftA) * vr;
             const wv = this.wave(dx * 0.01, dy * 0.01, t) * 0.5 + 0.5;
             const glow = this._mouseProximity(dx, dy, 90);
-            const pulse = 0.35 + Math.sin(t * 1.0 + this.elementPhases[i]) * 0.65;
-            const r = (3 + wv * 4 + glow * 6) * Math.max(0.1, pulse);
+            const pulse = Math.max(0.1, 0.35 + Math.sin(t * 1.0 + this.elementPhases[i]) * 0.65);
+            const r = (3 + wv * 4 + glow * 6) * pulse;
             const hue = this._hue(i % 3);
             const grad = ctx.createRadialGradient(dx, dy, 0, dx, dy, r);
             grad.addColorStop(0, `hsla(${hue}, 95%, 92%, ${0.55 + glow * 0.4})`);
             grad.addColorStop(0.4, `hsla(${hue}, 80%, 60%, ${0.18 + glow * 0.2})`);
             grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(dx, dy, r, 0, TAU);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(dx, dy, r, 0, TAU); ctx.fill();
         });
         ctx.restore();
     }
 
-    // ── Mode 4: Superformula Morphing ─────────────────────────────────────────
-
     _drawSuperformula(ctx, t) {
         if (!this.sfParams || !this.sfTarget) return;
-        const pA = this.sfParams.points;
-        const pB = this.sfTarget.points;
-        const lerp = this.sfInterp;
-        // Ease-in-out lerp
-        const ease = lerp < 0.5 ? 2 * lerp * lerp : 1 - Math.pow(-2 * lerp + 2, 2) / 2;
+        const pA = this.sfParams.points, pB = this.sfTarget.points;
+        const e = this.sfInterp;
+        const ease = e < 0.5 ? 2 * e * e : 1 - Math.pow(-2 * e + 2, 2) / 2;
         const R = this.baseRadius;
         const hue0 = this._hue(0), hue1 = this._hue(1);
-
-        // Build interpolated path
         const pts = pA.map((a, i) => {
             const b = pB[i] || a;
-            return {
-                x: (a.x * (1 - ease) + b.x * ease) * R,
-                y: (a.y * (1 - ease) + b.y * ease) * R
-            };
+            return { x: (a.x * (1 - ease) + b.x * ease) * R, y: (a.y * (1 - ease) + b.y * ease) * R };
         });
 
-        // Radial fill gradient
+        // Radial fill
         const pulse = 0.5 + Math.sin(t * 0.8 + this.elementPhases[0]) * 0.5;
-        const maxR = R * 1.15;
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR);
-        grad.addColorStop(0, `hsla(${hue0}, 70%, 40%, ${0.06 + pulse * 0.05})`);
-        grad.addColorStop(0.5, `hsla(${hue1}, 65%, 30%, 0.03)`);
-        grad.addColorStop(1, 'transparent');
-
+        const fGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.15);
+        fGrad.addColorStop(0, `hsla(${hue0}, 70%, 40%, ${0.06 + pulse * 0.05})`);
+        fGrad.addColorStop(0.5, `hsla(${hue1}, 65%, 30%, 0.03)`);
+        fGrad.addColorStop(1, 'transparent');
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
         ctx.beginPath();
         pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
         ctx.closePath();
-        ctx.fillStyle = grad;
+        ctx.fillStyle = fGrad;
         ctx.fill();
         ctx.restore();
 
-        // Gradient outline stroke — 'lighter' for glow
+        // Gradient stroke outline + mouse glow burst
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.lineWidth = 1.5;
-        ctx.lineCap = 'round';
+        ctx.lineWidth = 1.5; ctx.lineCap = 'round';
         for (let i = 0; i < pts.length; i++) {
             const p = pts[i], q = pts[(i + 1) % pts.length];
             const wv = this.wave(p.x * 0.005, p.y * 0.005, t) * 0.5 + 0.5;
             const glow = this._mouseProximity(p.x, p.y, 100);
-            const alpha = 0.10 + wv * 0.16 + glow * 0.32;
-            ctx.strokeStyle = `hsla(${hue0 + wv * 30}, 80%, 70%, ${alpha})`;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.stroke();
+            ctx.strokeStyle = `hsla(${hue0 + wv * 30}, 80%, 70%, ${0.10 + wv * 0.16 + glow * 0.32})`;
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
         }
-
-        // Mouse proximity glow burst
-        const mdx = mouse.x - this.cx;
-        const mdy = mouse.y - this.cy;
-        // Transform to local space
+        const mdx = mouse.x - this.cx, mdy = mouse.y - this.cy;
         const cos = Math.cos(-this.rotation), sin = Math.sin(-this.rotation);
         const lx = (mdx * cos - mdy * sin) / this.breathScale;
         const ly = (mdx * sin + mdy * cos) / this.breathScale;
-        const mDist = Math.sqrt(lx * lx + ly * ly);
+        const mDist = Math.hypot(lx, ly);
         if (mDist < R * 1.3) {
             const intensity = 1 - mDist / (R * 1.3);
-            const mGrad = ctx.createRadialGradient(lx, ly, 0, lx, ly, 65);
-            mGrad.addColorStop(0, `hsla(${hue1}, 90%, 82%, ${intensity * 0.28})`);
-            mGrad.addColorStop(1, 'transparent');
-            ctx.fillStyle = mGrad;
-            ctx.beginPath();
-            ctx.arc(lx, ly, 65, 0, TAU);
-            ctx.fill();
+            const mg = ctx.createRadialGradient(lx, ly, 0, lx, ly, 65);
+            mg.addColorStop(0, `hsla(${hue1}, 90%, 82%, ${intensity * 0.28})`);
+            mg.addColorStop(1, 'transparent');
+            ctx.fillStyle = mg;
+            ctx.beginPath(); ctx.arc(lx, ly, 65, 0, TAU); ctx.fill();
         }
         ctx.restore();
     }

@@ -45,6 +45,17 @@ import { TypographyArchitecture } from './typography_architecture.js';
 import { OrigamiArchitecture } from './origami_architecture.js';
 import { NeuralNetArchitecture } from './neural_net_architecture.js';
 import { TidalPoolArchitecture } from './tidal_pool_architecture.js';
+import { SpeechTypographyArchitecture } from './speech_typography_architecture.js';
+import { CameraTextureArchitecture } from './camera_texture_architecture.js';
+import { ClothArchitecture } from './cloth_architecture.js';
+import { SoftbodyArchitecture } from './softbody_architecture.js';
+import { WebGPUParticleArchitecture } from './webgpu_particle_architecture.js';
+import { WebGPUFluidArchitecture } from './webgpu_fluid_architecture.js';
+import { gamepadInput } from './gamepad_input.js';
+import { micReactive } from './mic_reactive.js';
+import { tabSync } from './tab_sync.js';
+import { speechInput } from './speech_input.js';
+import { cameraInput } from './camera_input.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -88,7 +99,13 @@ const ALL_ARCHITECTURES = [
     () => new TypographyArchitecture(),
     () => new OrigamiArchitecture(),
     () => new NeuralNetArchitecture(),
-    () => new TidalPoolArchitecture()
+    () => new TidalPoolArchitecture(),
+    () => new SpeechTypographyArchitecture(),
+    () => new CameraTextureArchitecture(),
+    () => new ClothArchitecture(),
+    () => new SoftbodyArchitecture(),
+    () => new WebGPUParticleArchitecture(),
+    () => new WebGPUFluidArchitecture()
 ];
 
 class BackgroundSystem {
@@ -308,6 +325,18 @@ class BackgroundSystem {
         const neuralNetBlueprints = ['TechnoUtopia', 'NeonCyber', 'BioMechanical', 'QuantumFoam', 'SentientSwarm'];
         // Tidal pool: aquatic/nature themes
         const tidalPoolBlueprints = ['CoralReef', 'GlassySea', 'AbyssalZone', 'AbyssalHorror', 'Classical'];
+        // Speech typography: literary/sonic/mystical themes
+        const speechTypographyBlueprints = ['Classical', 'SonicScapes', 'Eldritch', 'ChronoVerse', 'Aetherial'];
+        // Camera texture: digital/cyber/organic themes
+        const cameraTextureBlueprints = ['NeonCyber', 'Digital', 'TechnoUtopia', 'BioMechanical', 'ChromaticAberration'];
+        // Cloth: fabric/silk/paper themes
+        const clothBlueprints = ['SilkWeaver', 'Papercraft', 'CosmicWeb', 'GlacialDrift', 'Aetherial'];
+        // Soft body: gooey/organic/abyssal themes
+        const softBodyBlueprints = ['GooeyMess', 'Organic', 'AbyssalHorror', 'FungalForest', 'SentientSwarm'];
+        // WebGPU particles: stellar/cosmic/forge themes
+        const webgpuParticleBlueprints = ['StarForged', 'CelestialForge', 'StellarNursery', 'LivingConstellation', 'CosmicWeb'];
+        // WebGPU fluid: fluid/painterly/chromatic themes
+        const webgpuFluidBlueprints = ['LivingInk', 'Painterly', 'ChromaticAberration', 'GooeyMess', 'Aetherial'];
 
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
@@ -376,6 +405,30 @@ class BackgroundSystem {
         // Tidal pool: aquatic themes
         else if (tidalPoolBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new TidalPoolArchitecture();
+        }
+        // Speech typography: literary/sonic themes
+        else if (speechTypographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new SpeechTypographyArchitecture();
+        }
+        // Camera texture: digital/cyber themes
+        else if (cameraTextureBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new CameraTextureArchitecture();
+        }
+        // Cloth: fabric/silk themes
+        else if (clothBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ClothArchitecture();
+        }
+        // Soft body: gooey/organic themes
+        else if (softBodyBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SoftbodyArchitecture();
+        }
+        // WebGPU particles: stellar/cosmic themes
+        else if (webgpuParticleBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new WebGPUParticleArchitecture();
+        }
+        // WebGPU fluid: fluid/painterly themes
+        else if (webgpuFluidBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new WebGPUFluidArchitecture();
         }
         // Reaction-diffusion: organic/bio themes
         else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -549,9 +602,14 @@ class BackgroundSystem {
         this.tick++;
         this.speedMultiplier += (this.targetSpeed - this.speedMultiplier) * 0.1;
 
-        // Expose device sensor data for architectures
+        // Expose input system data for architectures
         this.deviceTilt = deviceSensors.tilt;
         this.deviceShake = deviceSensors.shake;
+        this.gamepad = gamepadInput;
+        this.mic = micReactive;
+        this.tabSync = tabSync;
+        this.speech = speechInput;
+        this.camera = cameraInput;
 
         if (!this.isDark && this.tick % 30 === 0) this.updateThemeColors();
 

@@ -16,6 +16,12 @@ import { ambientFX } from './ambient_fx.js';
 import { warpField } from './warp_field.js';
 import { ambientSound } from './ambient_sound.js';
 import { deviceSensors } from './device_sensors.js';
+import { gamepadInput } from './gamepad_input.js';
+import { micReactive } from './mic_reactive.js';
+import { tabSync } from './tab_sync.js';
+import { speechInput } from './speech_input.js';
+import { cameraInput } from './camera_input.js';
+import { webgpuCompute } from './webgpu_compute.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
@@ -30,6 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
     warpField.init();
     ambientSound.init();
     deviceSensors.init();
+    gamepadInput.init();
+    micReactive.init();
+    tabSync.init();
+    speechInput.init();
+    cameraInput.init();
+    webgpuCompute.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

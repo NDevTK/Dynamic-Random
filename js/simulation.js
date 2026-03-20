@@ -11,6 +11,10 @@ import { drawEffects } from './drawing.js';
 import { incrementTick, getTick } from './state.js';
 import { SpatialGrid } from './spatial_grid.js';
 import { deviceSensors } from './device_sensors.js';
+import { gamepadInput } from './gamepad_input.js';
+import { micReactive } from './mic_reactive.js';
+import { speechInput } from './speech_input.js';
+import { cameraInput } from './camera_input.js';
 
 // --- Simulation Sub-modules ---
 
@@ -660,6 +664,26 @@ function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
         }
     }
 
+    // Gamepad left stick adds drift force
+    if (gamepadInput.connected) {
+        p.vx += gamepadInput.leftStick.x * 0.8;
+        p.vy += gamepadInput.leftStick.y * 0.8;
+        // Triggers boost/slow particles
+        if (gamepadInput.triggers.right > 0.1) {
+            p.vx *= 1 + gamepadInput.triggers.right * 0.5;
+            p.vy *= 1 + gamepadInput.triggers.right * 0.5;
+        }
+        if (gamepadInput.triggers.left > 0.1) {
+            p.vx *= 1 - gamepadInput.triggers.left * 0.3;
+            p.vy *= 1 - gamepadInput.triggers.left * 0.3;
+        }
+    }
+
+    // Microphone bass makes particles pulse
+    if (micReactive.active && micReactive.bass > 0.3) {
+        p.radius = p.radius_initial * (1 + micReactive.bass * 0.5);
+    }
+
     if (p.radius > p.radius_initial && !universeProfile.mutators.includes('Pulsing Particles')) { p.radius -= 0.05; }
     p.vx *= physics.friction; p.vy *= physics.friction;
 }
@@ -766,8 +790,12 @@ export function update(pJS) {
         particleGrid.insert(pJS.particles.array[i]);
     }
 
-    // Update device sensors for tilt/shake input
+    // Update all input systems
     deviceSensors.update();
+    gamepadInput.update();
+    micReactive.update();
+    speechInput.update();
+    cameraInput.update();
 
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);

@@ -41,6 +41,10 @@ import { InterferenceArchitecture } from './interference_architecture.js';
 import { DimensionalRiftArchitecture } from './dimensional_rift_architecture.js';
 import { DeepSeaArchitecture } from './deep_sea_architecture.js';
 import { GlitchFabricArchitecture } from './glitch_fabric_architecture.js';
+import { TypographyArchitecture } from './typography_architecture.js';
+import { OrigamiArchitecture } from './origami_architecture.js';
+import { NeuralNetArchitecture } from './neural_net_architecture.js';
+import { TidalPoolArchitecture } from './tidal_pool_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -80,7 +84,11 @@ const ALL_ARCHITECTURES = [
     () => new InterferenceArchitecture(),
     () => new DimensionalRiftArchitecture(),
     () => new DeepSeaArchitecture(),
-    () => new GlitchFabricArchitecture()
+    () => new GlitchFabricArchitecture(),
+    () => new TypographyArchitecture(),
+    () => new OrigamiArchitecture(),
+    () => new NeuralNetArchitecture(),
+    () => new TidalPoolArchitecture()
 ];
 
 class BackgroundSystem {
@@ -292,6 +300,14 @@ class BackgroundSystem {
         const deepSeaBlueprints = ['AbyssalZone', 'CoralReef', 'AbyssalHorror', 'GlassySea', 'GlacialDrift'];
         // Glitch fabric: silk/fabric/digital themes
         const glitchFabricBlueprints = ['SilkWeaver', 'NeonCyber', 'Digital', 'TechnoUtopia', 'Papercraft'];
+        // Typography: literary/code/mystical themes
+        const typographyBlueprints = ['Classical', 'TechnoUtopia', 'NeonCyber', 'ChronoVerse', 'Eldritch', 'Aetherial'];
+        // Origami: paper/geometric/craft themes
+        const origamiBlueprints = ['Papercraft', 'Crystalline', 'GlacialDrift', 'SilkWeaver', 'Classical'];
+        // Neural net: tech/digital/bio themes
+        const neuralNetBlueprints = ['TechnoUtopia', 'NeonCyber', 'BioMechanical', 'QuantumFoam', 'SentientSwarm'];
+        // Tidal pool: aquatic/nature themes
+        const tidalPoolBlueprints = ['CoralReef', 'GlassySea', 'AbyssalZone', 'AbyssalHorror', 'Classical'];
 
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
@@ -344,6 +360,22 @@ class BackgroundSystem {
         // Glitch fabric: textile/digital themes
         else if (glitchFabricBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new GlitchFabricArchitecture();
+        }
+        // Typography: literary/code themes
+        else if (typographyBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TypographyArchitecture();
+        }
+        // Origami: paper/craft themes
+        else if (origamiBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new OrigamiArchitecture();
+        }
+        // Neural net: tech/bio themes
+        else if (neuralNetBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new NeuralNetArchitecture();
+        }
+        // Tidal pool: aquatic themes
+        else if (tidalPoolBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TidalPoolArchitecture();
         }
         // Reaction-diffusion: organic/bio themes
         else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -423,34 +455,8 @@ class BackgroundSystem {
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from expanded set based on seed (37 architectures)
-            const roll = this.rng();
-            if (roll > 0.97) this.architecture = new ShatteredMirrorArchitecture();
-            else if (roll > 0.945) this.architecture = new MyceliumArchitecture();
-            else if (roll > 0.92) this.architecture = new InterferenceArchitecture();
-            else if (roll > 0.895) this.architecture = new DimensionalRiftArchitecture();
-            else if (roll > 0.87) this.architecture = new DeepSeaArchitecture();
-            else if (roll > 0.845) this.architecture = new GlitchFabricArchitecture();
-            else if (roll > 0.82) this.architecture = new ReactionDiffusionArchitecture();
-            else if (roll > 0.795) this.architecture = new VoronoiArchitecture();
-            else if (roll > 0.77) this.architecture = new MagneticFieldArchitecture();
-            else if (roll > 0.745) this.architecture = new FluidArchitecture();
-            else if (roll > 0.72) this.architecture = new ConstellationArchitecture();
-            else if (roll > 0.695) this.architecture = new GravityPoolArchitecture();
-            else if (roll > 0.67) this.architecture = new DNAArchitecture();
-            else if (roll > 0.645) this.architecture = new TopographyArchitecture();
-            else if (roll > 0.62) this.architecture = new PixelSortArchitecture();
-            else if (roll > 0.595) this.architecture = new WeatherArchitecture();
-            else if (roll > 0.55) this.architecture = new PendulumArchitecture();
-            else if (roll > 0.50) this.architecture = new InkArchitecture();
-            else if (roll > 0.45) this.architecture = new CircuitGrowthArchitecture();
-            else if (roll > 0.40) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.35) this.architecture = new LavaArchitecture();
-            else if (roll > 0.30) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.25) this.architecture = new AuroraArchitecture();
-            else if (roll > 0.20) this.architecture = new LifeArchitecture();
-            else if (roll > 0.10) this.architecture = new KaleidoscopeArchitecture();
-            else this.architecture = new CosmicArchitecture();
+            // Default: choose from expanded set based on seed (41 architectures)
+            this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
         }
 
         // Randomize background mutators based on seed for more visual variety

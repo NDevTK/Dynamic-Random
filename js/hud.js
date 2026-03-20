@@ -20,9 +20,6 @@ export const hud = (() => {
     let hudVisible = true;
     let hudManuallyHidden = false;
 
-    let lastFrameTime = 0;
-    let smoothFps = 60;
-
     // Change detection for badge updates
     let _lastGamepadOn = false, _lastMicOn = false, _lastCameraOn = false, _lastSpeechOn = false;
     let _lastTabCount = 0;
@@ -141,15 +138,9 @@ export const hud = (() => {
     }
 
     function update(timestamp) {
-        // FPS
-        if (lastFrameTime > 0) {
-            const delta = timestamp - lastFrameTime;
-            const fps = delta > 0 ? 1000 / delta : 60;
-            smoothFps += (fps - smoothFps) * 0.1;
-            const ql = perfMonitor.qualityLevel !== 'ultra' ? ' [' + perfMonitor.qualityLevel + ']' : '';
-            fpsEl.textContent = Math.round(smoothFps) + ' fps' + ql;
-        }
-        lastFrameTime = timestamp;
+        // FPS — use perfMonitor's already-computed value instead of recalculating
+        const ql = perfMonitor.qualityLevel !== 'ultra' ? ' [' + perfMonitor.qualityLevel + ']' : '';
+        fpsEl.textContent = Math.round(perfMonitor.fps) + ' fps' + ql;
 
         // Blueprint
         blueprintEl.textContent = universeProfile.blueprintName || 'Unknown';

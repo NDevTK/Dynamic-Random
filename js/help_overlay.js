@@ -13,6 +13,7 @@ const SHORTCUTS = [
     { key: 'V',              desc: 'Toggle speech input' },
     { key: 'B',              desc: 'Toggle architecture blending' },
     { key: 'F',              desc: 'Open favorites' },
+    { key: 'T',              desc: 'Open theme editor' },
     { key: '\u2190 \u2192',  desc: 'Cycle architecture' },
     { key: 'Click',          desc: 'Shockwave' },
     { key: 'Right-click',    desc: 'Gravity well' },

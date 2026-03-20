@@ -65,9 +65,12 @@ import { SpirographArchitecture } from './spirograph_architecture.js';
 import { TruchetArchitecture } from './truchet_architecture.js';
 import { LSystemArchitecture } from './lsystem_architecture.js';
 import { postProcessing } from './post_processing.js';
+import { generativeMusic } from './generative_music.js';
+import { timeline } from './timeline.js';
+import { multiMonitor } from './multi_monitor.js';
 
 // All available architectures for wildcard selection
-const ALL_ARCHITECTURES = [
+export const ALL_ARCHITECTURES = [
     () => new CosmicArchitecture(),
     () => new DigitalArchitecture(),
     () => new GeometricArchitecture(),
@@ -159,6 +162,7 @@ class BackgroundSystem {
         this._transitionAlpha = 0;    // 0 = old only, 1 = new only
         this._transitionActive = false;
         this._prevArchitecture = null; // outgoing architecture during transition
+        this._transitionType = 'crossfade'; // 'crossfade', 'wipe', 'zoom', 'spiral'
 
         // Architecture blending
         this._blendArchitecture = null; // secondary architecture for blending
@@ -285,16 +289,24 @@ class BackgroundSystem {
     }
 
     forceArchitecture(architectureFactory) {
-        // Snapshot current frame to transition canvas for crossfade
+        // Snapshot current frame to transition canvas
         if (this.architecture && this.canvas.width > 0) {
             this._transitionCtx.drawImage(this.canvas, 0, 0);
             this._prevArchitecture = this.architecture;
             this._transitionAlpha = 0;
             this._transitionActive = true;
+            // Pick random transition type
+            const types = ['crossfade', 'wipe', 'zoom', 'spiral'];
+            this._transitionType = types[Math.floor(Math.random() * types.length)];
         }
         this.architecture = architectureFactory();
         this.architecture.init(this);
         this._updateURLArch();
+        // Record in timeline
+        if (typeof timeline !== 'undefined' && timeline.record) {
+            const seed = new URLSearchParams(window.location.search).get('seed') || '';
+            timeline.record(seed, this._currentArchIndex);
+        }
     }
 
     selectArchitecture(index) {
@@ -725,6 +737,9 @@ class BackgroundSystem {
         // Seed-driven post-processing effects
         postProcessing.setEffects(this.rng);
 
+        // Configure generative music for this universe
+        generativeMusic.configure(this.rng, this.hue, blueprintName);
+
         this.updateThemeColors();
         this.architecture.init(this);
         if (this._blendArchitecture) this._blendArchitecture.init(this);
@@ -829,9 +844,13 @@ class BackgroundSystem {
             }
         }
 
+        // Update generative music
+        generativeMusic.update(this);
+
         // Expose input system data for architectures
         this.deviceTilt = deviceSensors.tilt;
         this.deviceShake = deviceSensors.shake;
+        this.multiMonitorX = multiMonitor.normalizedX;
         this.gamepad = gamepadInput;
         this.mic = micReactive;
         this.tabSync = tabSync;
@@ -940,11 +959,39 @@ class BackgroundSystem {
             realCtx.restore();
         }
 
-        // Crossfade transition: overlay snapshot of previous frame, fading out
+        // Transition effect: overlay snapshot of previous frame
         if (this._transitionActive && this._transitionAlpha < 1) {
             this.ctx.save();
-            this.ctx.globalAlpha = 1 - this._transitionAlpha;
-            this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            const t = this._transitionAlpha; // 0→1 progress
+            const tt = this._transitionType;
+            if (tt === 'wipe') {
+                // Horizontal wipe from left to right
+                const clipX = t * this.width;
+                this.ctx.beginPath();
+                this.ctx.rect(clipX, 0, this.width - clipX, this.height);
+                this.ctx.clip();
+                this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            } else if (tt === 'zoom') {
+                // Old frame shrinks into center
+                const scale = 1 - t;
+                const ox = this.width * (1 - scale) / 2;
+                const oy = this.height * (1 - scale) / 2;
+                this.ctx.globalAlpha = 1 - t;
+                this.ctx.drawImage(this._transitionCanvas, ox, oy, this.width * scale, this.height * scale);
+            } else if (tt === 'spiral') {
+                // Radial reveal: old frame visible outside an expanding circle
+                const maxR = Math.sqrt(this.width * this.width + this.height * this.height) / 2;
+                const r = t * maxR;
+                this.ctx.beginPath();
+                this.ctx.rect(0, 0, this.width, this.height);
+                this.ctx.arc(this.width / 2, this.height / 2, r, 0, Math.PI * 2, true);
+                this.ctx.clip('evenodd');
+                this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            } else {
+                // Default crossfade
+                this.ctx.globalAlpha = 1 - t;
+                this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            }
             this.ctx.restore();
         }
 

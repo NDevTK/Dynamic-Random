@@ -30,8 +30,17 @@ import { archSelector } from './arch_selector.js';
 import { screenshot } from './screenshot.js';
 import { helpOverlay } from './help_overlay.js';
 import { favorites } from './favorites.js';
+import { generativeMusic } from './generative_music.js';
+import { timeline } from './timeline.js';
+import { themeEditor } from './theme_editor.js';
+import { embedMode } from './embed_mode.js';
+import { multiMonitor } from './multi_monitor.js';
+import { loadingAnimation } from './loading_animation.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Loading animation (must be first) ---
+    loadingAnimation.init();
+
     // --- Initial Load ---
     particlesJS('particles-js', baseConfig);
     const pJS = window.pJSDom[0].pJS;
@@ -58,6 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
     screenshot.init();
     helpOverlay.init();
     favorites.init();
+    generativeMusic.init();
+    timeline.init();
+    themeEditor.init();
+    multiMonitor.init();
+    embedMode.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

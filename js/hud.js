@@ -11,9 +11,11 @@ import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
 import { perfMonitor } from './perf_monitor.js';
 import { archSelector } from './arch_selector.js';
+import { ARCH_DESCRIPTIONS } from './arch_descriptions.js';
+import { background, ARCH_DISPLAY_NAMES } from './background.js';
 
 export const hud = (() => {
-    let container, blueprintEl, seedEl, mutatorEl, anomalyEl, fpsEl;
+    let container, blueprintEl, descriptionEl, seedEl, mutatorEl, anomalyEl, fpsEl;
     let badgeGamepad, badgeMic, badgeCamera, badgeSpeech, badgeTab;
 
     let lastMouseTime = 0;
@@ -40,6 +42,9 @@ export const hud = (() => {
         blueprintEl.style.cursor = 'pointer';
         blueprintEl.title = 'Click to browse architectures';
         blueprintEl.addEventListener('click', () => archSelector.toggle());
+
+        descriptionEl = document.createElement('div');
+        descriptionEl.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.35);font-style:italic;font-family:"Exo 2",sans-serif;margin-top:2px;';
 
         seedEl = document.createElement('span');
         seedEl.id = 'seed-capture';
@@ -92,6 +97,7 @@ export const hud = (() => {
         badgesRow.appendChild(badgeTab);
 
         container.appendChild(blueprintEl);
+        container.appendChild(descriptionEl);
         container.appendChild(seedEl);
         container.appendChild(mutatorEl);
         container.appendChild(anomalyEl);
@@ -142,8 +148,11 @@ export const hud = (() => {
         const ql = perfMonitor.qualityLevel !== 'ultra' ? ' [' + perfMonitor.qualityLevel + ']' : '';
         fpsEl.textContent = Math.round(perfMonitor.fps) + ' fps' + ql;
 
-        // Blueprint
+        // Blueprint + description
         blueprintEl.textContent = universeProfile.blueprintName || 'Unknown';
+        const archIdx = background._currentArchIndex;
+        const desc = archIdx >= 0 && ARCH_DESCRIPTIONS[archIdx] ? ARCH_DESCRIPTIONS[archIdx] : '';
+        if (descriptionEl.textContent !== desc) descriptionEl.textContent = desc;
 
         // Seed
         if (document.activeElement !== seedEl && !seedEl.classList.contains('copied-animation')) {

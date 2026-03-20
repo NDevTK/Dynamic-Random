@@ -231,7 +231,7 @@ export class WebGPUParticleArchitecture extends Architecture {
     // -----------------------------------------------------------------------
     _initCPU(system) {
         this.useGPU = false;
-        const N = CPU_PARTICLE_COUNT;
+        const N = Math.floor(CPU_PARTICLE_COUNT * (system.qualityScale || 1));
         this._cpuX    = new Float32Array(N);
         this._cpuY    = new Float32Array(N);
         this._cpuVx   = new Float32Array(N);
@@ -297,8 +297,11 @@ export class WebGPUParticleArchitecture extends Architecture {
         pass.dispatchWorkgroups(Math.ceil(N / 64));
         pass.end();
 
-        // Non-blocking copy to staging (skip if staging is still mapped)
-        if (!this._stagingMapped) {
+        // Non-blocking copy to staging (skip if staging is still mapped or quality is low)
+        const readbackEvery = (system.qualityScale || 1) < 0.5 ? 3 : 1;
+        const doReadback = !this._stagingMapped && (this._frameCount % readbackEvery === 0);
+        this._frameCount = (this._frameCount || 0) + 1;
+        if (doReadback) {
             encoder.copyBufferToBuffer(this._particleBuf, 0, this._stagingBuf, 0,
                 N * FLOATS_PER_PARTICLE * 4);
         }
@@ -306,7 +309,7 @@ export class WebGPUParticleArchitecture extends Architecture {
         device.queue.submit([encoder.finish()]);
 
         // Kick off async read — use previous frame's data for drawing
-        if (!this._stagingMapped) {
+        if (doReadback) {
             this._stagingMapped = true;
             this._stagingBuf.mapAsync(GPUMapMode.READ).then(() => {
                 const mapped = this._stagingBuf.getMappedRange();
@@ -318,7 +321,7 @@ export class WebGPUParticleArchitecture extends Architecture {
     }
 
     _updateCPU(system) {
-        const N = CPU_PARTICLE_COUNT;
+        const N = this._cpuX.length;
         const w = system.width, h = system.height;
         const dt = system.speedMultiplier;
         const x = this._cpuX, y = this._cpuY;
@@ -424,7 +427,7 @@ export class WebGPUParticleArchitecture extends Architecture {
     }
 
     _drawCPU(ctx, system) {
-        const N = CPU_PARTICLE_COUNT;
+        const N = this._cpuX.length;
         const hue = this.hue;
         const x = this._cpuX, y = this._cpuY;
         const vx = this._cpuVx, vy = this._cpuVy;

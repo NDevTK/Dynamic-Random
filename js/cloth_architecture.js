@@ -27,8 +27,8 @@ export class ClothArchitecture extends Architecture {
     init(system) {
         wasmPhysics.init();
 
-        this.cols = 30;
-        this.rows = 20;
+        this.cols = (system.qualityScale || 1) < 0.75 ? 20 : 30;
+        this.rows = (system.qualityScale || 1) < 0.75 ? 14 : 20;
         const spacing = Math.min(system.width / (this.cols - 1), system.height / (this.rows - 1) * 1.2);
         const startX = (system.width - spacing * (this.cols - 1)) * 0.5;
         const startY = spacing * 0.5;

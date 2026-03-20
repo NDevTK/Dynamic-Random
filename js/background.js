@@ -62,6 +62,8 @@ import { AttractorArchitecture } from './attractor_architecture.js';
 import { SacredGeometryArchitecture } from './sacred_geometry_architecture.js';
 import { FractalExplorerArchitecture } from './fractal_explorer_architecture.js';
 import { SpirographArchitecture } from './spirograph_architecture.js';
+import { TruchetArchitecture } from './truchet_architecture.js';
+import { LSystemArchitecture } from './lsystem_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -115,7 +117,9 @@ const ALL_ARCHITECTURES = [
     () => new AttractorArchitecture(),
     () => new SacredGeometryArchitecture(),
     () => new FractalExplorerArchitecture(),
-    () => new SpirographArchitecture()
+    () => new SpirographArchitecture(),
+    () => new TruchetArchitecture(),
+    () => new LSystemArchitecture()
 ];
 
 class BackgroundSystem {
@@ -203,9 +207,35 @@ class BackgroundSystem {
              this.createShockwave(e.clientX, e.clientY);
         });
 
+        // Architecture cycling via arrow keys
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                this.cycleArchitecture(1);
+            } else if (e.key === 'ArrowLeft') {
+                this.cycleArchitecture(-1);
+            }
+        });
+
+        this._currentArchIndex = -1; // -1 = seed-selected
         this.resize();
         this.loop = this.animate.bind(this);
         requestAnimationFrame(this.loop);
+    }
+
+    cycleArchitecture(direction) {
+        if (this._currentArchIndex === -1) {
+            // Find current architecture's index in ALL_ARCHITECTURES
+            const currentName = this.architecture.constructor.name;
+            this._currentArchIndex = ALL_ARCHITECTURES.findIndex(fn => fn().constructor.name === currentName);
+            if (this._currentArchIndex === -1) this._currentArchIndex = 0;
+        }
+        this._currentArchIndex = (this._currentArchIndex + direction + ALL_ARCHITECTURES.length) % ALL_ARCHITECTURES.length;
+        this.forceArchitecture(ALL_ARCHITECTURES[this._currentArchIndex]);
+    }
+
+    forceArchitecture(architectureFactory) {
+        this.architecture = architectureFactory();
+        this.architecture.init(this);
     }
 
     resize() {
@@ -348,6 +378,11 @@ class BackgroundSystem {
         // WebGPU fluid: fluid/painterly/chromatic themes
         const webgpuFluidBlueprints = ['LivingInk', 'Painterly', 'ChromaticAberration', 'GooeyMess', 'Aetherial'];
 
+        // Truchet/Moiré: geometric/digital/quantum themes
+        const truchetBlueprints = ['Geometric', 'Digital', 'QuantumFoam', 'Papercraft', 'Crystalline', 'NeonCyber'];
+        // L-system: organic/fractal/botanical themes
+        const lsystemBlueprints = ['FungalForest', 'Organic', 'Fractal', 'CoralReef', 'BioMechanical', 'Classical'];
+
         // Strange attractors: chaotic/quantum/void themes
         const attractorBlueprints = ['QuantumFoam', 'VoidTouched', 'ChronoVerse', 'Eldritch', 'PhantomEcho', 'StarForged'];
         // Sacred geometry: mystical/crystalline/arcane themes
@@ -424,6 +459,14 @@ class BackgroundSystem {
         // Tidal pool: aquatic themes
         else if (tidalPoolBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new TidalPoolArchitecture();
+        }
+        // Truchet/Moiré: geometric/digital themes
+        else if (truchetBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TruchetArchitecture();
+        }
+        // L-system: organic/fractal themes
+        else if (lsystemBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new LSystemArchitecture();
         }
         // Strange attractors: chaotic themes
         else if (attractorBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -654,6 +697,10 @@ class BackgroundSystem {
         this.touchRotation = touchGestures.rotation;
 
         // Touch gesture reactions
+        if (touchGestures.swipeDirection) {
+            this.cycleArchitecture(touchGestures.swipeDirection === 'right' ? 1 : -1);
+            touchGestures.swipeDirection = null;
+        }
         if (touchGestures.doubleTap) {
             this.createShockwave(mouse.x, mouse.y);
         }

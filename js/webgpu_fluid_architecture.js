@@ -166,7 +166,7 @@ export class WebGPUFluidArchitecture extends Architecture {
     }
 
     _initCPU(system) {
-        this.useGPU=false; const N=CPU_N; const size=(N+2)*(N+2); this.N=N;
+        this.useGPU=false; const N=Math.max(32, Math.floor(CPU_N * (system.qualityScale || 1))); const size=(N+2)*(N+2); this.N=N;
         const mk=()=>new Float32Array(size);
         [this._vx,this._vy,this._vxP,this._vyP,
          this._dyeR,this._dyeG,this._dyeB,

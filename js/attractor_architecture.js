@@ -233,8 +233,8 @@ export class AttractorArchitecture extends Architecture {
             liveParams.a += mx * 0.5; liveParams.c += my * 0.5;
         }
 
-        // Generate 5000 new points with current (mouse-perturbed) parameters
-        const raw = generatePoints(this.type, liveParams, this.batchSize);
+        // Generate points with current (mouse-perturbed) parameters, scaled by quality
+        const raw = generatePoints(this.type, liveParams, Math.floor(this.batchSize * (system.qualityScale || 1)));
         normalizePoints(raw);
         this.batchPoints = raw;
 

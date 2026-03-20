@@ -9,6 +9,7 @@ import { micReactive } from './mic_reactive.js';
 import { tabSync } from './tab_sync.js';
 import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
+import { perfMonitor } from './perf_monitor.js';
 
 export const hud = (() => {
     let container, blueprintEl, seedEl, mutatorEl, anomalyEl, fpsEl;
@@ -137,7 +138,8 @@ export const hud = (() => {
             const delta = timestamp - lastFrameTime;
             const fps = delta > 0 ? 1000 / delta : 60;
             smoothFps += (fps - smoothFps) * 0.1;
-            fpsEl.textContent = Math.round(smoothFps) + ' fps';
+            const ql = perfMonitor.qualityLevel !== 'ultra' ? ' [' + perfMonitor.qualityLevel + ']' : '';
+            fpsEl.textContent = Math.round(smoothFps) + ' fps' + ql;
         }
         lastFrameTime = timestamp;
 

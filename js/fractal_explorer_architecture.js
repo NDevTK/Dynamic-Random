@@ -27,8 +27,8 @@ export class FractalExplorerArchitecture extends Architecture {
         this.paletteRgb = this.palette.map(hsl => hslToRgb(hsl));
 
         this.offscreen = document.createElement('canvas');
-        this.offscreen.width = Math.max(1, Math.floor(system.width / 4));
-        this.offscreen.height = Math.max(1, Math.floor(system.height / 4));
+        this.offscreen.width = Math.max(1, Math.floor(system.width / Math.round(4 / (system.qualityScale || 1))));
+        this.offscreen.height = Math.max(1, Math.floor(system.height / Math.round(4 / (system.qualityScale || 1))));
         this.offCtx = this.offscreen.getContext('2d');
 
         this.centerX = 0; this.centerY = 0; this.zoom = 3.5;

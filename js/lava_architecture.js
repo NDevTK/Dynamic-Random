@@ -8,6 +8,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D, fbm2D } from './simplex_noise.js';
 
 export class LavaArchitecture extends Architecture {
     constructor() {
@@ -24,10 +25,14 @@ export class LavaArchitecture extends Architecture {
         this.colorStyle = 0;
         this.bgColor = { r: 0, g: 0, b: 0 };
         this.resolution = 4; // Downscale factor for metaball computation
+        this.noise2D = null;
     }
 
     init(system) {
         const rng = system.rng;
+
+        // Noise for organic blob deformation
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
 
         // Resolution scales with screen size for performance
         this.resolution = Math.max(3, Math.min(6, Math.floor(Math.max(system.width, system.height) / 300)));
@@ -141,19 +146,20 @@ export class LavaArchitecture extends Architecture {
         this.heatWave += 0.02;
 
         for (const blob of this.blobs) {
-            // Oscillating radius
+            // Oscillating radius using fbm noise for irregular, organic deformation
             blob.phase += blob.phaseSpeed;
-            blob.radius = blob.baseRadius + Math.sin(blob.phase) * blob.wobble * 10;
+            const noiseR = fbm2D(this.noise2D, blob.x * 0.005 + blob.phase, blob.y * 0.005, 3);
+            blob.radius = blob.baseRadius + noiseR * blob.wobble * 12;
 
             // Gravity (direction varies by seed)
             blob.vx += Math.cos(this.gravityAngle) * this.gravityStrength;
             blob.vy += Math.sin(this.gravityAngle) * this.gravityStrength;
 
-            // Heat rises effect - perpendicular to gravity
+            // Heat rises effect with noise-driven turbulence
             const heatDir = this.gravityAngle + Math.PI / 2;
-            blob.heat = Math.sin(blob.phase * 2) * 0.5 + 0.5;
-            blob.vx += Math.cos(heatDir) * blob.heat * 0.01;
-            blob.vy += Math.sin(heatDir) * blob.heat * 0.01;
+            blob.heat = fbm2D(this.noise2D, blob.phase * 2, blob.colorIndex * 10, 2) * 0.5 + 0.5;
+            blob.vx += Math.cos(heatDir) * blob.heat * 0.015;
+            blob.vy += Math.sin(heatDir) * blob.heat * 0.015;
 
             // Mouse interaction
             const dx = mx - blob.x;

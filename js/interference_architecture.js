@@ -7,6 +7,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D } from './simplex_noise.js';
 
 export class InterferenceArchitecture extends Architecture {
     constructor() {
@@ -24,6 +25,7 @@ export class InterferenceArchitecture extends Architecture {
         this.timeScale = 0;
         this.lastMouseX = 0;
         this.lastMouseY = 0;
+        this.noise2D = null;
     }
 
     init(system) {
@@ -38,6 +40,8 @@ export class InterferenceArchitecture extends Architecture {
         this.offscreen.height = h;
         this.offCtx = this.offscreen.getContext('2d');
         this.imageData = this.offCtx.createImageData(w, h);
+
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
 
         // Seed-driven wave properties
         this.waveType = Math.floor(rng() * 4); // 0=circular, 1=linear, 2=spiral, 3=hyperbolic
@@ -104,6 +108,11 @@ export class InterferenceArchitecture extends Architecture {
             s.x = Math.max(0, Math.min(system.width, s.x));
             s.y = Math.max(0, Math.min(system.height, s.y));
 
+            // Noise-driven organic movement
+            const t = tick * 0.005;
+            s.vx += this.noise2D(t + i * 7.3, 0) * 0.05;
+            s.vy += this.noise2D(0, t + i * 7.3) * 0.05;
+
             // Mouse attraction
             if (system.isGravityWell) {
                 const dx = mx - s.x;
@@ -113,9 +122,11 @@ export class InterferenceArchitecture extends Architecture {
                     s.vx += (dx / dist) * 0.3;
                     s.vy += (dy / dist) * 0.3;
                 }
-                s.freq = this.baseFreq * 2; // Higher frequency during gravity well
+                s.freq = this.baseFreq * 2;
             } else {
-                s.freq += (this.baseFreq * (0.5 + Math.random() * 1.5) - s.freq) * 0.01;
+                // Smooth frequency modulation via noise instead of Math.random()
+                const freqNoise = this.noise2D(t * 0.5 + i * 13.7, i * 3.1);
+                s.freq += (this.baseFreq * (1 + freqNoise * 0.5) - s.freq) * 0.01;
             }
         }
 

@@ -7,6 +7,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D, fbm2D, ridgedNoise2D } from './simplex_noise.js';
 
 export class TerrainArchitecture extends Architecture {
     constructor() {
@@ -21,10 +22,14 @@ export class TerrainArchitecture extends Architecture {
         this.moonX = 0;
         this.moonY = 0;
         this.moonPhase = 0;
+        this.noise2D = null;
     }
 
     init(system) {
         const rng = system.rng;
+
+        // Noise for terrain generation
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
 
         // Time of day (completely changes sky gradient)
         this.timeOfDay = Math.floor(rng() * 5);
@@ -67,18 +72,15 @@ export class TerrainArchitecture extends Architecture {
             const points = [];
             const resolution = 10;
 
-            // Generate mountain profile using multiple octaves of pseudo-noise
-            const freq1 = 0.002 + rng() * 0.004;
-            const freq2 = 0.008 + rng() * 0.01;
-            const amp1 = 60 + rng() * 100 * (1 - depth * 0.3);
-            const amp2 = 15 + rng() * 30;
+            // Generate mountain profile using ridged multi-fractal noise
+            const scale = 0.001 + rng() * 0.002;
+            const amp = 80 + rng() * 120 * (1 - depth * 0.3);
             const offset = rng() * 1000;
 
             for (let x = -50; x <= system.width + 50; x += resolution) {
-                const y = baseY
-                    - Math.abs(Math.sin((x + offset) * freq1)) * amp1
-                    - Math.abs(Math.sin((x + offset * 2) * freq2)) * amp2
-                    - Math.sin((x + offset) * freq1 * 3) * amp2 * 0.5;
+                const ridged = ridgedNoise2D(this.noise2D, (x + offset) * scale, i * 5.7, 4);
+                const detail = fbm2D(this.noise2D, (x + offset) * scale * 3, i * 5.7 + 100, 2);
+                const y = baseY - ridged * amp - detail * amp * 0.15;
                 points.push({ x, y });
             }
 

@@ -386,7 +386,7 @@ class AmbientSoundSystem {
             if (node.filter && node.filter.type === 'lowpass') {
                 const baseFreq = node.filter.frequency.value;
                 node.filter.frequency.linearRampToValueAtTime(
-                    baseFreq * (1 + speedNorm * 2),
+                    Math.min(24000, baseFreq * (1 + speedNorm * 2)),
                     this.ctx.currentTime + 0.1
                 );
             }

@@ -64,6 +64,7 @@ import { FractalExplorerArchitecture } from './fractal_explorer_architecture.js'
 import { SpirographArchitecture } from './spirograph_architecture.js';
 import { TruchetArchitecture } from './truchet_architecture.js';
 import { LSystemArchitecture } from './lsystem_architecture.js';
+import { postProcessing } from './post_processing.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -152,6 +153,26 @@ class BackgroundSystem {
         this.offscreenCanvas = document.createElement('canvas');
         this.offscreenCtx = this.offscreenCanvas.getContext('2d', { alpha: false });
 
+        // Transition canvas for crossfade between architectures
+        this._transitionCanvas = document.createElement('canvas');
+        this._transitionCtx = this._transitionCanvas.getContext('2d', { alpha: false });
+        this._transitionAlpha = 0;    // 0 = old only, 1 = new only
+        this._transitionActive = false;
+        this._prevArchitecture = null; // outgoing architecture during transition
+
+        // Architecture blending
+        this._blendArchitecture = null; // secondary architecture for blending
+        this._blendCanvas = document.createElement('canvas');
+        this._blendCtx = this._blendCanvas.getContext('2d', { alpha: true });
+        this._blendMode = 'off';       // 'off', 'active'
+        this._blendAlpha = 0.35;       // how much of secondary shows through
+
+        // Idle / screensaver mode
+        this._lastInteraction = 0;
+        this._idleCycleActive = false;
+        this._idleCycleInterval = 15000; // ms between auto-cycles
+        this._lastIdleCycle = 0;
+
         // Cached scanlines path (performance optimization)
         this.cachedScanlinesPath = null;
         this.cachedScanlinesHeight = 0;
@@ -196,7 +217,10 @@ class BackgroundSystem {
             }
         });
 
+        const markInteraction = () => { this._lastInteraction = performance.now(); this._idleCycleActive = false; };
+
         window.addEventListener('mousedown', (e) => {
+            markInteraction();
             if (e.target.closest('#ui-container')) return;
             if (e.button === 0) this.targetSpeed = 20;
             else if (e.button === 2) this.isGravityWell = true;
@@ -212,28 +236,46 @@ class BackgroundSystem {
             this.isGravityWell = false;
         });
 
+        window.addEventListener('mousemove', markInteraction);
+        window.addEventListener('keydown', markInteraction);
+        window.addEventListener('touchstart', markInteraction);
+
         window.addEventListener('click', (e) => {
              this.createShockwave(e.clientX, e.clientY);
         });
 
-        // Architecture cycling via arrow keys
+        // Architecture cycling via arrow keys + blend toggle via 'B'
         window.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowRight') {
                 this.cycleArchitecture(1);
             } else if (e.key === 'ArrowLeft') {
                 this.cycleArchitecture(-1);
+            } else if (e.key === 'b' || e.key === 'B') {
+                this.toggleBlend();
             }
         });
 
         this._currentArchIndex = -1; // -1 = seed-selected
+        this._lastInteraction = performance.now();
+
+        // Check URL for architecture param
+        const urlParams = new URLSearchParams(window.location.search);
+        const archParam = urlParams.get('arch');
+        if (archParam !== null) {
+            const archIdx = parseInt(archParam, 10);
+            if (archIdx >= 0 && archIdx < ALL_ARCHITECTURES.length) {
+                this._pendingArchIndex = archIdx;
+            }
+        }
+
         this.resize();
+        postProcessing.init(this);
         this.loop = this.animate.bind(this);
         requestAnimationFrame(this.loop);
     }
 
     cycleArchitecture(direction) {
         if (this._currentArchIndex === -1) {
-            // Find current architecture's index using cached names (no throwaway instances)
             const currentName = this.architecture.constructor.name;
             this._currentArchIndex = ARCH_CONSTRUCTOR_NAMES.indexOf(currentName);
             if (this._currentArchIndex === -1) this._currentArchIndex = 0;
@@ -243,13 +285,63 @@ class BackgroundSystem {
     }
 
     forceArchitecture(architectureFactory) {
+        // Snapshot current frame to transition canvas for crossfade
+        if (this.architecture && this.canvas.width > 0) {
+            this._transitionCtx.drawImage(this.canvas, 0, 0);
+            this._prevArchitecture = this.architecture;
+            this._transitionAlpha = 0;
+            this._transitionActive = true;
+        }
         this.architecture = architectureFactory();
         this.architecture.init(this);
+        this._updateURLArch();
     }
 
     selectArchitecture(index) {
         this._currentArchIndex = ((index % ALL_ARCHITECTURES.length) + ALL_ARCHITECTURES.length) % ALL_ARCHITECTURES.length;
         this.forceArchitecture(ALL_ARCHITECTURES[this._currentArchIndex]);
+    }
+
+    // --- Architecture blending ---
+    toggleBlend() {
+        if (this._blendMode === 'active') {
+            this._blendMode = 'off';
+            this._blendArchitecture = null;
+        } else {
+            // Pick a random second architecture different from the current one
+            let idx;
+            do { idx = Math.floor(Math.random() * ALL_ARCHITECTURES.length); }
+            while (idx === this._currentArchIndex && ALL_ARCHITECTURES.length > 1);
+            this._blendArchitecture = ALL_ARCHITECTURES[idx]();
+            this._blendArchitecture.init(this);
+            this._blendMode = 'active';
+        }
+    }
+
+    // --- Idle / screensaver ---
+    _updateIdle(now) {
+        const idleTime = now - this._lastInteraction;
+        if (idleTime > 60000) { // 60s of no interaction
+            if (!this._idleCycleActive) {
+                this._idleCycleActive = true;
+                this._lastIdleCycle = now;
+            }
+            if (now - this._lastIdleCycle > this._idleCycleInterval) {
+                this._lastIdleCycle = now;
+                // Auto-cycle to random architecture
+                const idx = Math.floor(Math.random() * ALL_ARCHITECTURES.length);
+                this._currentArchIndex = idx;
+                this.forceArchitecture(ALL_ARCHITECTURES[idx]);
+            }
+        }
+    }
+
+    // --- URL architecture encoding ---
+    _updateURLArch() {
+        if (this._currentArchIndex < 0) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('arch', String(this._currentArchIndex));
+        window.history.replaceState(null, '', url.toString());
     }
 
     resize() {
@@ -259,6 +351,10 @@ class BackgroundSystem {
         this.canvas.height = this.height;
         this.offscreenCanvas.width = this.width;
         this.offscreenCanvas.height = this.height;
+        this._transitionCanvas.width = this.width;
+        this._transitionCanvas.height = this.height;
+        this._blendCanvas.width = this.width;
+        this._blendCanvas.height = this.height;
 
         if (!this.spatialGrid) {
             this.spatialGrid = new SpatialGrid(this.width, this.height, this.cellSize);
@@ -615,8 +711,23 @@ class BackgroundSystem {
         // Seed-driven gradient style for more visual differentiation
         this.gradientStyle = Math.floor(this.rng() * 5); // 0=diagonal, 1=radial, 2=multi-stop, 3=conic-approx, 4=duotone
 
+        // Seed-driven architecture blending (~10% of universes)
+        if (this.rng() < 0.10) {
+            const blendIdx = Math.floor(this.rng() * ALL_ARCHITECTURES.length);
+            this._blendArchitecture = ALL_ARCHITECTURES[blendIdx]();
+            this._blendAlpha = 0.15 + this.rng() * 0.25;
+            this._blendMode = 'active';
+        } else {
+            this._blendMode = 'off';
+            this._blendArchitecture = null;
+        }
+
+        // Seed-driven post-processing effects
+        postProcessing.setEffects(this.rng);
+
         this.updateThemeColors();
         this.architecture.init(this);
+        if (this._blendArchitecture) this._blendArchitecture.init(this);
     }
 
     createShockwave(x, y, fromRemote) {
@@ -697,6 +808,26 @@ class BackgroundSystem {
     animate() {
         this.tick++;
         this.speedMultiplier += (this.targetSpeed - this.speedMultiplier) * 0.1;
+        const now = performance.now();
+
+        // Apply pending architecture from URL (after first setTheme has run)
+        if (this._pendingArchIndex !== undefined && this.tick > 2) {
+            this.selectArchitecture(this._pendingArchIndex);
+            this._pendingArchIndex = undefined;
+        }
+
+        // Idle / screensaver auto-cycle
+        this._updateIdle(now);
+
+        // Advance crossfade transition
+        if (this._transitionActive) {
+            this._transitionAlpha += 0.025; // ~40 frames = ~0.67s
+            if (this._transitionAlpha >= 1) {
+                this._transitionActive = false;
+                this._prevArchitecture = null;
+                this._transitionAlpha = 1;
+            }
+        }
 
         // Expose input system data for architectures
         this.deviceTilt = deviceSensors.tilt;
@@ -790,8 +921,36 @@ class BackgroundSystem {
 
         this.architecture.update(this);
         this.architecture.draw(this);
+
+        // Architecture blending: draw secondary architecture on offscreen canvas and composite
+        if (this._blendMode === 'active' && this._blendArchitecture) {
+            const bc = this._blendCtx;
+            bc.clearRect(0, 0, this.width, this.height);
+            // Temporarily swap ctx so architecture draws to blend canvas
+            const realCtx = this.ctx;
+            this.ctx = bc;
+            this._blendArchitecture.update(this);
+            this._blendArchitecture.draw(this);
+            this.ctx = realCtx;
+            // Composite blend canvas onto main
+            realCtx.save();
+            realCtx.globalAlpha = this._blendAlpha;
+            realCtx.globalCompositeOperation = 'lighter';
+            realCtx.drawImage(this._blendCanvas, 0, 0);
+            realCtx.restore();
+        }
+
+        // Crossfade transition: overlay snapshot of previous frame, fading out
+        if (this._transitionActive && this._transitionAlpha < 1) {
+            this.ctx.save();
+            this.ctx.globalAlpha = 1 - this._transitionAlpha;
+            this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            this.ctx.restore();
+        }
+
         this.drawInteractiveEffects();
         this.applyBGMutators();
+        postProcessing.apply(this.ctx, this);
 
         this.ctx.restore();
 

@@ -28,6 +28,8 @@ import { perfMonitor } from './perf_monitor.js';
 import { touchGestures } from './touch_gestures.js';
 import { archSelector } from './arch_selector.js';
 import { screenshot } from './screenshot.js';
+import { helpOverlay } from './help_overlay.js';
+import { favorites } from './favorites.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
@@ -54,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     touchGestures.init();
     archSelector.init();
     screenshot.init();
+    helpOverlay.init();
+    favorites.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

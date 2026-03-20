@@ -7,6 +7,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D, fbm2D } from './simplex_noise.js';
 
 export class FluidArchitecture extends Architecture {
     constructor() {
@@ -37,6 +38,7 @@ export class FluidArchitecture extends Architecture {
         this.dyeBPrev = null;
         this.prevMx = 0;
         this.prevMy = 0;
+        this.noise2D = null;
     }
 
     init(system) {
@@ -66,6 +68,7 @@ export class FluidArchitecture extends Architecture {
         this.offCtx = this.offscreen.getContext('2d');
         this.imageData = this.offCtx.createImageData(this.N, this.N);
 
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
         this.hueBase = system.hue || rng() * 360;
         this.colorMode = Math.floor(rng() * 4);
         this.prevMx = mouse.x;
@@ -95,14 +98,17 @@ export class FluidArchitecture extends Architecture {
                         break;
                 }
 
-                // Seed initial dye
-                const dist = Math.sqrt((i - this.N / 2) ** 2 + (j - this.N / 2) ** 2);
-                if (dist < this.N * 0.2) {
-                    const hue = (this.hueBase + dist * 5) % 360;
+                // Seed initial dye using noise for swirling organic patterns
+                const ni = i / this.N;
+                const nj = j / this.N;
+                const dyeNoise = fbm2D(this.noise2D, ni * 4, nj * 4, 3);
+                if (dyeNoise > 0.1) {
+                    const hue = (this.hueBase + dyeNoise * 120) % 360;
                     const rgb = this._hslToRgb(hue, 80, 50);
-                    this.dyeR[idx] = rgb[0] / 255;
-                    this.dyeG[idx] = rgb[1] / 255;
-                    this.dyeB[idx] = rgb[2] / 255;
+                    const intensity = (dyeNoise - 0.1) * 1.1;
+                    this.dyeR[idx] = rgb[0] / 255 * intensity;
+                    this.dyeG[idx] = rgb[1] / 255 * intensity;
+                    this.dyeB[idx] = rgb[2] / 255 * intensity;
                 }
             }
         }

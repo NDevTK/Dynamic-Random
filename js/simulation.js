@@ -10,6 +10,15 @@ import { getBezierXY, tagParticles } from './utils.js';
 import { drawEffects } from './drawing.js';
 import { incrementTick, getTick } from './state.js';
 import { SpatialGrid } from './spatial_grid.js';
+import { deviceSensors } from './device_sensors.js';
+import { gamepadInput } from './gamepad_input.js';
+import { micReactive } from './mic_reactive.js';
+import { speechInput } from './speech_input.js';
+import { cameraInput } from './camera_input.js';
+import { hud } from './hud.js';
+import { inputToolbar } from './input_toolbar.js';
+import { perfMonitor } from './perf_monitor.js';
+import { touchGestures } from './touch_gestures.js';
 
 // --- Simulation Sub-modules ---
 
@@ -630,6 +639,32 @@ function applyMutatorForces(p, i, pJS, isPhased) {
     return false;
 }
 
+// Per-frame cached input state (hoisted outside per-particle loop)
+let _cachedGamepadConnected = false;
+let _cachedGamepadLX = 0, _cachedGamepadLY = 0;
+let _cachedGamepadTriggerR = 0, _cachedGamepadTriggerL = 0;
+let _cachedDeviceSupported = false;
+let _cachedTiltX = 0, _cachedTiltY = 0, _cachedShake = 0;
+let _cachedMicActive = false, _cachedMicBass = 0;
+
+function cacheInputState() {
+    _cachedGamepadConnected = gamepadInput.connected;
+    if (_cachedGamepadConnected) {
+        _cachedGamepadLX = gamepadInput.leftStick.x;
+        _cachedGamepadLY = gamepadInput.leftStick.y;
+        _cachedGamepadTriggerR = gamepadInput.triggers.right;
+        _cachedGamepadTriggerL = gamepadInput.triggers.left;
+    }
+    _cachedDeviceSupported = deviceSensors.supported;
+    if (_cachedDeviceSupported) {
+        _cachedTiltX = deviceSensors.tilt.x;
+        _cachedTiltY = deviceSensors.tilt.y;
+        _cachedShake = deviceSensors.shake;
+    }
+    _cachedMicActive = micReactive.active;
+    _cachedMicBass = micReactive.bass;
+}
+
 function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
     if (!isPhased && !isStasis && !p.isCrystalized && !p.isEntangled) {
         if (isLeftMouseDown) handleActivePower(p, i, pJS, universeProfile.leftClickPower, worldMouse);
@@ -646,6 +681,35 @@ function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
                 p2.color = { rgb: { r: 255, g: 50, b: 50 } };
             }
         }
+    }
+
+    // Device tilt adds global gravity vector
+    if (_cachedDeviceSupported) {
+        p.vx += _cachedTiltX * 0.5;
+        p.vy += _cachedTiltY * 0.5;
+        if (_cachedShake > 0.3) {
+            p.vx *= 1 + _cachedShake * 0.3;
+            p.vy *= 1 + _cachedShake * 0.3;
+        }
+    }
+
+    // Gamepad left stick adds drift force
+    if (_cachedGamepadConnected) {
+        p.vx += _cachedGamepadLX * 0.8;
+        p.vy += _cachedGamepadLY * 0.8;
+        if (_cachedGamepadTriggerR > 0.1) {
+            p.vx *= 1 + _cachedGamepadTriggerR * 0.5;
+            p.vy *= 1 + _cachedGamepadTriggerR * 0.5;
+        }
+        if (_cachedGamepadTriggerL > 0.1) {
+            p.vx *= 1 - _cachedGamepadTriggerL * 0.3;
+            p.vy *= 1 - _cachedGamepadTriggerL * 0.3;
+        }
+    }
+
+    // Microphone bass makes particles pulse
+    if (_cachedMicActive && _cachedMicBass > 0.3) {
+        p.radius = p.radius_initial * (1 + _cachedMicBass * 0.5);
     }
 
     if (p.radius > p.radius_initial && !universeProfile.mutators.includes('Pulsing Particles')) { p.radius -= 0.05; }
@@ -754,12 +818,24 @@ export function update(pJS) {
         particleGrid.insert(pJS.particles.array[i]);
     }
 
+    // Update all input systems
+    deviceSensors.update();
+    gamepadInput.update();
+    micReactive.update();
+    speechInput.update();
+    cameraInput.update();
+    perfMonitor.update();
+    touchGestures.update();
+    hud.update(performance.now());
+    inputToolbar.update();
+
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);
     precomputeChoralAverage(pJS);
     precomputeRiverSamples();
 
     const worldMouse = { ...mouse };
+    cacheInputState();
     updateAllParticles(pJS, worldMouse);
 
     updateEntangledGroups(pJS);

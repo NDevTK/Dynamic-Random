@@ -4,6 +4,7 @@
  */
 
 import { mouse } from './state.js';
+import { deviceSensors } from './device_sensors.js';
 import { SpatialGrid } from './spatial_grid.js';
 import { CosmicArchitecture, DigitalArchitecture, GeometricArchitecture } from './background_architectures.js';
 import { OrganicArchitecture } from './organic_architecture.js';
@@ -34,9 +35,42 @@ import { DNAArchitecture } from './dna_architecture.js';
 import { TopographyArchitecture } from './topography_architecture.js';
 import { PixelSortArchitecture } from './pixel_sort_architecture.js';
 import { WeatherArchitecture } from './weather_architecture.js';
+import { ShatteredMirrorArchitecture } from './shattered_mirror_architecture.js';
+import { MyceliumArchitecture } from './mycelium_architecture.js';
+import { InterferenceArchitecture } from './interference_architecture.js';
+import { DimensionalRiftArchitecture } from './dimensional_rift_architecture.js';
+import { DeepSeaArchitecture } from './deep_sea_architecture.js';
+import { GlitchFabricArchitecture } from './glitch_fabric_architecture.js';
+import { TypographyArchitecture } from './typography_architecture.js';
+import { OrigamiArchitecture } from './origami_architecture.js';
+import { NeuralNetArchitecture } from './neural_net_architecture.js';
+import { TidalPoolArchitecture } from './tidal_pool_architecture.js';
+import { SpeechTypographyArchitecture } from './speech_typography_architecture.js';
+import { CameraTextureArchitecture } from './camera_texture_architecture.js';
+import { ClothArchitecture } from './cloth_architecture.js';
+import { SoftbodyArchitecture } from './softbody_architecture.js';
+import { WebGPUParticleArchitecture } from './webgpu_particle_architecture.js';
+import { WebGPUFluidArchitecture } from './webgpu_fluid_architecture.js';
+import { gamepadInput } from './gamepad_input.js';
+import { micReactive } from './mic_reactive.js';
+import { tabSync } from './tab_sync.js';
+import { speechInput } from './speech_input.js';
+import { cameraInput } from './camera_input.js';
+import { perfMonitor } from './perf_monitor.js';
+import { touchGestures } from './touch_gestures.js';
+import { AttractorArchitecture } from './attractor_architecture.js';
+import { SacredGeometryArchitecture } from './sacred_geometry_architecture.js';
+import { FractalExplorerArchitecture } from './fractal_explorer_architecture.js';
+import { SpirographArchitecture } from './spirograph_architecture.js';
+import { TruchetArchitecture } from './truchet_architecture.js';
+import { LSystemArchitecture } from './lsystem_architecture.js';
+import { postProcessing } from './post_processing.js';
+import { generativeMusic } from './generative_music.js';
+import { timeline } from './timeline.js';
+import { multiMonitor } from './multi_monitor.js';
 
 // All available architectures for wildcard selection
-const ALL_ARCHITECTURES = [
+export const ALL_ARCHITECTURES = [
     () => new CosmicArchitecture(),
     () => new DigitalArchitecture(),
     () => new GeometricArchitecture(),
@@ -67,8 +101,39 @@ const ALL_ARCHITECTURES = [
     () => new DNAArchitecture(),
     () => new TopographyArchitecture(),
     () => new PixelSortArchitecture(),
-    () => new WeatherArchitecture()
+    () => new WeatherArchitecture(),
+    () => new ShatteredMirrorArchitecture(),
+    () => new MyceliumArchitecture(),
+    () => new InterferenceArchitecture(),
+    () => new DimensionalRiftArchitecture(),
+    () => new DeepSeaArchitecture(),
+    () => new GlitchFabricArchitecture(),
+    () => new TypographyArchitecture(),
+    () => new OrigamiArchitecture(),
+    () => new NeuralNetArchitecture(),
+    () => new TidalPoolArchitecture(),
+    () => new SpeechTypographyArchitecture(),
+    () => new CameraTextureArchitecture(),
+    () => new ClothArchitecture(),
+    () => new SoftbodyArchitecture(),
+    () => new WebGPUParticleArchitecture(),
+    () => new WebGPUFluidArchitecture(),
+    () => new AttractorArchitecture(),
+    () => new SacredGeometryArchitecture(),
+    () => new FractalExplorerArchitecture(),
+    () => new SpirographArchitecture(),
+    () => new TruchetArchitecture(),
+    () => new LSystemArchitecture()
 ];
+
+// Cached constructor names to avoid creating throwaway instances in cycleArchitecture()
+const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
+    const instance = fn();
+    return instance.constructor.name;
+});
+
+// Display-friendly names for the architecture selector UI
+export const ARCH_DISPLAY_NAMES = ARCH_CONSTRUCTOR_NAMES.map(n => n.replace(/Architecture$/, ''));
 
 class BackgroundSystem {
     constructor() {
@@ -90,6 +155,27 @@ class BackgroundSystem {
         // Offscreen canvas for background optimization
         this.offscreenCanvas = document.createElement('canvas');
         this.offscreenCtx = this.offscreenCanvas.getContext('2d', { alpha: false });
+
+        // Transition canvas for crossfade between architectures
+        this._transitionCanvas = document.createElement('canvas');
+        this._transitionCtx = this._transitionCanvas.getContext('2d', { alpha: false });
+        this._transitionAlpha = 0;    // 0 = old only, 1 = new only
+        this._transitionActive = false;
+        this._prevArchitecture = null; // outgoing architecture during transition
+        this._transitionType = 'crossfade'; // 'crossfade', 'wipe', 'zoom', 'spiral'
+
+        // Architecture blending
+        this._blendArchitecture = null; // secondary architecture for blending
+        this._blendCanvas = document.createElement('canvas');
+        this._blendCtx = this._blendCanvas.getContext('2d', { alpha: true });
+        this._blendMode = 'off';       // 'off', 'active'
+        this._blendAlpha = 0.35;       // how much of secondary shows through
+
+        // Idle / screensaver mode
+        this._lastInteraction = 0;
+        this._idleCycleActive = false;
+        this._idleCycleInterval = 15000; // ms between auto-cycles
+        this._lastIdleCycle = 0;
 
         // Cached scanlines path (performance optimization)
         this.cachedScanlinesPath = null;
@@ -135,7 +221,10 @@ class BackgroundSystem {
             }
         });
 
+        const markInteraction = () => { this._lastInteraction = performance.now(); this._idleCycleActive = false; };
+
         window.addEventListener('mousedown', (e) => {
+            markInteraction();
             if (e.target.closest('#ui-container')) return;
             if (e.button === 0) this.targetSpeed = 20;
             else if (e.button === 2) this.isGravityWell = true;
@@ -151,13 +240,120 @@ class BackgroundSystem {
             this.isGravityWell = false;
         });
 
+        window.addEventListener('mousemove', markInteraction);
+        window.addEventListener('keydown', markInteraction);
+        window.addEventListener('touchstart', markInteraction);
+
         window.addEventListener('click', (e) => {
              this.createShockwave(e.clientX, e.clientY);
         });
 
+        // Architecture cycling via arrow keys + blend toggle via 'B'
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                this.cycleArchitecture(1);
+            } else if (e.key === 'ArrowLeft') {
+                this.cycleArchitecture(-1);
+            } else if (e.key === 'b' || e.key === 'B') {
+                this.toggleBlend();
+            }
+        });
+
+        this._currentArchIndex = -1; // -1 = seed-selected
+        this._lastInteraction = performance.now();
+
+        // Check URL for architecture param
+        const urlParams = new URLSearchParams(window.location.search);
+        const archParam = urlParams.get('arch');
+        if (archParam !== null) {
+            const archIdx = parseInt(archParam, 10);
+            if (archIdx >= 0 && archIdx < ALL_ARCHITECTURES.length) {
+                this._pendingArchIndex = archIdx;
+            }
+        }
+
         this.resize();
+        postProcessing.init(this);
         this.loop = this.animate.bind(this);
         requestAnimationFrame(this.loop);
+    }
+
+    cycleArchitecture(direction) {
+        if (this._currentArchIndex === -1) {
+            const currentName = this.architecture.constructor.name;
+            this._currentArchIndex = ARCH_CONSTRUCTOR_NAMES.indexOf(currentName);
+            if (this._currentArchIndex === -1) this._currentArchIndex = 0;
+        }
+        this._currentArchIndex = (this._currentArchIndex + direction + ALL_ARCHITECTURES.length) % ALL_ARCHITECTURES.length;
+        this.forceArchitecture(ALL_ARCHITECTURES[this._currentArchIndex]);
+    }
+
+    forceArchitecture(architectureFactory) {
+        // Snapshot current frame to transition canvas
+        if (this.architecture && this.canvas.width > 0) {
+            this._transitionCtx.drawImage(this.canvas, 0, 0);
+            this._prevArchitecture = this.architecture;
+            this._transitionAlpha = 0;
+            this._transitionActive = true;
+            // Pick random transition type
+            const types = ['crossfade', 'wipe', 'zoom', 'spiral'];
+            this._transitionType = types[Math.floor(Math.random() * types.length)];
+        }
+        this.architecture = architectureFactory();
+        this.architecture.init(this);
+        this._updateURLArch();
+        // Record in timeline
+        if (typeof timeline !== 'undefined' && timeline.record) {
+            const seed = new URLSearchParams(window.location.search).get('seed') || '';
+            timeline.record(seed, this._currentArchIndex);
+        }
+    }
+
+    selectArchitecture(index) {
+        this._currentArchIndex = ((index % ALL_ARCHITECTURES.length) + ALL_ARCHITECTURES.length) % ALL_ARCHITECTURES.length;
+        this.forceArchitecture(ALL_ARCHITECTURES[this._currentArchIndex]);
+    }
+
+    // --- Architecture blending ---
+    toggleBlend() {
+        if (this._blendMode === 'active') {
+            this._blendMode = 'off';
+            this._blendArchitecture = null;
+        } else {
+            // Pick a random second architecture different from the current one
+            let idx;
+            do { idx = Math.floor(Math.random() * ALL_ARCHITECTURES.length); }
+            while (idx === this._currentArchIndex && ALL_ARCHITECTURES.length > 1);
+            this._blendArchitecture = ALL_ARCHITECTURES[idx]();
+            this._blendArchitecture.init(this);
+            this._blendMode = 'active';
+        }
+    }
+
+    // --- Idle / screensaver ---
+    _updateIdle(now) {
+        const idleTime = now - this._lastInteraction;
+        if (idleTime > 60000) { // 60s of no interaction
+            if (!this._idleCycleActive) {
+                this._idleCycleActive = true;
+                this._lastIdleCycle = now;
+            }
+            if (now - this._lastIdleCycle > this._idleCycleInterval) {
+                this._lastIdleCycle = now;
+                // Auto-cycle to random architecture
+                const idx = Math.floor(Math.random() * ALL_ARCHITECTURES.length);
+                this._currentArchIndex = idx;
+                this.forceArchitecture(ALL_ARCHITECTURES[idx]);
+            }
+        }
+    }
+
+    // --- URL architecture encoding ---
+    _updateURLArch() {
+        if (this._currentArchIndex < 0) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('arch', String(this._currentArchIndex));
+        window.history.replaceState(null, '', url.toString());
     }
 
     resize() {
@@ -167,6 +363,10 @@ class BackgroundSystem {
         this.canvas.height = this.height;
         this.offscreenCanvas.width = this.width;
         this.offscreenCanvas.height = this.height;
+        this._transitionCanvas.width = this.width;
+        this._transitionCanvas.height = this.height;
+        this._blendCanvas.width = this.width;
+        this._blendCanvas.height = this.height;
 
         if (!this.spatialGrid) {
             this.spatialGrid = new SpatialGrid(this.width, this.height, this.cellSize);
@@ -180,7 +380,28 @@ class BackgroundSystem {
 
     updateGradient() {
         const ctx = this.offscreenCtx;
-        this.gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
+        const style = this.gradientStyle || 0;
+
+        if (style === 1) {
+            // Radial gradient from center
+            this.gradient = ctx.createRadialGradient(
+                this.width / 2, this.height / 2, 0,
+                this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.7
+            );
+        } else if (style === 2) {
+            // Top-to-bottom with multi stops
+            this.gradient = ctx.createLinearGradient(0, 0, 0, this.height);
+        } else if (style === 3) {
+            // Horizontal sweep
+            this.gradient = ctx.createLinearGradient(0, this.height / 2, this.width, this.height / 2);
+        } else if (style === 4) {
+            // Corner-to-corner (bottom-left to top-right)
+            this.gradient = ctx.createLinearGradient(0, this.height, this.width, 0);
+        } else {
+            // Default diagonal
+            this.gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
+        }
+
         this.gradientColors.forEach((c, i) => this.gradient.addColorStop(i / (this.gradientColors.length - 1), c));
 
         ctx.fillStyle = this.gradient;
@@ -245,8 +466,56 @@ class BackgroundSystem {
         // Weather: aetherial/glacial/abyssal themes
         const weatherBlueprints = ['Aetherial', 'GlacialDrift', 'AbyssalZone', 'Classical', 'HauntedRealm'];
 
-        // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
-        if (this.rng() < 0.18) {
+        // New architecture blueprint mappings
+        // Shattered mirror: crystalline/glass/void themes
+        const shatteredMirrorBlueprints = ['Crystalline', 'GlassySea', 'VoidTouched', 'GlacialDrift', 'Eldritch', 'PhantomEcho'];
+        // Mycelium: fungal/organic/bio themes
+        const myceliumBlueprints = ['FungalForest', 'Organic', 'BioMechanical', 'CoralReef', 'SentientSwarm', 'GooeyMess'];
+        // Interference: quantum/sonic/chromatic themes
+        const interferenceBlueprints = ['QuantumFoam', 'SonicScapes', 'ChromaticAberration', 'Aetherial', 'Eldritch'];
+        // Dimensional rift: void/phantom/eldritch themes
+        const dimensionalRiftBlueprints = ['VoidTouched', 'PhantomEcho', 'Eldritch', 'ChronoVerse', 'AbyssalHorror', 'HauntedRealm'];
+        // Deep sea: abyssal/coral/aquatic themes
+        const deepSeaBlueprints = ['AbyssalZone', 'CoralReef', 'AbyssalHorror', 'GlassySea', 'GlacialDrift'];
+        // Glitch fabric: silk/fabric/digital themes
+        const glitchFabricBlueprints = ['SilkWeaver', 'NeonCyber', 'Digital', 'TechnoUtopia', 'Papercraft'];
+        // Typography: literary/code/mystical themes
+        const typographyBlueprints = ['Classical', 'TechnoUtopia', 'NeonCyber', 'ChronoVerse', 'Eldritch', 'Aetherial'];
+        // Origami: paper/geometric/craft themes
+        const origamiBlueprints = ['Papercraft', 'Crystalline', 'GlacialDrift', 'SilkWeaver', 'Classical'];
+        // Neural net: tech/digital/bio themes
+        const neuralNetBlueprints = ['TechnoUtopia', 'NeonCyber', 'BioMechanical', 'QuantumFoam', 'SentientSwarm'];
+        // Tidal pool: aquatic/nature themes
+        const tidalPoolBlueprints = ['CoralReef', 'GlassySea', 'AbyssalZone', 'AbyssalHorror', 'Classical'];
+        // Speech typography: literary/sonic/mystical themes
+        const speechTypographyBlueprints = ['Classical', 'SonicScapes', 'Eldritch', 'ChronoVerse', 'Aetherial'];
+        // Camera texture: digital/cyber/organic themes
+        const cameraTextureBlueprints = ['NeonCyber', 'Digital', 'TechnoUtopia', 'BioMechanical', 'ChromaticAberration'];
+        // Cloth: fabric/silk/paper themes
+        const clothBlueprints = ['SilkWeaver', 'Papercraft', 'CosmicWeb', 'GlacialDrift', 'Aetherial'];
+        // Soft body: gooey/organic/abyssal themes
+        const softBodyBlueprints = ['GooeyMess', 'Organic', 'AbyssalHorror', 'FungalForest', 'SentientSwarm'];
+        // WebGPU particles: stellar/cosmic/forge themes
+        const webgpuParticleBlueprints = ['StarForged', 'CelestialForge', 'StellarNursery', 'LivingConstellation', 'CosmicWeb'];
+        // WebGPU fluid: fluid/painterly/chromatic themes
+        const webgpuFluidBlueprints = ['LivingInk', 'Painterly', 'ChromaticAberration', 'GooeyMess', 'Aetherial'];
+
+        // Truchet/Moiré: geometric/digital/quantum themes
+        const truchetBlueprints = ['Geometric', 'Digital', 'QuantumFoam', 'Papercraft', 'Crystalline', 'NeonCyber'];
+        // L-system: organic/fractal/botanical themes
+        const lsystemBlueprints = ['FungalForest', 'Organic', 'Fractal', 'CoralReef', 'BioMechanical', 'Classical'];
+
+        // Strange attractors: chaotic/quantum/void themes
+        const attractorBlueprints = ['QuantumFoam', 'VoidTouched', 'ChronoVerse', 'Eldritch', 'PhantomEcho', 'StarForged'];
+        // Sacred geometry: mystical/crystalline/arcane themes
+        const sacredGeometryBlueprints = ['ArcaneCodex', 'Crystalline', 'Classical', 'Eldritch', 'Aetherial', 'Papercraft'];
+        // Fractal explorer: fractal/quantum/cosmic themes
+        const fractalExplorerBlueprints = ['Fractal', 'QuantumFoam', 'Eldritch', 'ChromaticAberration', 'VoidTouched'];
+        // Spirograph: harmonic/sonic/mechanical themes
+        const spirographBlueprints = ['SonicScapes', 'ChronoVerse', 'Classical', 'Papercraft', 'GlacialDrift', 'Crystalline'];
+
+        // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
+        if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
         }
         // Constellation: celestial themes
@@ -272,6 +541,94 @@ class BackgroundSystem {
         // Weather: atmospheric themes
         else if (weatherBlueprints.includes(blueprintName) && this.rng() > 0.55) {
             this.architecture = new WeatherArchitecture();
+        }
+        // Shattered mirror: crystalline/glass themes
+        else if (shatteredMirrorBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ShatteredMirrorArchitecture();
+        }
+        // Mycelium: fungal/organic themes
+        else if (myceliumBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new MyceliumArchitecture();
+        }
+        // Interference: quantum/sonic themes
+        else if (interferenceBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new InterferenceArchitecture();
+        }
+        // Dimensional rift: void/phantom/eldritch themes
+        else if (dimensionalRiftBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new DimensionalRiftArchitecture();
+        }
+        // Deep sea: abyssal/aquatic themes
+        else if (deepSeaBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new DeepSeaArchitecture();
+        }
+        // Glitch fabric: textile/digital themes
+        else if (glitchFabricBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GlitchFabricArchitecture();
+        }
+        // Typography: literary/code themes
+        else if (typographyBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TypographyArchitecture();
+        }
+        // Origami: paper/craft themes
+        else if (origamiBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new OrigamiArchitecture();
+        }
+        // Neural net: tech/bio themes
+        else if (neuralNetBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new NeuralNetArchitecture();
+        }
+        // Tidal pool: aquatic themes
+        else if (tidalPoolBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TidalPoolArchitecture();
+        }
+        // Truchet/Moiré: geometric/digital themes
+        else if (truchetBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TruchetArchitecture();
+        }
+        // L-system: organic/fractal themes
+        else if (lsystemBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new LSystemArchitecture();
+        }
+        // Strange attractors: chaotic themes
+        else if (attractorBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new AttractorArchitecture();
+        }
+        // Sacred geometry: mystical themes
+        else if (sacredGeometryBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SacredGeometryArchitecture();
+        }
+        // Fractal explorer: fractal/quantum themes
+        else if (fractalExplorerBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new FractalExplorerArchitecture();
+        }
+        // Spirograph: harmonic/mechanical themes
+        else if (spirographBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SpirographArchitecture();
+        }
+        // Speech typography: literary/sonic themes
+        else if (speechTypographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new SpeechTypographyArchitecture();
+        }
+        // Camera texture: digital/cyber themes
+        else if (cameraTextureBlueprints.includes(blueprintName) && this.rng() > 0.55) {
+            this.architecture = new CameraTextureArchitecture();
+        }
+        // Cloth: fabric/silk themes
+        else if (clothBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ClothArchitecture();
+        }
+        // Soft body: gooey/organic themes
+        else if (softBodyBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SoftbodyArchitecture();
+        }
+        // WebGPU particles: stellar/cosmic themes
+        else if (webgpuParticleBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new WebGPUParticleArchitecture();
+        }
+        // WebGPU fluid: fluid/painterly themes
+        else if (webgpuFluidBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new WebGPUFluidArchitecture();
         }
         // Reaction-diffusion: organic/bio themes
         else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -351,42 +708,49 @@ class BackgroundSystem {
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from expanded set based on seed (31 architectures)
-            const roll = this.rng();
-            if (roll > 0.97) this.architecture = new ReactionDiffusionArchitecture();
-            else if (roll > 0.94) this.architecture = new VoronoiArchitecture();
-            else if (roll > 0.91) this.architecture = new MagneticFieldArchitecture();
-            else if (roll > 0.88) this.architecture = new FluidArchitecture();
-            else if (roll > 0.85) this.architecture = new ConstellationArchitecture();
-            else if (roll > 0.82) this.architecture = new GravityPoolArchitecture();
-            else if (roll > 0.79) this.architecture = new DNAArchitecture();
-            else if (roll > 0.76) this.architecture = new TopographyArchitecture();
-            else if (roll > 0.73) this.architecture = new PixelSortArchitecture();
-            else if (roll > 0.70) this.architecture = new WeatherArchitecture();
-            else if (roll > 0.65) this.architecture = new PendulumArchitecture();
-            else if (roll > 0.59) this.architecture = new InkArchitecture();
-            else if (roll > 0.53) this.architecture = new CircuitGrowthArchitecture();
-            else if (roll > 0.47) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.41) this.architecture = new LavaArchitecture();
-            else if (roll > 0.35) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.29) this.architecture = new AuroraArchitecture();
-            else if (roll > 0.22) this.architecture = new LifeArchitecture();
-            else if (roll > 0.11) this.architecture = new KaleidoscopeArchitecture();
-            else this.architecture = new CosmicArchitecture();
+            // Default: choose from expanded set based on seed (41 architectures)
+            this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
         }
 
-        // Randomize background mutators based on seed
+        // Randomize background mutators based on seed for more visual variety
         this.bgMutators = [];
-        if (this.rng() > 0.7) this.bgMutators.push('Vignette');
+        if (this.rng() > 0.6) this.bgMutators.push('Vignette');
         if (this.rng() > 0.8) this.bgMutators.push('Noise');
-        if (this.rng() > 0.9) this.bgMutators.push('Scanlines');
+        if (this.rng() > 0.88) this.bgMutators.push('Scanlines');
+        if (this.rng() > 0.85) this.bgMutators.push('ChromaticShift');
+        if (this.rng() > 0.9) this.bgMutators.push('FilmGrain');
+
+        // Seed-driven gradient style for more visual differentiation
+        this.gradientStyle = Math.floor(this.rng() * 5); // 0=diagonal, 1=radial, 2=multi-stop, 3=conic-approx, 4=duotone
+
+        // Seed-driven architecture blending (~10% of universes)
+        if (this.rng() < 0.10) {
+            const blendIdx = Math.floor(this.rng() * ALL_ARCHITECTURES.length);
+            this._blendArchitecture = ALL_ARCHITECTURES[blendIdx]();
+            this._blendAlpha = 0.15 + this.rng() * 0.25;
+            this._blendMode = 'active';
+        } else {
+            this._blendMode = 'off';
+            this._blendArchitecture = null;
+        }
+
+        // Seed-driven post-processing effects
+        postProcessing.setEffects(this.rng);
+
+        // Configure generative music for this universe
+        generativeMusic.configure(this.rng, this.hue, blueprintName);
 
         this.updateThemeColors();
         this.architecture.init(this);
+        if (this._blendArchitecture) this._blendArchitecture.init(this);
     }
 
-    createShockwave(x, y) {
+    createShockwave(x, y, fromRemote) {
         this.shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(this.width, this.height) * 0.8, speed: 10, strength: 2, alpha: 1 });
+        // Broadcast to other tabs (normalized coordinates)
+        if (!fromRemote && tabSync.tabCount > 1) {
+            tabSync.sendEffect('shockwave', { x: x / this.width, y: y / this.height });
+        }
         for(let i=0; i<30; i++) {
             const angle = this.rng() * Math.PI * 2; const speed = this.rng() * 10 + 5;
             let spark = this.sparkPool.length > 0 ? this.sparkPool.pop() : {};
@@ -418,14 +782,40 @@ class BackgroundSystem {
     }
 
     updateThemeColors() {
-        if (this.isDark) this.gradientColors = ['#0a050d', '#120510', '#000000'];
-        else if (this.isMonochrome) {
+        if (this.isDark) {
+            // Even dark mode benefits from seed-driven subtle variation
+            const style = this.gradientStyle || 0;
+            if (style === 1) this.gradientColors = ['#000000', '#0a0510', '#050208'];
+            else if (style === 3) this.gradientColors = ['#080510', '#000000', '#050510'];
+            else this.gradientColors = ['#0a050d', '#120510', '#000000'];
+        } else if (this.isMonochrome) {
             const l = 10 + Math.sin(this.tick * 0.005) * 3;
             this.gradientColors = [`hsl(${this.hue}, 80%, ${l}%)`, `hsl(${this.hue}, 40%, ${l*2}%)`, `hsl(${this.hue}, 90%, ${l*0.5}%)` ];
         } else {
             const shift = Math.sin(this.tick * 0.002) * 20;
             const h = this.hue + shift;
-            this.gradientColors = [`hsl(${h}, 80%, 10%)`, `hsl(${(h + 120) % 360}, 80%, 5%)`, `hsl(${(h + 240) % 360}, 80%, 8%)` ];
+            const style = this.gradientStyle || 0;
+            if (style === 1) {
+                // Radial: bright center fading to dark edges
+                this.gradientColors = [
+                    `hsl(${h}, 60%, 12%)`,
+                    `hsl(${(h + 90) % 360}, 70%, 6%)`,
+                    `hsl(${(h + 180) % 360}, 80%, 3%)`
+                ];
+            } else if (style === 4) {
+                // Duotone: two-color dramatic gradient
+                this.gradientColors = [
+                    `hsl(${h}, 90%, 8%)`,
+                    `hsl(${(h + 180) % 360}, 90%, 6%)`,
+                    `hsl(${h}, 70%, 4%)`
+                ];
+            } else {
+                this.gradientColors = [
+                    `hsl(${h}, 80%, 10%)`,
+                    `hsl(${(h + 120) % 360}, 80%, 5%)`,
+                    `hsl(${(h + 240) % 360}, 80%, 8%)`
+                ];
+            }
         }
         this.updateGradient();
     }
@@ -433,6 +823,80 @@ class BackgroundSystem {
     animate() {
         this.tick++;
         this.speedMultiplier += (this.targetSpeed - this.speedMultiplier) * 0.1;
+        const now = performance.now();
+
+        // Apply pending architecture from URL (after first setTheme has run)
+        if (this._pendingArchIndex !== undefined && this.tick > 2) {
+            this.selectArchitecture(this._pendingArchIndex);
+            this._pendingArchIndex = undefined;
+        }
+
+        // Idle / screensaver auto-cycle
+        this._updateIdle(now);
+
+        // Advance crossfade transition
+        if (this._transitionActive) {
+            this._transitionAlpha += 0.025; // ~40 frames = ~0.67s
+            if (this._transitionAlpha >= 1) {
+                this._transitionActive = false;
+                this._prevArchitecture = null;
+                this._transitionAlpha = 1;
+            }
+        }
+
+        // Update generative music
+        generativeMusic.update(this);
+
+        // Expose input system data for architectures
+        this.deviceTilt = deviceSensors.tilt;
+        this.deviceShake = deviceSensors.shake;
+        this.multiMonitorX = multiMonitor.normalizedX;
+        this.gamepad = gamepadInput;
+        this.mic = micReactive;
+        this.tabSync = tabSync;
+        this.speech = speechInput;
+        this.camera = cameraInput;
+        this.qualityScale = perfMonitor.qualityScale;
+        this.pinchScale = touchGestures.pinchScale;
+        this.touchRotation = touchGestures.rotation;
+
+        // Touch gesture reactions
+        if (touchGestures.swipeDirection) {
+            this.cycleArchitecture(touchGestures.swipeDirection === 'right' ? 1 : -1);
+            touchGestures.swipeDirection = null;
+        }
+        if (touchGestures.doubleTap) {
+            this.createShockwave(mouse.x, mouse.y);
+        }
+        if (touchGestures.longPress) {
+            this.isGravityWell = true;
+        } else if (!this.isGravityWell) {
+            // Don't override mouse-based gravity well
+        }
+
+        // Register multi-tab sync effect handler (once)
+        if (!this._tabSyncRegistered && tabSync.tabCount > 0) {
+            this._tabSyncRegistered = true;
+            tabSync.onEffect((name, data) => {
+                if (name === 'shockwave') {
+                    this.createShockwave(data.x * this.width, data.y * this.height, true);
+                }
+                if (name === 'hue-sync') {
+                    this.hue = data.hue;
+                    this.updateThemeColors();
+                }
+                if (name === 'particle-migrate') {
+                    for (let i = 0; i < 3; i++) {
+                        this.createShockwave(data.x * this.width, data.y * this.height, true);
+                    }
+                }
+            });
+        }
+
+        // Leader broadcasts hue to follower tabs every 120 ticks
+        if (tabSync.tabCount > 1 && tabSync.isLeader && this.tick % 120 === 0) {
+            tabSync.sendEffect('hue-sync', { hue: this.hue });
+        }
 
         if (!this.isDark && this.tick % 30 === 0) this.updateThemeColors();
 
@@ -446,13 +910,94 @@ class BackgroundSystem {
             this.ctx.translate(-this.width / 2, -this.height / 2);
         }
 
+        // Universal audio-reactive modulation — every architecture benefits
+        if (micReactive.active) {
+            // Bass pumps the scale
+            const bassScale = 1 + micReactive.bass * 0.08;
+            this.ctx.translate(this.width / 2, this.height / 2);
+            this.ctx.scale(bassScale, bassScale);
+            this.ctx.translate(-this.width / 2, -this.height / 2);
+
+            // Treble shifts hue (exposed as system.audioHueShift)
+            this.audioHueShift = micReactive.treble * 30;
+
+            // Beat triggers auto-shockwave at random position
+            if (micReactive.beat && this.tick % 8 === 0) {
+                this.createShockwave(
+                    this.width * 0.2 + this.rng() * this.width * 0.6,
+                    this.height * 0.2 + this.rng() * this.height * 0.6
+                );
+            }
+
+            // Volume modulates speed — use targetSpeed so lerp in animate() naturally decays
+            this.targetSpeed = Math.max(this.targetSpeed, 1 + micReactive.volume * 8);
+        } else {
+            this.audioHueShift = 0;
+        }
+
         // Draw cached gradient background
         this.ctx.drawImage(this.offscreenCanvas, 0, 0);
 
         this.architecture.update(this);
         this.architecture.draw(this);
+
+        // Architecture blending: draw secondary architecture on offscreen canvas and composite
+        if (this._blendMode === 'active' && this._blendArchitecture) {
+            const bc = this._blendCtx;
+            bc.clearRect(0, 0, this.width, this.height);
+            // Temporarily swap ctx so architecture draws to blend canvas
+            const realCtx = this.ctx;
+            this.ctx = bc;
+            this._blendArchitecture.update(this);
+            this._blendArchitecture.draw(this);
+            this.ctx = realCtx;
+            // Composite blend canvas onto main
+            realCtx.save();
+            realCtx.globalAlpha = this._blendAlpha;
+            realCtx.globalCompositeOperation = 'lighter';
+            realCtx.drawImage(this._blendCanvas, 0, 0);
+            realCtx.restore();
+        }
+
+        // Transition effect: overlay snapshot of previous frame
+        if (this._transitionActive && this._transitionAlpha < 1) {
+            this.ctx.save();
+            const t = this._transitionAlpha; // 0→1 progress
+            const tt = this._transitionType;
+            if (tt === 'wipe') {
+                // Horizontal wipe from left to right
+                const clipX = t * this.width;
+                this.ctx.beginPath();
+                this.ctx.rect(clipX, 0, this.width - clipX, this.height);
+                this.ctx.clip();
+                this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            } else if (tt === 'zoom') {
+                // Old frame shrinks into center
+                const scale = 1 - t;
+                const ox = this.width * (1 - scale) / 2;
+                const oy = this.height * (1 - scale) / 2;
+                this.ctx.globalAlpha = 1 - t;
+                this.ctx.drawImage(this._transitionCanvas, ox, oy, this.width * scale, this.height * scale);
+            } else if (tt === 'spiral') {
+                // Radial reveal: old frame visible outside an expanding circle
+                const maxR = Math.sqrt(this.width * this.width + this.height * this.height) / 2;
+                const r = t * maxR;
+                this.ctx.beginPath();
+                this.ctx.rect(0, 0, this.width, this.height);
+                this.ctx.arc(this.width / 2, this.height / 2, r, 0, Math.PI * 2, true);
+                this.ctx.clip('evenodd');
+                this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            } else {
+                // Default crossfade
+                this.ctx.globalAlpha = 1 - t;
+                this.ctx.drawImage(this._transitionCanvas, 0, 0);
+            }
+            this.ctx.restore();
+        }
+
         this.drawInteractiveEffects();
         this.applyBGMutators();
+        postProcessing.apply(this.ctx, this);
 
         this.ctx.restore();
 
@@ -499,6 +1044,34 @@ class BackgroundSystem {
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.lineWidth = 1;
             ctx.stroke(this.cachedScanlinesPath);
+        }
+        if (this.bgMutators.includes('ChromaticShift')) {
+            // Subtle color fringing at edges - draw thin colored strips
+            const shift = Math.sin(this.tick * 0.01) * 2 + 2;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.015;
+            // Red channel shift
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(shift, 0, this.width, this.height);
+            // Blue channel shift (opposite direction)
+            ctx.fillStyle = '#0000ff';
+            ctx.fillRect(-shift, 0, this.width, this.height);
+            ctx.restore();
+        }
+        if (this.bgMutators.includes('FilmGrain')) {
+            // Subtle animated film grain overlay using sparse random dots
+            ctx.save();
+            ctx.globalAlpha = 0.04;
+            const grainCount = 30;
+            for (let i = 0; i < grainCount; i++) {
+                const x = this.rng() * this.width;
+                const y = this.rng() * this.height;
+                const bright = this.rng() > 0.5;
+                ctx.fillStyle = bright ? '#fff' : '#000';
+                ctx.fillRect(x, y, 2, 2);
+            }
+            ctx.restore();
         }
     }
 
@@ -607,21 +1180,42 @@ class BackgroundSystem {
             ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2); ctx.stroke();
         }
 
-        // Shooting Stars
+        // Shooting Stars (seed-dependent frequency and color)
         if (this.rng() < 0.005) {
-            this.shootingStars.push({ x: this.rng() * this.width, y: this.rng() * this.height, vx: (this.rng() - 0.5) * 20 + 10, vy: (this.rng() - 0.5) * 20 + 10, life: 30, maxLife: 30 });
+            const hue = (this.hue + this.rng() * 60) % 360;
+            const isBright = this.rng() > 0.7;
+            this.shootingStars.push({
+                x: this.rng() * this.width, y: this.rng() * this.height,
+                vx: (this.rng() - 0.5) * 20 + 10, vy: (this.rng() - 0.5) * 20 + 10,
+                life: 30 + Math.floor(this.rng() * 20), maxLife: 50,
+                hue, isBright,
+                width: 1 + this.rng() * 2
+            });
         }
         for (let i = this.shootingStars.length - 1; i >= 0; i--) {
             const s = this.shootingStars[i];
             s.x += s.vx; s.y += s.vy; s.life--;
             if (s.life <= 0) {
+                // Broadcast edge exit to other tabs so they can spawn arrival effects
+                if (tabSync.tabCount > 1 && (s.x < 0 || s.x > this.width || s.y < 0 || s.y > this.height)) {
+                    tabSync.sendEffect('particle-migrate', {
+                        x: Math.max(0, Math.min(1, s.x / this.width)),
+                        y: Math.max(0, Math.min(1, s.y / this.height))
+                    });
+                }
                 this.shootingStars[i] = this.shootingStars[this.shootingStars.length - 1];
                 this.shootingStars.pop();
                 continue;
             }
             const opacity = s.life / s.maxLife;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-            ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2); ctx.stroke();
+            if (s.isBright) {
+                ctx.strokeStyle = `hsla(${s.hue}, 80%, 80%, ${opacity})`;
+            } else {
+                ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+            }
+            ctx.lineWidth = s.width || 2;
+            ctx.beginPath(); ctx.moveTo(s.x, s.y);
+            ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2); ctx.stroke();
         }
         ctx.globalCompositeOperation = 'source-over';
     }

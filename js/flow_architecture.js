@@ -7,6 +7,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D, curlNoise2D } from './simplex_noise.js';
 
 export class FlowArchitecture extends Architecture {
     constructor() {
@@ -17,12 +18,16 @@ export class FlowArchitecture extends Architecture {
         this.cols = 0;
         this.rows = 0;
         this.cellSize = 100;
+        this.noise2D = null;
+        this.noiseSeed = 0;
     }
 
     init(system) {
         this.cols = Math.ceil(system.width / this.cellSize) + 1;
         this.rows = Math.ceil(system.height / this.cellSize) + 1;
         this.field = new Array(this.cols * this.rows);
+        this.noiseSeed = Math.floor(system.rng() * 100000);
+        this.noise2D = createNoise2D(this.noiseSeed);
         this.generateField(system);
 
         this.particles = [];
@@ -43,21 +48,24 @@ export class FlowArchitecture extends Architecture {
     }
 
     generateField(system) {
+        // Initialize field with curl noise for smooth, continuous flow
         for (let i = 0; i < this.field.length; i++) {
-            const angle = system.rng() * Math.PI * 2;
-            this.field[i] = { x: Math.cos(angle), y: Math.sin(angle) };
+            const col = i % this.cols;
+            const row = Math.floor(i / this.cols);
+            const curl = curlNoise2D(this.noise2D, col * 0.15, row * 0.15);
+            this.field[i] = { x: curl.x, y: curl.y };
         }
     }
 
     update(system) {
-        // Update field slightly over time for dynamic flow
+        // Update field using time-varying curl noise for organic, turbulent flow
+        const t = system.tick * 0.003;
         for (let i = 0; i < this.field.length; i++) {
-             const angle = (system.tick * 0.002 + i * 0.1) % (Math.PI * 2);
-             this.field[i].x += Math.cos(angle) * 0.05;
-             this.field[i].y += Math.sin(angle) * 0.05;
-             const len = Math.sqrt(this.field[i].x**2 + this.field[i].y**2) || 1;
-             this.field[i].x /= len;
-             this.field[i].y /= len;
+             const col = i % this.cols;
+             const row = Math.floor(i / this.cols);
+             const curl = curlNoise2D(this.noise2D, col * 0.15 + t, row * 0.15 + t * 0.7);
+             this.field[i].x = curl.x;
+             this.field[i].y = curl.y;
         }
 
         const mx = mouse.x;

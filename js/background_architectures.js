@@ -26,6 +26,7 @@ export class CosmicArchitecture extends Architecture {
         this.nebulas = [];
         this.celestialObjects = [];
         this.pulsars = [];
+        this.comets = [];
         this.auroraOffset = 0;
         this.constellationPath = null;
         this.lastConstellationUpdate = 0;
@@ -37,6 +38,7 @@ export class CosmicArchitecture extends Architecture {
         this.generateNebulas(system);
         this.generateCelestialObjects(system);
         this.generatePulsars(system);
+        this.generateComets(system);
     }
 
     generateStars(system) {
@@ -82,7 +84,11 @@ export class CosmicArchitecture extends Architecture {
         const count = 6;
         for (let i = 0; i < count; i++) {
             const radius = system.rng() * 400 + 200;
-            const color = `hsla(${system.hue + (system.rng() - 0.5) * 100}, 80%, 25%, 0.15)`;
+            const nebulaHue = (system.hue + system.rng() * 120 - 60 + 360) % 360;
+            const nebulaSat = 60 + system.rng() * 30;
+            const nebulaLight = 20 + system.rng() * 15;
+            const nebulaAlpha = 0.1 + system.rng() * 0.1;
+            const color = `hsla(${nebulaHue}, ${nebulaSat}%, ${nebulaLight}%, ${nebulaAlpha})`;
             const sprite = document.createElement('canvas');
             sprite.width = radius * 2;
             sprite.height = radius * 2;
@@ -159,6 +165,28 @@ export class CosmicArchitecture extends Architecture {
                 rotationSpeed: 0.02,
                 hue: system.hue,
                 pulse: 0
+            });
+        }
+    }
+
+    generateComets(system) {
+        this.comets = [];
+        const cometCount = 1 + Math.floor(system.rng() * 3);
+        for (let i = 0; i < cometCount; i++) {
+            const angle = system.rng() * Math.PI * 2;
+            const speed = 1.5 + system.rng() * 3;
+            this.comets.push({
+                x: system.rng() * system.width,
+                y: system.rng() * system.height,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2 + system.rng() * 3,
+                tailLength: 40 + system.rng() * 80,
+                hue: (system.hue + system.rng() * 60) % 360,
+                alpha: 0.3 + system.rng() * 0.4,
+                active: false,
+                timer: Math.floor(system.rng() * 300),
+                lifetime: 200 + Math.floor(system.rng() * 200)
             });
         }
     }
@@ -248,6 +276,34 @@ export class CosmicArchitecture extends Architecture {
             obj.y += obj.vy * system.speedMultiplier;
             obj.rotation += obj.rotationSpeed * system.speedMultiplier;
         });
+
+        // Update comets
+        this.comets.forEach(c => {
+            c.timer--;
+            if (c.timer <= 0 && !c.active) {
+                c.active = true;
+                c.timer = c.lifetime;
+                // Respawn at random edge
+                const edge = Math.floor(Math.random() * 4);
+                if (edge === 0) { c.x = -20; c.y = Math.random() * system.height; }
+                else if (edge === 1) { c.x = system.width + 20; c.y = Math.random() * system.height; }
+                else if (edge === 2) { c.x = Math.random() * system.width; c.y = -20; }
+                else { c.x = Math.random() * system.width; c.y = system.height + 20; }
+                const angle = Math.atan2(system.height / 2 - c.y, system.width / 2 - c.x) + (Math.random() - 0.5) * 1;
+                const speed = 2 + Math.random() * 3;
+                c.vx = Math.cos(angle) * speed;
+                c.vy = Math.sin(angle) * speed;
+            }
+            if (c.active) {
+                c.x += c.vx * system.speedMultiplier;
+                c.y += c.vy * system.speedMultiplier;
+                c.timer--;
+                if (c.timer <= 0 || c.x < -100 || c.x > system.width + 100 || c.y < -100 || c.y > system.height + 100) {
+                    c.active = false;
+                    c.timer = 100 + Math.floor(Math.random() * 300);
+                }
+            }
+        });
     }
 
     draw(system) {
@@ -285,6 +341,38 @@ export class CosmicArchitecture extends Architecture {
             ctx.globalCompositeOperation = 'source-over';
             ctx.restore();
         });
+
+        // Draw comets
+        ctx.globalCompositeOperation = 'lighter';
+        this.comets.forEach(c => {
+            if (!c.active) return;
+            const fadeIn = Math.min(1, (c.lifetime - c.timer) / 30);
+            const fadeOut = Math.min(1, c.timer / 30);
+            const fade = Math.min(fadeIn, fadeOut);
+            const speed = Math.sqrt(c.vx * c.vx + c.vy * c.vy) || 1;
+            const tailX = c.x - (c.vx / speed) * c.tailLength;
+            const tailY = c.y - (c.vy / speed) * c.tailLength;
+            const grad = ctx.createLinearGradient(c.x, c.y, tailX, tailY);
+            grad.addColorStop(0, `hsla(${c.hue}, 80%, 85%, ${c.alpha * fade})`);
+            grad.addColorStop(0.3, `hsla(${c.hue}, 70%, 60%, ${c.alpha * fade * 0.5})`);
+            grad.addColorStop(1, 'transparent');
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = c.size;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y);
+            ctx.lineTo(tailX, tailY);
+            ctx.stroke();
+            // Head glow
+            const headGrad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.size * 3);
+            headGrad.addColorStop(0, `hsla(${c.hue}, 90%, 90%, ${0.6 * fade})`);
+            headGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = headGrad;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, c.size * 3, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalCompositeOperation = 'source-over';
 
         ctx.globalCompositeOperation = 'lighter';
         const globalPulse = Math.sin(system.tick * 0.02) * 0.05 + 1.0;
@@ -1275,6 +1363,7 @@ export class GeometricArchitecture extends Architecture {
 
     init(system) {
         this.shards = [];
+        this.magneticMode = system.rng() > 0.5; // 50% chance of magnetic alignment mode
         const count = 50;
         for (let i = 0; i < count; i++) {
             this.shards.push({
@@ -1287,7 +1376,9 @@ export class GeometricArchitecture extends Architecture {
                 rotationSpeed: (system.rng() - 0.5) * 0.02,
                 sides: Math.floor(system.rng() * 3) + 3,
                 brightness: 0,
-                hueOffset: (system.rng() - 0.5) * 60
+                hueOffset: (system.rng() - 0.5) * 60,
+                innerLayers: 1 + Math.floor(system.rng() * 2), // 1-2 inscribed inner polygons
+                innerScale: 0.4 + system.rng() * 0.3
             });
         }
     }
@@ -1339,6 +1430,27 @@ export class GeometricArchitecture extends Architecture {
             s.x += s.vx * system.speedMultiplier;
             s.y += s.vy * system.speedMultiplier;
             s.rotation += s.rotationSpeed * system.speedMultiplier;
+
+            // Magnetic mode: shards align rotation to nearest neighbor
+            if (this.magneticMode) {
+                let nearestDist = Infinity;
+                let nearestRot = s.rotation;
+                for (let j = 0; j < this.shards.length; j++) {
+                    const other = this.shards[j];
+                    if (other === s) continue;
+                    const ddx = other.x - s.x;
+                    const ddy = other.y - s.y;
+                    const dd = ddx * ddx + ddy * ddy;
+                    if (dd < nearestDist && dd < 40000) {
+                        nearestDist = dd;
+                        nearestRot = other.rotation;
+                    }
+                }
+                if (nearestDist < 40000) {
+                    const diff = nearestRot - s.rotation;
+                    s.rotationSpeed += Math.sin(diff) * 0.003;
+                }
+            }
 
             // Friction / damping
             s.vx *= 0.96;
@@ -1426,6 +1538,21 @@ export class GeometricArchitecture extends Architecture {
             ctx.strokeStyle = `hsla(${shardHue}, 60%, ${70 + bright * 20}%, ${strokeAlpha})`;
             ctx.lineWidth = 1 + bright * 0.5;
             ctx.stroke();
+
+            // Inner inscribed polygon patterns
+            for (let layer = 1; layer <= s.innerLayers; layer++) {
+                const innerSize = s.size * Math.pow(s.innerScale, layer);
+                const innerRot = (Math.PI / s.sides) * layer; // Rotated offset
+                ctx.beginPath();
+                for (let k = 0; k < s.sides; k++) {
+                    const a = (k / s.sides) * Math.PI * 2 + innerRot;
+                    ctx.lineTo(Math.cos(a) * innerSize, Math.sin(a) * innerSize);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = `hsla(${shardHue}, 50%, ${60 + bright * 20}%, ${(strokeAlpha * 0.5) / layer})`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
 
             ctx.restore();
         });

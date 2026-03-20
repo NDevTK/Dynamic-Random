@@ -7,6 +7,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { hypotrochoid, normalizePoints } from './math_patterns.js';
 
 export class GravityPoolArchitecture extends Architecture {
     constructor() {
@@ -68,6 +69,17 @@ export class GravityPoolArchitecture extends Architecture {
         this.ripplePool = [];
         this.whirlpool = null;
         this.lastMouse = { x: mouse.x, y: mouse.y };
+
+        // Spirograph-based caustic pattern (50% chance per seed)
+        this.useMathCaustics = false;
+        this.causticCurve = null;
+        this.causticCurveOffset = 0;
+        if (rng() > 0.5) {
+            const result = hypotrochoid(500, rng);
+            const normalized = normalizePoints(result.points);
+            this.causticCurve = normalized;
+            this.useMathCaustics = true;
+        }
     }
 
     _spawnRipple(x, y, strength) {
@@ -246,6 +258,29 @@ export class GravityPoolArchitecture extends Architecture {
                     ctx.fillStyle = `rgba(255, 255, 255, ${intensity})`;
                     ctx.fillRect(gx * cs - 1, gy * cs - 1, cs + 2, cs + 2);
                 }
+            }
+        }
+
+        // Spirograph caustic overlay — hypotrochoid curve modulates light spot positions
+        if (this.useMathCaustics && this.causticCurve) {
+            this.causticCurveOffset = (this.causticCurveOffset + 1) % this.causticCurve.length;
+            const pts = this.causticCurve;
+            const count = Math.min(80, pts.length);
+            const step = Math.floor(pts.length / count);
+            for (let i = 0; i < count; i++) {
+                const idx = (this.causticCurveOffset + i * step) % pts.length;
+                const pt = pts[idx];
+                // pt.x / pt.y are in [0,1] after normalizePoints
+                const sx = pt.x * system.width;
+                const sy = pt.y * system.height;
+                const wave = this.causticGrid[
+                    Math.floor(sy / cs) * cw + Math.floor(sx / cs)
+                ] || 0;
+                const intensity = 0.06 + Math.max(0, wave) * 0.12;
+                ctx.fillStyle = `hsla(${this.waterHue + wave * 20}, 70%, 75%, ${intensity})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 3 + Math.abs(wave) * 4, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 

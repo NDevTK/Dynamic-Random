@@ -6,6 +6,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { lissajousCurve } from './math_patterns.js';
 
 export class AuroraArchitecture extends Architecture {
     constructor() {
@@ -74,6 +75,15 @@ export class AuroraArchitecture extends Architecture {
                 foldCount: 3 + Math.floor(rng() * 5),
                 intensity: 0.06 + rng() * 0.1
             });
+        }
+
+        // Assign Lissajous curves to randomly selected curtains for complex shapes
+        for (let i = 0; i < this.curtains.length; i++) {
+            if (system.rng() > 0.5) {
+                const result = lissajousCurve(200, system.rng);
+                this.curtains[i].lissajous = result.points;
+                this.curtains[i].useLissajous = true;
+            }
         }
 
         this.disruptions = [];
@@ -165,7 +175,16 @@ export class AuroraArchitecture extends Architecture {
                 // Fold detail
                 const fold = Math.sin(x * 0.01 * curtain.foldCount + tick * 0.005) * 20;
 
-                let yTop = curtain.yBase + wave1 + wave2 + fold;
+                // If this curtain has a Lissajous curve, sample its y-values to
+                // modulate the wave, producing interference-like aurora shapes
+                let lissajousOffset = 0;
+                if (curtain.useLissajous) {
+                    const pts = curtain.lissajous;
+                    const idx = Math.floor((x / system.width) * pts.length) % pts.length;
+                    lissajousOffset = pts[idx].y * curtain.secondaryAmp * 0.5;
+                }
+
+                let yTop = curtain.yBase + wave1 + wave2 + fold + lissajousOffset;
 
                 // Mouse magnetic field disruption
                 const dx = x - mx;

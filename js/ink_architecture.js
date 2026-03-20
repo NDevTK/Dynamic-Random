@@ -9,6 +9,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D } from './simplex_noise.js';
 
 export class InkArchitecture extends Architecture {
     constructor() {
@@ -23,10 +24,14 @@ export class InkArchitecture extends Architecture {
         this.inkTrail = [];
         this.trailPool = [];
         this.bleedRate = 0;
+        this.noise2D = null;
     }
 
     init(system) {
         const rng = system.rng;
+
+        // Noise for organic diffusion
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
 
         // Palette determines the entire mood
         const palettes = [
@@ -130,16 +135,19 @@ export class InkArchitecture extends Architecture {
             blob.age++;
 
             blob.particles.forEach(p => {
-                // Diffusion movement
+                // Diffusion movement enhanced with simplex noise
                 switch (this.diffusionStyle) {
-                    case 0: // Organic spread
+                    case 0: // Organic spread - noise-driven turbulent wandering
                         p.wobble += p.wobbleSpeed;
-                        p.vx += Math.cos(p.wobble) * 0.02;
-                        p.vy += Math.sin(p.wobble) * 0.02;
+                        const nx = this.noise2D(p.x * 0.008 + system.tick * 0.002, p.y * 0.008);
+                        const ny = this.noise2D(p.x * 0.008, p.y * 0.008 + system.tick * 0.002 + 100);
+                        p.vx += nx * 0.04;
+                        p.vy += ny * 0.04;
                         break;
-                    case 1: // Flowing river
-                        p.vx += Math.sin(p.y * 0.005 + system.tick * 0.003) * 0.03;
-                        p.vy += 0.01; // slight downward flow
+                    case 1: // Flowing river - noise-modulated current
+                        const flow = this.noise2D(p.x * 0.003 + system.tick * 0.002, p.y * 0.005);
+                        p.vx += flow * 0.05;
+                        p.vy += 0.01 + this.noise2D(p.x * 0.01, p.y * 0.01 + system.tick * 0.001) * 0.01;
                         break;
                     case 2: // Exploding drops
                         // Particles accelerate outward then slow

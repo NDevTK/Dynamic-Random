@@ -6,6 +6,7 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D } from './simplex_noise.js';
 
 export class FractalArchitecture extends Architecture {
     constructor() {
@@ -18,9 +19,16 @@ export class FractalArchitecture extends Architecture {
         this.maxParticles = 300;
         this.shockwavePulse = 0;
         this.chaosAmount = 0;
+        this.noise2D = null;
+        this.windAngle = 0;
+        this.season = 0;
     }
 
     init(system) {
+        this.noise2D = createNoise2D(Math.floor(system.rng() * 100000));
+        this.season = system.rng();
+        this.windAngle = (system.rng() - 0.5) * 0.5;
+
         this.roots = [];
         this.particles = [];
         this.particlePool = [];
@@ -56,8 +64,37 @@ export class FractalArchitecture extends Architecture {
         }
     }
 
+    /**
+     * Returns seasonal hue shift based on current season value (0-1 cycle).
+     * Spring ~0-0.25, Summer ~0.25-0.5, Autumn ~0.5-0.75, Winter ~0.75-1.0
+     */
+    _getSeasonalHueShift() {
+        const s = this.season % 1;
+        if (s < 0.25) return 30; // spring green
+        if (s < 0.5) return 0;   // summer
+        if (s < 0.75) return 60; // autumn warm
+        return 180;              // winter cool
+    }
+
+    /**
+     * Returns seasonal lightness adjustment.
+     */
+    _getSeasonalLightness() {
+        const s = this.season % 1;
+        if (s < 0.25) return 5;   // spring: slightly brighter
+        if (s < 0.5) return 0;    // summer: normal
+        if (s < 0.75) return -5;  // autumn: slightly darker
+        return 10;                // winter: lighter/paler
+    }
+
     update(system) {
         const tick = system.tick;
+
+        // Seasonal cycle - very slow
+        this.season += 0.0001;
+
+        // Wind effect: time-varying wind direction from noise
+        this.windAngle = this.noise2D(tick * 0.001, 0) * 0.4;
 
         // Shockwave pulse response: branches temporarily grow when hit
         this.shockwavePulse *= 0.95;
@@ -123,6 +160,13 @@ export class FractalArchitecture extends Architecture {
             p.life -= 1 * system.speedMultiplier;
             p.alpha = Math.max(0, (p.life / p.maxLife) * p.baseAlpha);
             p.size *= 0.995;
+
+            // Leaf particles: apply wind drift and downward gravity
+            if (p.isLeaf) {
+                p.vx += this.windAngle * 0.02;       // wind push
+                p.vy += 0.015;                        // gravity
+                p.vx += Math.sin(tick * 0.02 + p.wobblePhase) * 0.04; // wider wobble
+            }
 
             if (p.life <= 0) {
                 this.particlePool.push(this.particles.splice(i, 1)[0]);
@@ -197,16 +241,21 @@ export class FractalArchitecture extends Architecture {
             }
         }
 
-        const finalAngle = angle + chaosAngle + bendAngle * bendMag * 0.5 + localBend;
+        // Wind effect: add windAngle scaled by (1 - depthRatio) so deeper branches bend more
+        const windBend = this.windAngle * (1 - depthRatio);
+
+        const finalAngle = angle + chaosAngle + bendAngle * bendMag * 0.5 + localBend + windBend;
 
         const x2 = x + Math.cos(finalAngle) * animatedLength;
         const y2 = y + Math.sin(finalAngle) * animatedLength;
 
-        // Color by depth: hue shifts as we go deeper
+        // Color by depth: hue shifts as we go deeper, with seasonal adjustment
+        const seasonalHueShift = this._getSeasonalHueShift();
+        const seasonalLightness = this._getSeasonalLightness();
         const hueShift = (maxDepth - depth) * 25;
-        const branchHue = (baseHue + hueShift) % 360;
+        const branchHue = (baseHue + hueShift + seasonalHueShift) % 360;
         const saturation = 65 + (1 - depthRatio) * 20;
-        const lightness = 45 + (1 - depthRatio) * 25;
+        const lightness = 45 + (1 - depthRatio) * 25 + seasonalLightness;
 
         // Alpha: thicker trunks slightly more transparent, tips more vivid
         const branchAlpha = 0.3 + (1 - depthRatio) * 0.3;
@@ -222,7 +271,7 @@ export class FractalArchitecture extends Architecture {
         ctx.lineTo(x2, y2);
         ctx.stroke();
 
-        // At tips: add glow and emit particles
+        // At tips: add glow, emit particles, and draw fruit/flowers
         if (depth <= 2) {
             // Tip glow
             const glowAlpha = 0.4 + Math.sin(tick * 0.05 + root.phaseOffset + x2 * 0.01) * 0.15;
@@ -238,12 +287,51 @@ export class FractalArchitecture extends Architecture {
             ctx.fill();
             ctx.restore();
 
+            // Fruit/flower at tips (depth <= 1)
+            if (depth <= 1) {
+                const s = this.season % 1;
+                let tipHue, tipLightness, tipSize;
+                if (s < 0.25) {
+                    // Spring: pink flowers
+                    tipHue = 330;
+                    tipLightness = 75;
+                    tipSize = 3 + Math.sin(tick * 0.03 + x2 * 0.1) * 1;
+                } else if (s < 0.5) {
+                    // Summer: green buds
+                    tipHue = 120;
+                    tipLightness = 55;
+                    tipSize = 2.5;
+                } else if (s < 0.75) {
+                    // Autumn: orange/red fruit
+                    tipHue = 15 + Math.random() * 30; // 15-45 orange-red range
+                    tipLightness = 50;
+                    tipSize = 4 + Math.random() * 1;
+                } else {
+                    // Winter: white snow
+                    tipHue = 0;
+                    tipLightness = 95;
+                    tipSize = 3;
+                }
+                const tipAlpha = 0.5 + Math.sin(tick * 0.02 + root.phaseOffset) * 0.15;
+                const tipSat = s >= 0.75 ? 5 : 70; // low saturation for winter white
+                ctx.fillStyle = `hsla(${tipHue}, ${tipSat}%, ${tipLightness}%, ${tipAlpha})`;
+                ctx.beginPath();
+                ctx.arc(x2, y2, tipSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
             // Emit particles at leaf tips (depth 1)
             if (depth === 1 && this.particles.length < this.maxParticles) {
                 // Probabilistic emission
                 const emitChance = 0.06 + this.shockwavePulse * 0.15 + this.chaosAmount * 0.1;
                 if (Math.random() < emitChance) {
                     this._emitParticle(x2, y2, branchHue, finalAngle);
+                }
+
+                // Falling leaf particles (season-dependent rate)
+                const leafChance = this._getLeafEmitChance();
+                if (leafChance > 0 && Math.random() < leafChance) {
+                    this._emitLeafParticle(x2, y2, branchHue);
                 }
             }
         }
@@ -262,6 +350,18 @@ export class FractalArchitecture extends Architecture {
         if (depth >= 4 && this.chaosAmount > 0.3) {
             this._drawTree(ctx, system, root, x2, y2, nextLength * 0.7, finalAngle + (Math.random() - 0.5) * Math.PI, depth - 2, tick, baseHue, bendVx, bendVy);
         }
+    }
+
+    /**
+     * Returns leaf emit chance based on current season.
+     * Autumn has highest rate, spring/summer moderate, winter low.
+     */
+    _getLeafEmitChance() {
+        const s = this.season % 1;
+        if (s < 0.25) return 0.01;   // spring: occasional petals
+        if (s < 0.5) return 0.005;   // summer: rare
+        if (s < 0.75) return 0.04;   // autumn: heavy leaf fall
+        return 0.008;                // winter: occasional snowflake
     }
 
     /**
@@ -288,6 +388,44 @@ export class FractalArchitecture extends Architecture {
         p.baseAlpha = 0.4 + Math.random() * 0.3;
         p.alpha = p.baseAlpha;
         p.hue = (hue + (Math.random() - 0.5) * 30 + 360) % 360;
+        p.isLeaf = false;
+        p.wobblePhase = 0;
+
+        this.particles.push(p);
+    }
+
+    /**
+     * Emits a larger, slower "leaf" particle that drifts with wind.
+     */
+    _emitLeafParticle(x, y, hue) {
+        if (this.particles.length >= this.maxParticles) return;
+
+        let p;
+        if (this.particlePool.length > 0) {
+            p = this.particlePool.pop();
+        } else {
+            p = {};
+        }
+
+        const s = this.season % 1;
+        let leafHue;
+        if (s < 0.25) leafHue = 330;       // spring: pink petals
+        else if (s < 0.5) leafHue = 120;    // summer: green
+        else if (s < 0.75) leafHue = 25 + Math.random() * 35; // autumn: orange-red
+        else leafHue = 0;                   // winter: white (low sat handled in draw)
+
+        p.x = x;
+        p.y = y;
+        p.vx = this.windAngle * 0.3 + (Math.random() - 0.5) * 0.2; // drift with wind
+        p.vy = 0.2 + Math.random() * 0.3;  // fall downward slowly
+        p.life = 80 + Math.random() * 60;   // longer life than normal particles
+        p.maxLife = p.life;
+        p.size = 3 + Math.random() * 2.5;   // larger than normal particles
+        p.baseAlpha = 0.3 + Math.random() * 0.2;
+        p.alpha = p.baseAlpha;
+        p.hue = leafHue;
+        p.isLeaf = true;
+        p.wobblePhase = Math.random() * Math.PI * 2; // random wobble start
 
         this.particles.push(p);
     }
@@ -301,18 +439,31 @@ export class FractalArchitecture extends Architecture {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
+        const s = this.season % 1;
+        const isWinter = s >= 0.75;
+
         for (let i = 0; i < this.particles.length; i++) {
             const p = this.particles[i];
             if (p.alpha <= 0.01) continue;
 
-            const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
-            gradient.addColorStop(0, `hsla(${p.hue}, 85%, 70%, ${p.alpha})`);
-            gradient.addColorStop(1, `hsla(${p.hue}, 85%, 70%, 0)`);
+            if (p.isLeaf) {
+                // Leaf particles: solid colored circles (no radial gradient needed)
+                const leafSat = isWinter ? 5 : 70;
+                const leafLight = isWinter ? 90 : 55;
+                ctx.fillStyle = `hsla(${p.hue}, ${leafSat}%, ${leafLight}%, ${p.alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                gradient.addColorStop(0, `hsla(${p.hue}, 85%, 70%, ${p.alpha})`);
+                gradient.addColorStop(1, `hsla(${p.hue}, 85%, 70%, 0)`);
 
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         ctx.restore();

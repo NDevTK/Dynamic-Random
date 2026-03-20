@@ -6,15 +6,18 @@
 
 import { Architecture } from './background_architectures.js';
 import { mouse } from './state.js';
+import { createNoise2D } from './simplex_noise.js';
 
 export class AbstractArchitecture extends Architecture {
     constructor() {
         super();
         this.blobs = [];
         this.floatingParticles = [];
+        this.noise2D = null;
     }
 
     init(system) {
+        this.noise2D = createNoise2D(Math.floor(system.rng() * 100000));
         this.blobs = [];
         const count = 12;
         for (let i = 0; i < count; i++) {
@@ -131,6 +134,61 @@ export class AbstractArchitecture extends Architecture {
             b.vy *= 0.98;
         });
 
+        // Blob mitosis: when a blob is fast and there are few blobs, chance to split
+        const newBlobs = [];
+        this.blobs.forEach(b => {
+            const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            if (speed > 3 && this.blobs.length + newBlobs.length < 16 && Math.random() < 0.005) {
+                // Split into two smaller blobs with opposite velocities
+                const halfRadius = b.radius * 0.5;
+                b.radius = halfRadius;
+                newBlobs.push({
+                    x: b.x,
+                    y: b.y,
+                    radius: halfRadius,
+                    vx: -b.vx,
+                    vy: -b.vy,
+                    points: b.points.map(p => ({
+                        angle: p.angle,
+                        offset: p.offset,
+                        baseOffset: p.baseOffset,
+                        speed: p.speed,
+                        phase: p.phase
+                    })),
+                    hue: b.hue,
+                    shockScale: 1.0
+                });
+            }
+        });
+        if (newBlobs.length > 0) {
+            this.blobs.push(...newBlobs);
+        }
+
+        // Color bleeding: when two blobs are within connectDist, interpolate hues
+        for (let i = 0; i < this.blobs.length; i++) {
+            for (let j = i + 1; j < this.blobs.length; j++) {
+                const a = this.blobs[i];
+                const bB = this.blobs[j];
+                const cdx = a.x - bB.x;
+                const cdy = a.y - bB.y;
+                const dist = Math.sqrt(cdx * cdx + cdy * cdy);
+                const connectDist = (a.radius + bB.radius) * 1.5;
+                if (dist < connectDist) {
+                    // Slowly interpolate hues toward each other (0.1% per frame)
+                    const avgHue = (a.hue + bB.hue) / 2;
+                    // Handle hue wrapping: find shortest path
+                    let diffA = avgHue - a.hue;
+                    let diffB = avgHue - bB.hue;
+                    if (diffA > 180) diffA -= 360;
+                    if (diffA < -180) diffA += 360;
+                    if (diffB > 180) diffB -= 360;
+                    if (diffB < -180) diffB += 360;
+                    a.hue = (a.hue + diffA * 0.001 + 360) % 360;
+                    bB.hue = (bB.hue + diffB * 0.001 + 360) % 360;
+                }
+            }
+        }
+
         // Update floating particles - drift between blobs
         this.floatingParticles.forEach(fp => {
             // Gentle drift
@@ -234,6 +292,32 @@ export class AbstractArchitecture extends Architecture {
             ctx.closePath();
             ctx.fill();
 
+            // -- Internal vein-like structure --
+            const veinCount = 3 + Math.floor(bi * 1.3) % 3; // 3-5 veins per blob
+            ctx.save();
+            for (let v = 0; v < veinCount; v++) {
+                const veinAngle = (v / veinCount) * Math.PI * 2 + bi * 0.7;
+                const veinLen = effectiveRadius * 0.7;
+                const endX = b.x + Math.cos(veinAngle) * veinLen;
+                const endY = b.y + Math.sin(veinAngle) * veinLen;
+
+                // Noise-offset control point for organic curvature
+                const noiseVal = this.noise2D(b.x * 0.005 + v, tick * 0.008 + bi);
+                const perpAngle = veinAngle + Math.PI / 2;
+                const cpOffset = noiseVal * effectiveRadius * 0.3;
+                const cpVx = (b.x + endX) / 2 + Math.cos(perpAngle) * cpOffset;
+                const cpVy = (b.y + endY) / 2 + Math.sin(perpAngle) * cpOffset;
+
+                const veinAlpha = 0.06 + Math.abs(noiseVal) * 0.04; // 0.06-0.1
+                ctx.strokeStyle = `hsla(${h}, 50%, 60%, ${veinAlpha})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(b.x, b.y);
+                ctx.quadraticCurveTo(cpVx, cpVy, endX, endY);
+                ctx.stroke();
+            }
+            ctx.restore();
+
             // -- Glow ring using 'lighter' composite --
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -267,7 +351,7 @@ export class AbstractArchitecture extends Architecture {
             ctx.stroke();
         });
 
-        // -- Blob-to-blob bridges: thin gradient line when close --
+        // -- Blob-to-blob tendril connections: curved lines when close --
         for (let i = 0; i < this.blobs.length; i++) {
             for (let j = i + 1; j < this.blobs.length; j++) {
                 const a = this.blobs[i];
@@ -281,16 +365,29 @@ export class AbstractArchitecture extends Architecture {
                     const hB = (bB.hue + Math.sin(tick * 0.005) * 20 + 360) % 360;
                     const bridgeAlpha = (1 - dist / connectDist) * 0.25;
 
+                    // Pulsing width with sin(tick)
+                    const pulse = 1.0 + Math.sin(tick * 0.04) * 0.4;
+
+                    // Control point offset by noise for organic curve
+                    const midX = (a.x + bB.x) / 2;
+                    const midY = (a.y + bB.y) / 2;
+                    const noiseOffset = this.noise2D(midX * 0.01 + tick * 0.005, midY * 0.01) * 60;
+                    // Perpendicular direction to the line between blobs
+                    const perpX = -(bB.y - a.y) / dist;
+                    const perpY = (bB.x - a.x) / dist;
+                    const cpX = midX + perpX * noiseOffset;
+                    const cpY = midY + perpY * noiseOffset;
+
                     const bridgeGrad = ctx.createLinearGradient(a.x, a.y, bB.x, bB.y);
                     bridgeGrad.addColorStop(0, `hsla(${hA}, 60%, 55%, ${bridgeAlpha})`);
                     bridgeGrad.addColorStop(0.5, `hsla(${(hA + hB) / 2}, 60%, 55%, ${bridgeAlpha * 0.5})`);
                     bridgeGrad.addColorStop(1, `hsla(${hB}, 60%, 55%, ${bridgeAlpha})`);
 
                     ctx.strokeStyle = bridgeGrad;
-                    ctx.lineWidth = 1.5;
+                    ctx.lineWidth = 1.5 * pulse;
                     ctx.beginPath();
                     ctx.moveTo(a.x, a.y);
-                    ctx.lineTo(bB.x, bB.y);
+                    ctx.quadraticCurveTo(cpX, cpY, bB.x, bB.y);
                     ctx.stroke();
                 }
             }

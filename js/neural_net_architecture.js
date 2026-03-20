@@ -89,7 +89,8 @@ export class NeuralNetArchitecture extends Architecture {
                     this.connections.push({ fromLayer: l, fromIdx: i, toLayer: l + 1, toIdx: j,
                         weight: w, opacity: 0.1 + w * 0.5, flashTimer: 0, recurrent: false });
                 }
-        // Recurrent: curved backward connections
+
+        // Recurrent topology: add curved connections going backward to previous layers
         if (this.topology === 1)
             for (let l = 1; l < this.layers.length; l++) {
                 const rc = 1 + Math.floor(rng() * 3);
@@ -100,7 +101,8 @@ export class NeuralNetArchitecture extends Architecture {
                         weight: w, opacity: 0.15 + rng() * 0.3, flashTimer: 0, recurrent: true });
                 }
             }
-        // Transformer: attention connections within layers
+
+        // Transformer topology: attention connections between all neurons within each hidden layer
         if (this.topology === 3)
             for (let l = 1; l < this.layers.length - 1; l++)
                 for (let i = 0; i < this.layers[l].length; i++)
@@ -196,6 +198,7 @@ export class NeuralNetArchitecture extends Architecture {
             this.trainingFlash = Math.max(this.trainingFlash, 12);
         }
 
+        // Decay flash timers
         if (this.trainingFlash > 0) this.trainingFlash--;
         for (const conn of this.connections)
             if (conn.flashTimer > 0) conn.flashTimer--;

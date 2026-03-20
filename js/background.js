@@ -34,6 +34,12 @@ import { DNAArchitecture } from './dna_architecture.js';
 import { TopographyArchitecture } from './topography_architecture.js';
 import { PixelSortArchitecture } from './pixel_sort_architecture.js';
 import { WeatherArchitecture } from './weather_architecture.js';
+import { ShatteredMirrorArchitecture } from './shattered_mirror_architecture.js';
+import { MyceliumArchitecture } from './mycelium_architecture.js';
+import { InterferenceArchitecture } from './interference_architecture.js';
+import { DimensionalRiftArchitecture } from './dimensional_rift_architecture.js';
+import { DeepSeaArchitecture } from './deep_sea_architecture.js';
+import { GlitchFabricArchitecture } from './glitch_fabric_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -67,7 +73,13 @@ const ALL_ARCHITECTURES = [
     () => new DNAArchitecture(),
     () => new TopographyArchitecture(),
     () => new PixelSortArchitecture(),
-    () => new WeatherArchitecture()
+    () => new WeatherArchitecture(),
+    () => new ShatteredMirrorArchitecture(),
+    () => new MyceliumArchitecture(),
+    () => new InterferenceArchitecture(),
+    () => new DimensionalRiftArchitecture(),
+    () => new DeepSeaArchitecture(),
+    () => new GlitchFabricArchitecture()
 ];
 
 class BackgroundSystem {
@@ -180,7 +192,28 @@ class BackgroundSystem {
 
     updateGradient() {
         const ctx = this.offscreenCtx;
-        this.gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
+        const style = this.gradientStyle || 0;
+
+        if (style === 1) {
+            // Radial gradient from center
+            this.gradient = ctx.createRadialGradient(
+                this.width / 2, this.height / 2, 0,
+                this.width / 2, this.height / 2, Math.max(this.width, this.height) * 0.7
+            );
+        } else if (style === 2) {
+            // Top-to-bottom with multi stops
+            this.gradient = ctx.createLinearGradient(0, 0, 0, this.height);
+        } else if (style === 3) {
+            // Horizontal sweep
+            this.gradient = ctx.createLinearGradient(0, this.height / 2, this.width, this.height / 2);
+        } else if (style === 4) {
+            // Corner-to-corner (bottom-left to top-right)
+            this.gradient = ctx.createLinearGradient(0, this.height, this.width, 0);
+        } else {
+            // Default diagonal
+            this.gradient = ctx.createLinearGradient(0, 0, this.width, this.height);
+        }
+
         this.gradientColors.forEach((c, i) => this.gradient.addColorStop(i / (this.gradientColors.length - 1), c));
 
         ctx.fillStyle = this.gradient;
@@ -245,8 +278,22 @@ class BackgroundSystem {
         // Weather: aetherial/glacial/abyssal themes
         const weatherBlueprints = ['Aetherial', 'GlacialDrift', 'AbyssalZone', 'Classical', 'HauntedRealm'];
 
-        // Wildcard: 18% chance to pick a completely random architecture for maximum diversity
-        if (this.rng() < 0.18) {
+        // New architecture blueprint mappings
+        // Shattered mirror: crystalline/glass/void themes
+        const shatteredMirrorBlueprints = ['Crystalline', 'GlassySea', 'VoidTouched', 'GlacialDrift', 'Eldritch', 'PhantomEcho'];
+        // Mycelium: fungal/organic/bio themes
+        const myceliumBlueprints = ['FungalForest', 'Organic', 'BioMechanical', 'CoralReef', 'SentientSwarm', 'GooeyMess'];
+        // Interference: quantum/sonic/chromatic themes
+        const interferenceBlueprints = ['QuantumFoam', 'SonicScapes', 'ChromaticAberration', 'Aetherial', 'Eldritch'];
+        // Dimensional rift: void/phantom/eldritch themes
+        const dimensionalRiftBlueprints = ['VoidTouched', 'PhantomEcho', 'Eldritch', 'ChronoVerse', 'AbyssalHorror', 'HauntedRealm'];
+        // Deep sea: abyssal/coral/aquatic themes
+        const deepSeaBlueprints = ['AbyssalZone', 'CoralReef', 'AbyssalHorror', 'GlassySea', 'GlacialDrift'];
+        // Glitch fabric: silk/fabric/digital themes
+        const glitchFabricBlueprints = ['SilkWeaver', 'NeonCyber', 'Digital', 'TechnoUtopia', 'Papercraft'];
+
+        // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
+        if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
         }
         // Constellation: celestial themes
@@ -272,6 +319,30 @@ class BackgroundSystem {
         // Weather: atmospheric themes
         else if (weatherBlueprints.includes(blueprintName) && this.rng() > 0.55) {
             this.architecture = new WeatherArchitecture();
+        }
+        // Shattered mirror: crystalline/glass themes
+        else if (shatteredMirrorBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ShatteredMirrorArchitecture();
+        }
+        // Mycelium: fungal/organic themes
+        else if (myceliumBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new MyceliumArchitecture();
+        }
+        // Interference: quantum/sonic themes
+        else if (interferenceBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new InterferenceArchitecture();
+        }
+        // Dimensional rift: void/phantom/eldritch themes
+        else if (dimensionalRiftBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new DimensionalRiftArchitecture();
+        }
+        // Deep sea: abyssal/aquatic themes
+        else if (deepSeaBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new DeepSeaArchitecture();
+        }
+        // Glitch fabric: textile/digital themes
+        else if (glitchFabricBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GlitchFabricArchitecture();
         }
         // Reaction-diffusion: organic/bio themes
         else if (reactionDiffusionBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -351,35 +422,46 @@ class BackgroundSystem {
         } else if (geometricBlueprints.includes(blueprintName)) {
             this.architecture = this.rng() > 0.5 ? new KaleidoscopeArchitecture() : new GeometricArchitecture();
         } else {
-            // Default: choose from expanded set based on seed (31 architectures)
+            // Default: choose from expanded set based on seed (37 architectures)
             const roll = this.rng();
-            if (roll > 0.97) this.architecture = new ReactionDiffusionArchitecture();
-            else if (roll > 0.94) this.architecture = new VoronoiArchitecture();
-            else if (roll > 0.91) this.architecture = new MagneticFieldArchitecture();
-            else if (roll > 0.88) this.architecture = new FluidArchitecture();
-            else if (roll > 0.85) this.architecture = new ConstellationArchitecture();
-            else if (roll > 0.82) this.architecture = new GravityPoolArchitecture();
-            else if (roll > 0.79) this.architecture = new DNAArchitecture();
-            else if (roll > 0.76) this.architecture = new TopographyArchitecture();
-            else if (roll > 0.73) this.architecture = new PixelSortArchitecture();
-            else if (roll > 0.70) this.architecture = new WeatherArchitecture();
-            else if (roll > 0.65) this.architecture = new PendulumArchitecture();
-            else if (roll > 0.59) this.architecture = new InkArchitecture();
-            else if (roll > 0.53) this.architecture = new CircuitGrowthArchitecture();
-            else if (roll > 0.47) this.architecture = new SynthwaveArchitecture();
-            else if (roll > 0.41) this.architecture = new LavaArchitecture();
-            else if (roll > 0.35) this.architecture = new TerrainArchitecture();
-            else if (roll > 0.29) this.architecture = new AuroraArchitecture();
-            else if (roll > 0.22) this.architecture = new LifeArchitecture();
-            else if (roll > 0.11) this.architecture = new KaleidoscopeArchitecture();
+            if (roll > 0.97) this.architecture = new ShatteredMirrorArchitecture();
+            else if (roll > 0.945) this.architecture = new MyceliumArchitecture();
+            else if (roll > 0.92) this.architecture = new InterferenceArchitecture();
+            else if (roll > 0.895) this.architecture = new DimensionalRiftArchitecture();
+            else if (roll > 0.87) this.architecture = new DeepSeaArchitecture();
+            else if (roll > 0.845) this.architecture = new GlitchFabricArchitecture();
+            else if (roll > 0.82) this.architecture = new ReactionDiffusionArchitecture();
+            else if (roll > 0.795) this.architecture = new VoronoiArchitecture();
+            else if (roll > 0.77) this.architecture = new MagneticFieldArchitecture();
+            else if (roll > 0.745) this.architecture = new FluidArchitecture();
+            else if (roll > 0.72) this.architecture = new ConstellationArchitecture();
+            else if (roll > 0.695) this.architecture = new GravityPoolArchitecture();
+            else if (roll > 0.67) this.architecture = new DNAArchitecture();
+            else if (roll > 0.645) this.architecture = new TopographyArchitecture();
+            else if (roll > 0.62) this.architecture = new PixelSortArchitecture();
+            else if (roll > 0.595) this.architecture = new WeatherArchitecture();
+            else if (roll > 0.55) this.architecture = new PendulumArchitecture();
+            else if (roll > 0.50) this.architecture = new InkArchitecture();
+            else if (roll > 0.45) this.architecture = new CircuitGrowthArchitecture();
+            else if (roll > 0.40) this.architecture = new SynthwaveArchitecture();
+            else if (roll > 0.35) this.architecture = new LavaArchitecture();
+            else if (roll > 0.30) this.architecture = new TerrainArchitecture();
+            else if (roll > 0.25) this.architecture = new AuroraArchitecture();
+            else if (roll > 0.20) this.architecture = new LifeArchitecture();
+            else if (roll > 0.10) this.architecture = new KaleidoscopeArchitecture();
             else this.architecture = new CosmicArchitecture();
         }
 
-        // Randomize background mutators based on seed
+        // Randomize background mutators based on seed for more visual variety
         this.bgMutators = [];
-        if (this.rng() > 0.7) this.bgMutators.push('Vignette');
+        if (this.rng() > 0.6) this.bgMutators.push('Vignette');
         if (this.rng() > 0.8) this.bgMutators.push('Noise');
-        if (this.rng() > 0.9) this.bgMutators.push('Scanlines');
+        if (this.rng() > 0.88) this.bgMutators.push('Scanlines');
+        if (this.rng() > 0.85) this.bgMutators.push('ChromaticShift');
+        if (this.rng() > 0.9) this.bgMutators.push('FilmGrain');
+
+        // Seed-driven gradient style for more visual differentiation
+        this.gradientStyle = Math.floor(this.rng() * 5); // 0=diagonal, 1=radial, 2=multi-stop, 3=conic-approx, 4=duotone
 
         this.updateThemeColors();
         this.architecture.init(this);
@@ -418,14 +500,40 @@ class BackgroundSystem {
     }
 
     updateThemeColors() {
-        if (this.isDark) this.gradientColors = ['#0a050d', '#120510', '#000000'];
-        else if (this.isMonochrome) {
+        if (this.isDark) {
+            // Even dark mode benefits from seed-driven subtle variation
+            const style = this.gradientStyle || 0;
+            if (style === 1) this.gradientColors = ['#000000', '#0a0510', '#050208'];
+            else if (style === 3) this.gradientColors = ['#080510', '#000000', '#050510'];
+            else this.gradientColors = ['#0a050d', '#120510', '#000000'];
+        } else if (this.isMonochrome) {
             const l = 10 + Math.sin(this.tick * 0.005) * 3;
             this.gradientColors = [`hsl(${this.hue}, 80%, ${l}%)`, `hsl(${this.hue}, 40%, ${l*2}%)`, `hsl(${this.hue}, 90%, ${l*0.5}%)` ];
         } else {
             const shift = Math.sin(this.tick * 0.002) * 20;
             const h = this.hue + shift;
-            this.gradientColors = [`hsl(${h}, 80%, 10%)`, `hsl(${(h + 120) % 360}, 80%, 5%)`, `hsl(${(h + 240) % 360}, 80%, 8%)` ];
+            const style = this.gradientStyle || 0;
+            if (style === 1) {
+                // Radial: bright center fading to dark edges
+                this.gradientColors = [
+                    `hsl(${h}, 60%, 12%)`,
+                    `hsl(${(h + 90) % 360}, 70%, 6%)`,
+                    `hsl(${(h + 180) % 360}, 80%, 3%)`
+                ];
+            } else if (style === 4) {
+                // Duotone: two-color dramatic gradient
+                this.gradientColors = [
+                    `hsl(${h}, 90%, 8%)`,
+                    `hsl(${(h + 180) % 360}, 90%, 6%)`,
+                    `hsl(${h}, 70%, 4%)`
+                ];
+            } else {
+                this.gradientColors = [
+                    `hsl(${h}, 80%, 10%)`,
+                    `hsl(${(h + 120) % 360}, 80%, 5%)`,
+                    `hsl(${(h + 240) % 360}, 80%, 8%)`
+                ];
+            }
         }
         this.updateGradient();
     }
@@ -499,6 +607,34 @@ class BackgroundSystem {
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
             ctx.lineWidth = 1;
             ctx.stroke(this.cachedScanlinesPath);
+        }
+        if (this.bgMutators.includes('ChromaticShift')) {
+            // Subtle color fringing at edges - draw thin colored strips
+            const shift = Math.sin(this.tick * 0.01) * 2 + 2;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.015;
+            // Red channel shift
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(shift, 0, this.width, this.height);
+            // Blue channel shift (opposite direction)
+            ctx.fillStyle = '#0000ff';
+            ctx.fillRect(-shift, 0, this.width, this.height);
+            ctx.restore();
+        }
+        if (this.bgMutators.includes('FilmGrain')) {
+            // Subtle animated film grain overlay using sparse random dots
+            ctx.save();
+            ctx.globalAlpha = 0.04;
+            const grainCount = 30;
+            for (let i = 0; i < grainCount; i++) {
+                const x = this.rng() * this.width;
+                const y = this.rng() * this.height;
+                const bright = this.rng() > 0.5;
+                ctx.fillStyle = bright ? '#fff' : '#000';
+                ctx.fillRect(x, y, 2, 2);
+            }
+            ctx.restore();
         }
     }
 
@@ -607,9 +743,17 @@ class BackgroundSystem {
             ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2); ctx.stroke();
         }
 
-        // Shooting Stars
+        // Shooting Stars (seed-dependent frequency and color)
         if (this.rng() < 0.005) {
-            this.shootingStars.push({ x: this.rng() * this.width, y: this.rng() * this.height, vx: (this.rng() - 0.5) * 20 + 10, vy: (this.rng() - 0.5) * 20 + 10, life: 30, maxLife: 30 });
+            const hue = (this.hue + this.rng() * 60) % 360;
+            const isBright = this.rng() > 0.7;
+            this.shootingStars.push({
+                x: this.rng() * this.width, y: this.rng() * this.height,
+                vx: (this.rng() - 0.5) * 20 + 10, vy: (this.rng() - 0.5) * 20 + 10,
+                life: 30 + Math.floor(this.rng() * 20), maxLife: 50,
+                hue, isBright,
+                width: 1 + this.rng() * 2
+            });
         }
         for (let i = this.shootingStars.length - 1; i >= 0; i--) {
             const s = this.shootingStars[i];
@@ -620,8 +764,14 @@ class BackgroundSystem {
                 continue;
             }
             const opacity = s.life / s.maxLife;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-            ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2); ctx.stroke();
+            if (s.isBright) {
+                ctx.strokeStyle = `hsla(${s.hue}, 80%, 80%, ${opacity})`;
+            } else {
+                ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+            }
+            ctx.lineWidth = s.width || 2;
+            ctx.beginPath(); ctx.moveTo(s.x, s.y);
+            ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2); ctx.stroke();
         }
         ctx.globalCompositeOperation = 'source-over';
     }

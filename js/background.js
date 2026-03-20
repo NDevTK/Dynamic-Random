@@ -1011,7 +1011,7 @@ class BackgroundSystem {
             if (!this.cachedVignetteGradient || this.cachedVignetteWidth !== this.width) {
                 this.cachedVignetteGradient = ctx.createRadialGradient(this.width/2, this.height/2, this.width/4, this.width/2, this.height/2, this.width*0.7);
                 this.cachedVignetteGradient.addColorStop(0, 'transparent');
-                this.cachedVignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+                this.cachedVignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
                 this.cachedVignetteWidth = this.width;
             }
             ctx.fillStyle = this.cachedVignetteGradient;

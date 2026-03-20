@@ -166,32 +166,32 @@ class PostProcessingSystem {
         switch (this.colorGradingPreset) {
             case 'warm':
                 color = 'rgba(255, 140, 50, 1)';
-                alpha = 0.06;
+                alpha = 0.03;
                 compositeOp = 'multiply';
                 break;
             case 'cool':
                 color = 'rgba(50, 100, 255, 1)';
-                alpha = 0.06;
+                alpha = 0.03;
                 compositeOp = 'multiply';
                 break;
             case 'vintage':
                 color = 'rgba(180, 150, 100, 1)';
-                alpha = 0.08;
+                alpha = 0.04;
                 compositeOp = 'multiply';
                 break;
             case 'neon':
                 color = 'rgba(255, 255, 255, 1)';
-                alpha = 0.05;
-                compositeOp = 'saturation';
+                alpha = 0.03;
+                compositeOp = 'overlay';
                 break;
             case 'twilight':
                 color = 'rgba(120, 50, 180, 1)';
-                alpha = 0.07;
+                alpha = 0.03;
                 compositeOp = 'multiply';
                 break;
             default:
                 color = 'rgba(255, 140, 50, 1)';
-                alpha = 0.06;
+                alpha = 0.03;
                 compositeOp = 'multiply';
         }
 
@@ -234,7 +234,7 @@ class PostProcessingSystem {
 
         // ─ Vignette: darken edges with radial gradient ─
         ctx.globalCompositeOperation = 'multiply';
-        ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = 0.12;
         const vigGrad = ctx.createRadialGradient(
             w / 2, h / 2, Math.min(w, h) * 0.3,
             w / 2, h / 2, Math.max(w, h) * 0.75
@@ -299,7 +299,7 @@ class PostProcessingSystem {
         // Overlay a mid-gray fill to create an S-curve contrast enhancement
         // overlay composite: darkens darks, lightens lights around mid-gray
         ctx.globalCompositeOperation = 'overlay';
-        ctx.globalAlpha = 0.1;
+        ctx.globalAlpha = 0.05;
         ctx.fillStyle = 'rgb(128, 128, 128)';
         ctx.fillRect(0, 0, w, h);
 

@@ -46,7 +46,7 @@ const timeline = {
     bar.addEventListener('mouseleave', () => this._scheduleHide());
 
     document.addEventListener('mousemove', (e) => {
-      if (e.clientY > window.innerHeight - 100) this._show();
+      if (this.history.length > 0 && e.clientY > window.innerHeight - 100) this._show();
     });
   },
 
@@ -119,7 +119,7 @@ const timeline = {
   },
 
   _show() {
-    if (!this.bar) return;
+    if (!this.bar || this.history.length === 0) return;
     this.visible = true;
     this.bar.style.opacity = '1';
     this.bar.style.pointerEvents = 'auto';

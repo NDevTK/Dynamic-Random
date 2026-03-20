@@ -1419,6 +1419,493 @@ function drawVortex(sys) {
 }
 
 // ═══════════════════════════════════════════════
+//  STYLE: Compass Rose
+// ═══════════════════════════════════════════════
+function initCompassRose(sys) {
+    sys.state.rotation = 0;
+    sys.state.targetRotation = 0;
+    sys.state.petalSize = 0;
+}
+
+function drawCompassRose(sys) {
+    const { ctx, palette } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const speed = sys.mouseSpeed;
+
+    // Petal size expands with speed, contracts when still
+    const targetPetal = 10 + Math.min(speed * 2, 30);
+    sys.state.petalSize += (targetPetal - sys.state.petalSize) * 0.1;
+    const petalR = sys.state.petalSize;
+
+    // Rotate slowly, but bias toward movement direction
+    sys.state.targetRotation = sys.mouseAngle;
+    const angleDiff = sys.state.targetRotation - sys.state.rotation;
+    const wrapped = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
+    sys.state.rotation += wrapped * 0.05 + 0.005;
+
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(sys.state.rotation);
+
+    // Draw 8 petals: 4 cardinal (larger) + 4 ordinal (smaller)
+    for (let i = 0; i < 8; i++) {
+        const angle = (TAU / 8) * i;
+        const isCardinal = i % 2 === 0;
+        const size = isCardinal ? petalR : petalR * 0.6;
+        const color = isCardinal
+            ? palette.primary[Math.floor(i / 2) % palette.primary.length]
+            : palette.glow[Math.floor(i / 2) % palette.glow.length];
+        const alpha = 0.6 + 0.2 * Math.sin(sys.tick * 0.04 + i);
+
+        ctx.fillStyle = withAlpha(color, alpha);
+        ctx.beginPath();
+        // Triangular petal
+        const halfWidth = isCardinal ? 6 : 4;
+        ctx.moveTo(Math.cos(angle) * size, Math.sin(angle) * size);
+        ctx.lineTo(
+            Math.cos(angle + Math.PI / 2) * halfWidth,
+            Math.sin(angle + Math.PI / 2) * halfWidth
+        );
+        ctx.lineTo(
+            Math.cos(angle - Math.PI / 2) * halfWidth,
+            Math.sin(angle - Math.PI / 2) * halfWidth
+        );
+        ctx.closePath();
+        ctx.fill();
+
+        // Petal outline
+        ctx.strokeStyle = withAlpha(color, alpha * 0.8);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // Crosshairs
+    ctx.strokeStyle = withAlpha(palette.primary[0], 0.4);
+    ctx.lineWidth = 0.8;
+    const crossLen = petalR * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-crossLen, 0); ctx.lineTo(crossLen, 0);
+    ctx.moveTo(0, -crossLen); ctx.lineTo(0, crossLen);
+    ctx.stroke();
+
+    // Central circle
+    ctx.fillStyle = withAlpha(palette.glow[0], 0.5);
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = withAlpha(palette.primary[0], 0.6);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, TAU);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+//  STYLE: Particle Physics
+// ═══════════════════════════════════════════════
+function initParticlePhysics(sys) {
+    const countA = 8 + Math.floor(sys.rng() * 5);
+    const countB = 8 + Math.floor(sys.rng() * 5);
+    sys.state.beamA = [];
+    sys.state.beamB = [];
+    for (let i = 0; i < countA; i++) {
+        sys.state.beamA.push({
+            angle: (TAU / countA) * i,
+            radius: 25 + sys.rng() * 10,
+            size: 1.5 + sys.rng() * 1.5,
+            trail: []
+        });
+    }
+    for (let i = 0; i < countB; i++) {
+        sys.state.beamB.push({
+            angle: (TAU / countB) * i,
+            radius: 40 + sys.rng() * 10,
+            size: 1.5 + sys.rng() * 1.5,
+            trail: []
+        });
+    }
+    sys.state.decayProducts = [];
+    sys.state.orbitSpeedA = 0.04 + sys.rng() * 0.02;
+    sys.state.orbitSpeedB = 0.03 + sys.rng() * 0.02;
+}
+
+function drawParticlePhysics(sys) {
+    const { ctx, palette } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const speed = sys.mouseSpeed;
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Update and draw beam A (clockwise)
+    for (const p of sys.state.beamA) {
+        p.angle += sys.state.orbitSpeedA;
+        const x = mx + Math.cos(p.angle) * p.radius;
+        const y = my + Math.sin(p.angle) * p.radius;
+        p.trail.push({ x, y });
+        if (p.trail.length > 4) p.trail.shift();
+
+        // Draw trail
+        for (let t = 0; t < p.trail.length; t++) {
+            const alpha = (t / p.trail.length) * 0.4;
+            ctx.fillStyle = withAlpha(palette.primary[0], alpha);
+            ctx.beginPath();
+            ctx.arc(p.trail[t].x, p.trail[t].y, p.size * 0.7, 0, TAU);
+            ctx.fill();
+        }
+
+        // Draw particle
+        const g = ctx.createRadialGradient(x, y, 0, x, y, p.size * 3);
+        g.addColorStop(0, withAlpha(palette.primary[0], 0.8));
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, p.size * 3, 0, TAU); ctx.fill();
+    }
+
+    // Update and draw beam B (counter-clockwise)
+    for (const p of sys.state.beamB) {
+        p.angle -= sys.state.orbitSpeedB;
+        const x = mx + Math.cos(p.angle) * p.radius;
+        const y = my + Math.sin(p.angle) * p.radius;
+        p.trail.push({ x, y });
+        if (p.trail.length > 4) p.trail.shift();
+
+        for (let t = 0; t < p.trail.length; t++) {
+            const alpha = (t / p.trail.length) * 0.4;
+            ctx.fillStyle = withAlpha(palette.primary[1 % palette.primary.length], alpha);
+            ctx.beginPath();
+            ctx.arc(p.trail[t].x, p.trail[t].y, p.size * 0.7, 0, TAU);
+            ctx.fill();
+        }
+
+        const g = ctx.createRadialGradient(x, y, 0, x, y, p.size * 3);
+        g.addColorStop(0, withAlpha(palette.primary[1 % palette.primary.length], 0.8));
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, p.size * 3, 0, TAU); ctx.fill();
+    }
+
+    // Collision: when speed > 5, spawn decay products
+    if (speed > 5) {
+        const count = 2 + Math.floor(sys.rng() * 3);
+        for (let i = 0; i < count; i++) {
+            const angle = sys.rng() * TAU;
+            const spd = 3 + sys.rng() * 5;
+            sys.state.decayProducts.push({
+                x: mx + (sys.rng() - 0.5) * 20,
+                y: my + (sys.rng() - 0.5) * 20,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd,
+                life: 1.0,
+                decay: 0.03 + sys.rng() * 0.04,
+                size: 0.5 + sys.rng() * 1,
+                color: palette.primary[Math.floor(sys.rng() * palette.primary.length)]
+            });
+        }
+    }
+
+    // Update and draw decay products
+    for (let i = sys.state.decayProducts.length - 1; i >= 0; i--) {
+        const d = sys.state.decayProducts[i];
+        d.x += d.vx;
+        d.y += d.vy;
+        d.vx *= 0.96;
+        d.vy *= 0.96;
+        d.life -= d.decay;
+
+        if (d.life <= 0) {
+            sys.state.decayProducts.splice(i, 1);
+            continue;
+        }
+
+        ctx.fillStyle = withAlpha(d.color, d.life * 0.7);
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.size * d.life, 0, TAU);
+        ctx.fill();
+    }
+
+    // Keep decay products list from growing unbounded
+    if (sys.state.decayProducts.length > 150) {
+        sys.state.decayProducts.splice(0, sys.state.decayProducts.length - 150);
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ═══════════════════════════════════════════════
+//  STYLE: Ink Brush
+// ═══════════════════════════════════════════════
+function initInkBrush(sys) {
+    sys.state.positions = [];
+    sys.state.splatters = [];
+    sys.state.prevAngle = 0;
+    sys.state.drip = null;
+    sys.state.bristleOffsets = [];
+    const bristleCount = 3 + Math.floor(sys.rng() * 3);
+    for (let i = 0; i < bristleCount; i++) {
+        sys.state.bristleOffsets.push({
+            offset: (sys.rng() - 0.5) * 3,
+            widthMul: 0.3 + sys.rng() * 0.5
+        });
+    }
+    sys.state.hueShift = sys.rng() * 360;
+}
+
+function drawInkBrush(sys) {
+    const { ctx, palette, state } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const speed = sys.mouseSpeed;
+
+    // Track positions
+    state.positions.push({ x: mx, y: my });
+    if (state.positions.length > 20) state.positions.shift();
+
+    // Ink color: dark with slight palette hue tint
+    const baseColor = palette.primary[0];
+    const inkColor = withAlpha(baseColor, 0.7);
+    const darkInk = 'rgba(20, 15, 10, 0.6)';
+
+    // Stroke width based on speed
+    const strokeWidth = Math.max(1, 15 - speed * 0.5);
+
+    // Detect direction change for splatters
+    const currentAngle = sys.mouseAngle;
+    const angleDelta = Math.abs(Math.atan2(
+        Math.sin(currentAngle - state.prevAngle),
+        Math.cos(currentAngle - state.prevAngle)
+    ));
+    if (angleDelta > 0.5 && speed > 2) {
+        const splatterCount = 3 + Math.floor(sys.rng() * 3);
+        for (let i = 0; i < splatterCount; i++) {
+            state.splatters.push({
+                x: mx + (sys.rng() - 0.5) * 20,
+                y: my + (sys.rng() - 0.5) * 20,
+                size: 1 + sys.rng() * 4,
+                life: 1.0,
+                decay: 0.01 + sys.rng() * 0.01
+            });
+        }
+    }
+    state.prevAngle = currentAngle;
+
+    // Draw bristle strokes (parallel thin lines)
+    if (state.positions.length > 2) {
+        for (const bristle of state.bristleOffsets) {
+            ctx.beginPath();
+            ctx.strokeStyle = withAlpha(baseColor, 0.4 * bristle.widthMul);
+            ctx.lineWidth = strokeWidth * bristle.widthMul;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            const first = state.positions[0];
+            ctx.moveTo(first.x + bristle.offset, first.y + bristle.offset);
+            for (let i = 1; i < state.positions.length - 1; i++) {
+                const p = state.positions[i];
+                const next = state.positions[i + 1];
+                const cpx = (p.x + next.x) / 2 + bristle.offset;
+                const cpy = (p.y + next.y) / 2 + bristle.offset;
+                ctx.quadraticCurveTo(p.x + bristle.offset, p.y + bristle.offset, cpx, cpy);
+            }
+            ctx.stroke();
+        }
+
+        // Main dark ink stroke
+        ctx.beginPath();
+        ctx.strokeStyle = darkInk;
+        ctx.lineWidth = strokeWidth * 0.3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const f = state.positions[0];
+        ctx.moveTo(f.x, f.y);
+        for (let i = 1; i < state.positions.length - 1; i++) {
+            const p = state.positions[i];
+            const next = state.positions[i + 1];
+            ctx.quadraticCurveTo(p.x, p.y, (p.x + next.x) / 2, (p.y + next.y) / 2);
+        }
+        ctx.stroke();
+    }
+
+    // Draw splatters
+    for (let i = state.splatters.length - 1; i >= 0; i--) {
+        const s = state.splatters[i];
+        s.life -= s.decay;
+        if (s.life <= 0) {
+            state.splatters.splice(i, 1);
+            continue;
+        }
+        ctx.fillStyle = withAlpha(baseColor, s.life * 0.5);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * s.life, 0, TAU);
+        ctx.fill();
+    }
+
+    // Keep splatters bounded
+    if (state.splatters.length > 60) {
+        state.splatters.splice(0, state.splatters.length - 60);
+    }
+
+    // Dripping effect when stationary
+    if (speed < 1) {
+        if (!state.drip) {
+            state.drip = { x: mx, y: my, vy: 0, size: 3, life: 1.0 };
+        }
+        state.drip.vy += 0.08;
+        state.drip.y += state.drip.vy;
+        state.drip.life -= 0.008;
+        state.drip.size *= 0.998;
+
+        if (state.drip.life > 0) {
+            // Drip line from cursor to drop
+            ctx.strokeStyle = withAlpha(baseColor, state.drip.life * 0.3);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(state.drip.x, state.drip.y);
+            ctx.stroke();
+
+            // Drop
+            ctx.fillStyle = withAlpha(baseColor, state.drip.life * 0.6);
+            ctx.beginPath();
+            ctx.arc(state.drip.x, state.drip.y, state.drip.size, 0, TAU);
+            ctx.fill();
+        } else {
+            state.drip = null;
+        }
+    } else {
+        state.drip = null;
+    }
+}
+
+// ═══════════════════════════════════════════════
+//  STYLE: Holographic
+// ═══════════════════════════════════════════════
+function initHolographic(sys) {
+    // Cube vertices (centered at origin, side length 2)
+    sys.state.vertices = [
+        [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+        [-1, -1,  1], [1, -1,  1], [1, 1,  1], [-1, 1,  1]
+    ];
+    // Cube edges (pairs of vertex indices)
+    sys.state.edges = [
+        [0,1],[1,2],[2,3],[3,0], // back face
+        [4,5],[5,6],[6,7],[7,4], // front face
+        [0,4],[1,5],[2,6],[3,7]  // connections
+    ];
+    sys.state.scanlineSpacing = 3 + Math.floor(sys.rng() * 3);
+    sys.state.rotSpeedX = 0.01 + sys.rng() * 0.01;
+    sys.state.rotSpeedY = 0.015 + sys.rng() * 0.01;
+    sys.state.glitchOffset = { x: 0, y: 0 };
+}
+
+function drawHolographic(sys) {
+    const { ctx, palette, state } = sys;
+    const mx = mouse.x, my = mouse.y;
+    const scale = 30;
+
+    // Rotation angles
+    const rotX = sys.tick * state.rotSpeedX;
+    const rotY = sys.tick * state.rotSpeedY;
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
+    // Occasional glitch: 2% chance per frame
+    if (sys.rng() < 0.02) {
+        state.glitchOffset.x = (sys.rng() - 0.5) * 12;
+        state.glitchOffset.y = (sys.rng() - 0.5) * 12;
+    } else {
+        state.glitchOffset.x *= 0.8;
+        state.glitchOffset.y *= 0.8;
+    }
+
+    // Project vertices to 2D
+    const projected = state.vertices.map(v => {
+        // Rotate around Y axis
+        let x = v[0] * cosY - v[2] * sinY;
+        let z = v[0] * sinY + v[2] * cosY;
+        let y = v[1];
+
+        // Rotate around X axis
+        const y2 = y * cosX - z * sinX;
+        const z2 = y * sinX + z * cosX;
+        y = y2;
+        z = z2;
+
+        // Perspective projection
+        const perspDiv = z + 4;
+        const px = (x / perspDiv) * scale + state.glitchOffset.x;
+        const py = (y / perspDiv) * scale + state.glitchOffset.y;
+        return { x: px, y: py, z: z };
+    });
+
+    ctx.save();
+    ctx.translate(mx, my);
+
+    // Color fringing: draw wireframe 3 times offset in R, G, B
+    const fringeColors = [
+        'rgba(255, 0, 0, 0.4)',
+        'rgba(0, 255, 0, 0.4)',
+        'rgba(0, 100, 255, 0.4)'
+    ];
+    const fringeOffsets = [
+        { x: -1, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 }
+    ];
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (let f = 0; f < 3; f++) {
+        ctx.strokeStyle = fringeColors[f];
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (const edge of state.edges) {
+            const a = projected[edge[0]];
+            const b = projected[edge[1]];
+            ctx.moveTo(a.x + fringeOffsets[f].x, a.y + fringeOffsets[f].y);
+            ctx.lineTo(b.x + fringeOffsets[f].x, b.y + fringeOffsets[f].y);
+        }
+        ctx.stroke();
+    }
+
+    // Main wireframe in glow color
+    ctx.strokeStyle = withAlpha(palette.glow[0], 0.7);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (const edge of state.edges) {
+        const a = projected[edge[0]];
+        const b = projected[edge[1]];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
+
+    // Vertices as small dots
+    for (const p of projected) {
+        ctx.fillStyle = withAlpha(palette.glow[0], 0.8);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.5, 0, TAU);
+        ctx.fill();
+    }
+
+    // Scanline interference
+    ctx.globalCompositeOperation = 'source-over';
+    const scanRange = 50;
+    const flicker = 0.03 + 0.02 * Math.sin(sys.tick * 0.1);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${flicker})`;
+    ctx.lineWidth = 0.5;
+    for (let sy = -scanRange; sy < scanRange; sy += state.scanlineSpacing) {
+        const wobble = Math.sin(sys.tick * 0.05 + sy * 0.1) * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(-scanRange + wobble, sy);
+        ctx.lineTo(scanRange + wobble, sy);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
 //  CURSOR EFFECTS SYSTEM
 // ═══════════════════════════════════════════════
 const CURSOR_STYLES = {
@@ -1439,7 +1926,11 @@ const CURSOR_STYLES = {
     lensing:       { init: initLensing, draw: drawLensing },
     timeCrystal:   { init: initTimeCrystal, draw: drawTimeCrystal },
     fractalZoom:   { init: initFractalZoom, draw: drawFractalZoom },
-    vortex:        { init: initVortex, draw: drawVortex }
+    vortex:        { init: initVortex, draw: drawVortex },
+    compassRose:   { init: initCompassRose, draw: drawCompassRose },
+    particlePhysics: { init: initParticlePhysics, draw: drawParticlePhysics },
+    inkBrush:      { init: initInkBrush, draw: drawInkBrush },
+    holographic:   { init: initHolographic, draw: drawHolographic }
 };
 
 class CursorEffectsSystem {

@@ -15,6 +15,10 @@ import { gamepadInput } from './gamepad_input.js';
 import { micReactive } from './mic_reactive.js';
 import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
+import { hud } from './hud.js';
+import { inputToolbar } from './input_toolbar.js';
+import { perfMonitor } from './perf_monitor.js';
+import { touchGestures } from './touch_gestures.js';
 
 // --- Simulation Sub-modules ---
 
@@ -796,6 +800,10 @@ export function update(pJS) {
     micReactive.update();
     speechInput.update();
     cameraInput.update();
+    perfMonitor.update();
+    touchGestures.update();
+    hud.update(performance.now());
+    inputToolbar.update();
 
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);

@@ -22,6 +22,10 @@ import { tabSync } from './tab_sync.js';
 import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
 import { webgpuCompute } from './webgpu_compute.js';
+import { hud } from './hud.js';
+import { inputToolbar } from './input_toolbar.js';
+import { perfMonitor } from './perf_monitor.js';
+import { touchGestures } from './touch_gestures.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
@@ -42,6 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
     speechInput.init();
     cameraInput.init();
     webgpuCompute.init();
+    hud.init();
+    inputToolbar.init();
+    perfMonitor.init();
+    touchGestures.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

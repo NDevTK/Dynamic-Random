@@ -56,6 +56,8 @@ import { micReactive } from './mic_reactive.js';
 import { tabSync } from './tab_sync.js';
 import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
+import { perfMonitor } from './perf_monitor.js';
+import { touchGestures } from './touch_gestures.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -527,8 +529,12 @@ class BackgroundSystem {
         this.architecture.init(this);
     }
 
-    createShockwave(x, y) {
+    createShockwave(x, y, fromRemote) {
         this.shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(this.width, this.height) * 0.8, speed: 10, strength: 2, alpha: 1 });
+        // Broadcast to other tabs (normalized coordinates)
+        if (!fromRemote && tabSync.tabCount > 1) {
+            tabSync.sendEffect('shockwave', { x: x / this.width, y: y / this.height });
+        }
         for(let i=0; i<30; i++) {
             const angle = this.rng() * Math.PI * 2; const speed = this.rng() * 10 + 5;
             let spark = this.sparkPool.length > 0 ? this.sparkPool.pop() : {};
@@ -610,6 +616,29 @@ class BackgroundSystem {
         this.tabSync = tabSync;
         this.speech = speechInput;
         this.camera = cameraInput;
+        this.qualityScale = perfMonitor.qualityScale;
+        this.pinchScale = touchGestures.pinchScale;
+        this.touchRotation = touchGestures.rotation;
+
+        // Touch gesture reactions
+        if (touchGestures.doubleTap) {
+            this.createShockwave(mouse.x, mouse.y);
+        }
+        if (touchGestures.longPress) {
+            this.isGravityWell = true;
+        } else if (!this.isGravityWell) {
+            // Don't override mouse-based gravity well
+        }
+
+        // Register multi-tab sync effect handler (once)
+        if (!this._tabSyncRegistered && tabSync.tabCount > 0) {
+            this._tabSyncRegistered = true;
+            tabSync.onEffect((name, data) => {
+                if (name === 'shockwave') {
+                    this.createShockwave(data.x * this.width, data.y * this.height, true);
+                }
+            });
+        }
 
         if (!this.isDark && this.tick % 30 === 0) this.updateThemeColors();
 

@@ -262,60 +262,41 @@ export class SacredGeometryArchitecture extends Architecture {
     _drawPenrose(ctx, t) {
         if (!this.tiles.length) return;
         const hue0 = this._hue(0), hue1 = this._hue(2);
-
-        // Undo parent translate — Penrose tiles are in absolute canvas coords
+        // Penrose tiles live in canvas coords — undo parent transform, add own slow drift
         ctx.save();
         ctx.translate(-this.cx, -this.cy);
         ctx.rotate(-this.rotation);
         ctx.scale(1 / this.breathScale, 1 / this.breathScale);
-
-        // Re-apply just the Penrose slow drift
         ctx.translate(this.cx, this.cy);
         ctx.rotate(this.rotation + this.angularVelocities[0] * t * 20);
         ctx.scale(this.breathScale, this.breathScale);
         ctx.translate(-this.cx, -this.cy);
 
-        ctx.globalCompositeOperation = 'source-over';
         this.tiles.forEach((tri, i) => {
             const mx = (tri.A.x + tri.B.x + tri.C.x) / 3;
             const my = (tri.A.y + tri.B.y + tri.C.y) / 3;
             const wv = this.wave(mx * 0.004, my * 0.004, t) * 0.5 + 0.5;
             const glow = Math.max(0, 1 - Math.hypot(mouse.x - mx, mouse.y - my) / 140);
-            const phase = this.elementPhases[i % this.elementPhases.length];
-            const pulse = 0.5 + Math.sin(t * 0.85 + phase) * 0.5;
+            const pulse = 0.5 + Math.sin(t * 0.85 + this.elementPhases[i % this.elementPhases.length]) * 0.5;
             const hue = tri.type === 0 ? hue0 : hue1;
-            const fillA = 0.04 + wv * 0.055 + glow * 0.1 + pulse * 0.018;
-
             ctx.beginPath();
-            ctx.moveTo(tri.A.x, tri.A.y);
-            ctx.lineTo(tri.B.x, tri.B.y);
-            ctx.lineTo(tri.C.x, tri.C.y);
-            ctx.closePath();
-
-            ctx.fillStyle = `hsla(${hue}, 65%, 55%, ${fillA})`;
+            ctx.moveTo(tri.A.x, tri.A.y); ctx.lineTo(tri.B.x, tri.B.y);
+            ctx.lineTo(tri.C.x, tri.C.y); ctx.closePath();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = `hsla(${hue}, 65%, 55%, ${0.04 + wv * 0.055 + glow * 0.1 + pulse * 0.018})`;
             ctx.fill();
             ctx.strokeStyle = `hsla(${hue}, 70%, 75%, ${0.08 + glow * 0.22 + pulse * 0.04})`;
             ctx.lineWidth = 0.6 + glow * 0.8;
             ctx.stroke();
+            if (glow > 0.05) {
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${glow * 0.14})`;
+                ctx.beginPath();
+                ctx.moveTo(tri.A.x, tri.A.y); ctx.lineTo(tri.B.x, tri.B.y);
+                ctx.lineTo(tri.C.x, tri.C.y); ctx.closePath();
+                ctx.fill();
+            }
         });
-
-        // Glow pass using lighter composite on mouse-near tiles
-        ctx.globalCompositeOperation = 'lighter';
-        this.tiles.forEach((tri, i) => {
-            const mx = (tri.A.x + tri.B.x + tri.C.x) / 3;
-            const my = (tri.A.y + tri.B.y + tri.C.y) / 3;
-            const glow = Math.max(0, 1 - Math.hypot(mouse.x - mx, mouse.y - my) / 100);
-            if (glow < 0.05) return;
-            const hue = tri.type === 0 ? hue0 : hue1;
-            ctx.beginPath();
-            ctx.moveTo(tri.A.x, tri.A.y);
-            ctx.lineTo(tri.B.x, tri.B.y);
-            ctx.lineTo(tri.C.x, tri.C.y);
-            ctx.closePath();
-            ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${glow * 0.14})`;
-            ctx.fill();
-        });
-
         ctx.restore();
     }
 

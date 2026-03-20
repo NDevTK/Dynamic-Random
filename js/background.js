@@ -58,6 +58,10 @@ import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
 import { perfMonitor } from './perf_monitor.js';
 import { touchGestures } from './touch_gestures.js';
+import { AttractorArchitecture } from './attractor_architecture.js';
+import { SacredGeometryArchitecture } from './sacred_geometry_architecture.js';
+import { FractalExplorerArchitecture } from './fractal_explorer_architecture.js';
+import { SpirographArchitecture } from './spirograph_architecture.js';
 
 // All available architectures for wildcard selection
 const ALL_ARCHITECTURES = [
@@ -107,7 +111,11 @@ const ALL_ARCHITECTURES = [
     () => new ClothArchitecture(),
     () => new SoftbodyArchitecture(),
     () => new WebGPUParticleArchitecture(),
-    () => new WebGPUFluidArchitecture()
+    () => new WebGPUFluidArchitecture(),
+    () => new AttractorArchitecture(),
+    () => new SacredGeometryArchitecture(),
+    () => new FractalExplorerArchitecture(),
+    () => new SpirographArchitecture()
 ];
 
 class BackgroundSystem {
@@ -340,6 +348,15 @@ class BackgroundSystem {
         // WebGPU fluid: fluid/painterly/chromatic themes
         const webgpuFluidBlueprints = ['LivingInk', 'Painterly', 'ChromaticAberration', 'GooeyMess', 'Aetherial'];
 
+        // Strange attractors: chaotic/quantum/void themes
+        const attractorBlueprints = ['QuantumFoam', 'VoidTouched', 'ChronoVerse', 'Eldritch', 'PhantomEcho', 'StarForged'];
+        // Sacred geometry: mystical/crystalline/arcane themes
+        const sacredGeometryBlueprints = ['ArcaneCodex', 'Crystalline', 'Classical', 'Eldritch', 'Aetherial', 'Papercraft'];
+        // Fractal explorer: fractal/quantum/cosmic themes
+        const fractalExplorerBlueprints = ['Fractal', 'QuantumFoam', 'Eldritch', 'ChromaticAberration', 'VoidTouched'];
+        // Spirograph: harmonic/sonic/mechanical themes
+        const spirographBlueprints = ['SonicScapes', 'ChronoVerse', 'Classical', 'Papercraft', 'GlacialDrift', 'Crystalline'];
+
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
@@ -407,6 +424,22 @@ class BackgroundSystem {
         // Tidal pool: aquatic themes
         else if (tidalPoolBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new TidalPoolArchitecture();
+        }
+        // Strange attractors: chaotic themes
+        else if (attractorBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new AttractorArchitecture();
+        }
+        // Sacred geometry: mystical themes
+        else if (sacredGeometryBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SacredGeometryArchitecture();
+        }
+        // Fractal explorer: fractal/quantum themes
+        else if (fractalExplorerBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new FractalExplorerArchitecture();
+        }
+        // Spirograph: harmonic/mechanical themes
+        else if (spirographBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SpirographArchitecture();
         }
         // Speech typography: literary/sonic themes
         else if (speechTypographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {

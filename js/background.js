@@ -238,6 +238,11 @@ class BackgroundSystem {
         this.architecture.init(this);
     }
 
+    selectArchitecture(index) {
+        this._currentArchIndex = ((index % ALL_ARCHITECTURES.length) + ALL_ARCHITECTURES.length) % ALL_ARCHITECTURES.length;
+        this.forceArchitecture(ALL_ARCHITECTURES[this._currentArchIndex]);
+    }
+
     resize() {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
@@ -717,7 +722,21 @@ class BackgroundSystem {
                 if (name === 'shockwave') {
                     this.createShockwave(data.x * this.width, data.y * this.height, true);
                 }
+                if (name === 'hue-sync') {
+                    this.hue = data.hue;
+                    this.updateThemeColors();
+                }
+                if (name === 'particle-migrate') {
+                    for (let i = 0; i < 3; i++) {
+                        this.createShockwave(data.x * this.width, data.y * this.height, true);
+                    }
+                }
             });
+        }
+
+        // Leader broadcasts hue to follower tabs every 120 ticks
+        if (tabSync.tabCount > 1 && tabSync.isLeader && this.tick % 120 === 0) {
+            tabSync.sendEffect('hue-sync', { hue: this.hue });
         }
 
         if (!this.isDark && this.tick % 30 === 0) this.updateThemeColors();
@@ -730,6 +749,31 @@ class BackgroundSystem {
             this.ctx.translate(this.width / 2, this.height / 2);
             this.ctx.scale(zoom, zoom);
             this.ctx.translate(-this.width / 2, -this.height / 2);
+        }
+
+        // Universal audio-reactive modulation — every architecture benefits
+        if (micReactive.active) {
+            // Bass pumps the scale
+            const bassScale = 1 + micReactive.bass * 0.08;
+            this.ctx.translate(this.width / 2, this.height / 2);
+            this.ctx.scale(bassScale, bassScale);
+            this.ctx.translate(-this.width / 2, -this.height / 2);
+
+            // Treble shifts hue (exposed as system.audioHueShift)
+            this.audioHueShift = micReactive.treble * 30;
+
+            // Beat triggers auto-shockwave at random position
+            if (micReactive.beat && this.tick % 8 === 0) {
+                this.createShockwave(
+                    this.width * 0.2 + this.rng() * this.width * 0.6,
+                    this.height * 0.2 + this.rng() * this.height * 0.6
+                );
+            }
+
+            // Volume modulates speed multiplier
+            this.speedMultiplier = Math.max(this.speedMultiplier, 1 + micReactive.volume * 8);
+        } else {
+            this.audioHueShift = 0;
         }
 
         // Draw cached gradient background
@@ -937,6 +981,13 @@ class BackgroundSystem {
             const s = this.shootingStars[i];
             s.x += s.vx; s.y += s.vy; s.life--;
             if (s.life <= 0) {
+                // Broadcast edge exit to other tabs so they can spawn arrival effects
+                if (tabSync.tabCount > 1 && (s.x < 0 || s.x > this.width || s.y < 0 || s.y > this.height)) {
+                    tabSync.sendEffect('particle-migrate', {
+                        x: Math.max(0, Math.min(1, s.x / this.width)),
+                        y: Math.max(0, Math.min(1, s.y / this.height))
+                    });
+                }
                 this.shootingStars[i] = this.shootingStars[this.shootingStars.length - 1];
                 this.shootingStars.pop();
                 continue;

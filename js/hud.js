@@ -10,6 +10,7 @@ import { tabSync } from './tab_sync.js';
 import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
 import { perfMonitor } from './perf_monitor.js';
+import { archSelector } from './arch_selector.js';
 
 export const hud = (() => {
     let container, blueprintEl, seedEl, mutatorEl, anomalyEl, fpsEl;
@@ -35,6 +36,9 @@ export const hud = (() => {
 
         blueprintEl = document.createElement('div');
         blueprintEl.id = 'blueprint-display';
+        blueprintEl.style.cursor = 'pointer';
+        blueprintEl.title = 'Click to browse architectures';
+        blueprintEl.addEventListener('click', () => archSelector.toggle());
 
         seedEl = document.createElement('span');
         seedEl.id = 'seed-capture';

@@ -26,6 +26,8 @@ import { hud } from './hud.js';
 import { inputToolbar } from './input_toolbar.js';
 import { perfMonitor } from './perf_monitor.js';
 import { touchGestures } from './touch_gestures.js';
+import { archSelector } from './arch_selector.js';
+import { screenshot } from './screenshot.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load ---
@@ -50,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     inputToolbar.init();
     perfMonitor.init();
     touchGestures.init();
+    archSelector.init();
+    screenshot.init();
 
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));

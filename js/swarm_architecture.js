@@ -89,6 +89,24 @@ export class SwarmArchitecture extends Architecture {
         const w = system.width;
         const h = system.height;
 
+        // Click spawns a burst of new boids at cursor
+        if (system.speedMultiplier > 5 && this.tick % 8 === 0 && this.boids.length < 500) {
+            const sp = this.species[Math.floor(system.rng() * this.species.length)];
+            for (let k = 0; k < 5; k++) {
+                const angle = system.rng() * Math.PI * 2;
+                const speed = sp.maxSpeed * (0.5 + system.rng() * 0.5);
+                this.boids.push({
+                    x: mouse.x + (system.rng() - 0.5) * 20,
+                    y: mouse.y + (system.rng() - 0.5) * 20,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    species: sp.id,
+                    phase: system.rng() * Math.PI * 2,
+                    _next: null, _idx: 0
+                });
+            }
+        }
+
         // Build spatial grid for O(n) neighbor queries
         const cellSize = 150; // covers max visualRange
         const cols = Math.ceil(w / cellSize) || 1;
@@ -201,8 +219,14 @@ export class SwarmArchitecture extends Architecture {
         const ctx = system.ctx;
         const tctx = this._trailCtx;
 
+        // Resize trail canvas if needed
+        if (tctx && (this._trailCanvas.width !== system.width || this._trailCanvas.height !== system.height)) {
+            this._trailCanvas.width = system.width;
+            this._trailCanvas.height = system.height;
+        }
+
         // Fade trail
-        if (tctx && this._trailCanvas.width === system.width) {
+        if (tctx) {
             tctx.fillStyle = `rgba(0,0,0,${this.fadeFactor})`;
             tctx.fillRect(0, 0, system.width, system.height);
 
@@ -221,41 +245,41 @@ export class SwarmArchitecture extends Architecture {
             ctx.drawImage(this._trailCanvas, 0, 0);
         }
 
-        // Draw boids
+        // Draw boids grouped by species to minimize state changes
         ctx.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < this.boids.length; i++) {
-            const b = this.boids[i];
-            const sp = this.species[b.species];
-            const pulse = 0.8 + Math.sin(this.tick * 0.05 + b.phase) * 0.2;
-
-            // Glow
+        for (let s = 0; s < this.species.length; s++) {
+            const sp = this.species[s];
+            // Set shadow once per species (cheaper than per-boid radial gradients)
             if (sp.glowSize > 0) {
-                const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, sp.glowSize * pulse);
-                g.addColorStop(0, `hsla(${sp.hue}, ${sp.sat}%, ${sp.light}%, 0.3)`);
-                g.addColorStop(1, 'transparent');
-                ctx.fillStyle = g;
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, sp.glowSize * pulse, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.shadowBlur = sp.glowSize;
+                ctx.shadowColor = `hsla(${sp.hue}, ${sp.sat}%, ${sp.light}%, 0.5)`;
+            } else {
+                ctx.shadowBlur = 0;
             }
 
-            // Body
-            ctx.fillStyle = `hsla(${sp.hue}, ${sp.sat}%, ${sp.light}%, ${0.7 + pulse * 0.3})`;
-            if (sp.shape === 'triangle') {
-                const angle = Math.atan2(b.vy, b.vx);
-                const sz = sp.size * pulse;
-                ctx.beginPath();
-                ctx.moveTo(b.x + Math.cos(angle) * sz * 2, b.y + Math.sin(angle) * sz * 2);
-                ctx.lineTo(b.x + Math.cos(angle + 2.5) * sz, b.y + Math.sin(angle + 2.5) * sz);
-                ctx.lineTo(b.x + Math.cos(angle - 2.5) * sz, b.y + Math.sin(angle - 2.5) * sz);
-                ctx.closePath();
-                ctx.fill();
-            } else {
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, sp.size * pulse, 0, Math.PI * 2);
-                ctx.fill();
+            for (let i = 0; i < this.boids.length; i++) {
+                const b = this.boids[i];
+                if (b.species !== s) continue;
+                const pulse = 0.8 + Math.sin(this.tick * 0.05 + b.phase) * 0.2;
+
+                ctx.fillStyle = `hsla(${sp.hue}, ${sp.sat}%, ${sp.light}%, ${0.7 + pulse * 0.3})`;
+                if (sp.shape === 'triangle') {
+                    const angle = Math.atan2(b.vy, b.vx);
+                    const sz = sp.size * pulse;
+                    ctx.beginPath();
+                    ctx.moveTo(b.x + Math.cos(angle) * sz * 2, b.y + Math.sin(angle) * sz * 2);
+                    ctx.lineTo(b.x + Math.cos(angle + 2.5) * sz, b.y + Math.sin(angle + 2.5) * sz);
+                    ctx.lineTo(b.x + Math.cos(angle - 2.5) * sz, b.y + Math.sin(angle - 2.5) * sz);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, sp.size * pulse, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
+        ctx.shadowBlur = 0;
         ctx.globalCompositeOperation = 'source-over';
     }
 }

@@ -15,6 +15,7 @@ export class PixelRainArchitecture extends Architecture {
         this.tick = 0;
         this.charSet = '';
         this.fontSize = 14;
+        this._fontStr = '14px monospace';
         this.palette = null;
         this.fadeAlpha = 0.05;
         this.direction = 'down'; // down, up, left, right
@@ -22,14 +23,18 @@ export class PixelRainArchitecture extends Architecture {
         this.density = 1;
         this.speedRange = [1, 3];
         this.glitchChance = 0;
+        this._glitchBurst = 0; // frames of glitch burst remaining
         this._rainCanvas = null;
         this._rainCtx = null;
+        this._rng = Math.random; // stored seeded rng for draw-time glitch
     }
 
     init(system) {
         const rng = system.rng;
         this.tick = 0;
         this.ripples = [];
+        this._glitchBurst = 0;
+        this._rng = rng;
 
         // Seed-driven character sets
         const charSets = [
@@ -53,6 +58,7 @@ export class PixelRainArchitecture extends Architecture {
         }
 
         this.fontSize = 10 + Math.floor(rng() * 12);
+        this._fontStr = `${this.fontSize}px monospace`; // cache font string
         this.fadeAlpha = 0.03 + rng() * 0.08;
         this.density = 0.5 + rng() * 0.5;
         this.speedRange = [0.5 + rng() * 1.5, 2 + rng() * 3];
@@ -130,6 +136,12 @@ export class PixelRainArchitecture extends Architecture {
         const isHorizontal = this.direction === 'left' || this.direction === 'right';
         const depth = isHorizontal ? system.width : system.height;
 
+        // Click triggers a glitch burst (20 frames of high-glitch)
+        if (system.speedMultiplier > 5) {
+            this._glitchBurst = 20;
+        }
+        if (this._glitchBurst > 0) this._glitchBurst--;
+
         // Update column positions
         for (let i = 0; i < this.columns.length; i++) {
             const col = this.columns[i];
@@ -178,6 +190,14 @@ export class PixelRainArchitecture extends Architecture {
                 this.ripples.pop();
             }
         }
+
+        // Resize rain canvas if needed
+        if (this._rainCanvas && (this._rainCanvas.width !== system.width || this._rainCanvas.height !== system.height)) {
+            this._rainCanvas.width = system.width;
+            this._rainCanvas.height = system.height;
+            this._rainCtx.fillStyle = '#000';
+            this._rainCtx.fillRect(0, 0, system.width, system.height);
+        }
     }
 
     draw(system) {
@@ -186,12 +206,15 @@ export class PixelRainArchitecture extends Architecture {
         const p = this.palette;
         const fs = this.fontSize;
         const isHorizontal = this.direction === 'left' || this.direction === 'right';
+        const rng = this._rng;
+        const glitchActive = this._glitchBurst > 0;
+        const effectiveGlitch = glitchActive ? 0.15 : this.glitchChance;
 
         // Fade old characters on rain canvas
         rctx.fillStyle = `rgba(0, 0, 0, ${this.fadeAlpha})`;
         rctx.fillRect(0, 0, system.width, system.height);
 
-        rctx.font = `${fs}px monospace`;
+        rctx.font = this._fontStr; // use cached font string
         rctx.textAlign = 'center';
 
         // Draw characters
@@ -199,7 +222,6 @@ export class PixelRainArchitecture extends Architecture {
             const col = this.columns[i];
 
             for (let j = 0; j < col.length; j++) {
-                const charIdx = j;
                 const brightness = 1 - (j / col.length);
                 const isHead = j === 0;
 
@@ -212,36 +234,57 @@ export class PixelRainArchitecture extends Architecture {
                     y = col.pos - j * fs * (this.direction === 'down' ? 1 : -1);
                 }
 
-                // Check ripple influence
+                // Check ripple influence (only check if ripples exist)
                 let rippleBoost = 0;
-                for (let r = 0; r < this.ripples.length; r++) {
-                    const rp = this.ripples[r];
-                    const dx = x - rp.x;
-                    const dy = y - rp.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (Math.abs(dist - rp.radius) < 20) {
-                        rippleBoost = Math.max(rippleBoost, rp.life * 0.5);
+                if (this.ripples.length > 0) {
+                    for (let r = 0; r < this.ripples.length; r++) {
+                        const rp = this.ripples[r];
+                        const dx = x - rp.x;
+                        const dy = y - rp.y;
+                        const distSq = dx * dx + dy * dy;
+                        const rDist = rp.radius;
+                        // Check if character is near the ripple ring (avoid sqrt)
+                        const inner = (rDist - 20) * (rDist - 20);
+                        const outer = (rDist + 20) * (rDist + 20);
+                        if (distSq > inner && distSq < outer) {
+                            rippleBoost = Math.max(rippleBoost, rp.life * 0.5);
+                        }
                     }
                 }
 
-                const lightness = isHead ? p.headL : p.l * brightness + rippleBoost * 30;
-                const alpha = isHead ? 1 : brightness * 0.8 + rippleBoost;
+                // Clamp lightness to valid 0-100 range
+                const rawLight = isHead ? p.headL : p.l * brightness + rippleBoost * 30;
+                const lightness = Math.min(100, Math.max(0, rawLight));
+                const alpha = Math.min(1, isHead ? 1 : brightness * 0.8 + rippleBoost);
 
-                // Glitch: randomly highlight chars
-                const isGlitch = Math.random() < this.glitchChance;
+                // Glitch: seeded random instead of Math.random for reproducibility
+                const isGlitch = rng() < effectiveGlitch;
 
                 if (isGlitch) {
-                    rctx.fillStyle = `hsla(${p.h + 180}, 100%, 90%, 1)`;
+                    rctx.fillStyle = `hsla(${(p.h + 180) % 360}, 100%, 90%, 1)`;
                     rctx.shadowBlur = 10;
-                    rctx.shadowColor = `hsl(${p.h + 180}, 100%, 70%)`;
+                    rctx.shadowColor = `hsl(${(p.h + 180) % 360}, 100%, 70%)`;
                 } else {
                     rctx.fillStyle = `hsla(${p.h}, ${p.s}%, ${lightness}%, ${alpha})`;
                     rctx.shadowBlur = isHead ? 8 : 0;
                     rctx.shadowColor = isHead ? `hsl(${p.h}, ${p.s}%, ${p.headL}%)` : 'transparent';
                 }
 
-                rctx.fillText(col.chars[charIdx], x, y);
-                rctx.shadowBlur = 0;
+                rctx.fillText(col.chars[j], x, y);
+            }
+        }
+        rctx.shadowBlur = 0;
+
+        // Glitch burst: horizontal line displacement effect
+        if (glitchActive) {
+            const numSlices = 3 + Math.floor(rng() * 5);
+            for (let s = 0; s < numSlices; s++) {
+                const sliceY = Math.floor(rng() * system.height);
+                const sliceH = 2 + Math.floor(rng() * 20);
+                const shift = Math.floor((rng() - 0.5) * 40);
+                // Copy a horizontal slice and offset it
+                const imgData = rctx.getImageData(0, sliceY, system.width, sliceH);
+                rctx.putImageData(imgData, shift, sliceY);
             }
         }
 
@@ -249,15 +292,17 @@ export class PixelRainArchitecture extends Architecture {
         ctx.drawImage(this._rainCanvas, 0, 0);
 
         // Draw ripple rings
-        ctx.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < this.ripples.length; i++) {
-            const r = this.ripples[i];
-            ctx.strokeStyle = `hsla(${p.h}, ${p.s}%, ${p.headL}%, ${r.life * 0.3})`;
+        if (this.ripples.length > 0) {
+            ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-            ctx.stroke();
+            for (let i = 0; i < this.ripples.length; i++) {
+                const r = this.ripples[i];
+                ctx.strokeStyle = `hsla(${p.h}, ${p.s}%, ${p.headL}%, ${r.life * 0.3})`;
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.globalCompositeOperation = 'source-over';
         }
-        ctx.globalCompositeOperation = 'source-over';
     }
 }

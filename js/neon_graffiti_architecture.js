@@ -248,18 +248,23 @@ export class NeonGraffitiArchitecture extends Architecture {
     _bakeStrokes(system, count) {
         const ctx = this._paintCtx;
         ctx.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < count && i < this.strokes.length; i++) {
+        ctx.lineCap = 'round';
+        const bakeCount = Math.min(count, this.strokes.length);
+        for (let i = 0; i < bakeCount; i++) {
             const s = this.strokes[i];
             ctx.strokeStyle = `hsla(${s.color.h}, ${s.color.s}%, ${s.color.l}%, ${s.alpha * 0.5})`;
             ctx.lineWidth = s.width;
-            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(s.x1, s.y1);
             ctx.lineTo(s.x2, s.y2);
             ctx.stroke();
         }
         ctx.globalCompositeOperation = 'source-over';
-        this.strokes.splice(0, count);
+        // Shift remaining strokes to front (avoids O(n) splice)
+        if (bakeCount < this.strokes.length) {
+            this.strokes.copyWithin(0, bakeCount);
+        }
+        this.strokes.length -= bakeCount;
     }
 
     draw(system) {
@@ -268,21 +273,21 @@ export class NeonGraffitiArchitecture extends Architecture {
         // Draw persistent paint layer
         ctx.drawImage(this._paintCanvas, 0, 0);
 
-        // Draw neon tubes with glow
+        // Draw neon tubes with glow (single pass with strong shadowBlur)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         for (let i = 0; i < this.neonTubes.length; i++) {
             const tube = this.neonTubes[i];
             const flicker = tube.flicker
                 ? (Math.sin(this.tick * this.flickerRate * 20 + tube.phase) > -0.3 ? 1 : 0.1)
                 : 1;
 
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.shadowBlur = 20 * flicker;
-            ctx.shadowColor = `hsla(${tube.color.h}, ${tube.color.s}%, ${tube.color.l}%, ${0.8 * flicker})`;
-            ctx.strokeStyle = `hsla(${tube.color.h}, ${tube.color.s}%, ${tube.color.l + 20}%, ${0.9 * flicker})`;
-            ctx.lineWidth = tube.width;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            ctx.shadowBlur = 35 * flicker;
+            ctx.shadowColor = `hsla(${tube.color.h}, ${tube.color.s}%, ${tube.color.l}%, ${0.9 * flicker})`;
+            ctx.strokeStyle = `hsla(${tube.color.h}, ${tube.color.s}%, ${Math.min(100, tube.color.l + 20)}%, ${0.9 * flicker})`;
+            ctx.lineWidth = tube.width + 2;
 
             if (tube.type === 'circle') {
                 ctx.beginPath();
@@ -296,44 +301,26 @@ export class NeonGraffitiArchitecture extends Architecture {
                 }
                 ctx.stroke();
             }
-
-            // Double glow pass
-            ctx.shadowBlur = 40 * flicker;
-            ctx.globalAlpha = 0.3 * flicker;
-            ctx.lineWidth = tube.width + 4;
-            if (tube.type === 'circle') {
-                ctx.beginPath();
-                ctx.arc(tube.x, tube.y, tube.radius, 0, Math.PI * 2);
-                ctx.stroke();
-            } else {
-                ctx.beginPath();
-                ctx.moveTo(tube.points[0].x, tube.points[0].y);
-                for (let j = 1; j < tube.points.length; j++) {
-                    ctx.lineTo(tube.points[j].x, tube.points[j].y);
-                }
-                ctx.stroke();
-            }
-            ctx.restore();
         }
+        ctx.restore();
 
-        // Draw live strokes with neon glow
+        // Draw live strokes with neon glow (save/restore outside loop)
+        ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        ctx.shadowBlur = 12;
+        ctx.lineCap = 'round';
         for (let i = 0; i < this.strokes.length; i++) {
             const s = this.strokes[i];
             if (s.alpha < 0.01) continue;
-
-            ctx.save();
-            ctx.shadowBlur = 12;
             ctx.shadowColor = `hsla(${s.color.h}, ${s.color.s}%, ${s.color.l}%, ${s.alpha})`;
-            ctx.strokeStyle = `hsla(${s.color.h}, ${s.color.s}%, ${s.color.l + 15}%, ${s.alpha})`;
+            ctx.strokeStyle = `hsla(${s.color.h}, ${s.color.s}%, ${Math.min(100, s.color.l + 15)}%, ${s.alpha})`;
             ctx.lineWidth = s.width;
-            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(s.x1, s.y1);
             ctx.lineTo(s.x2, s.y2);
             ctx.stroke();
-            ctx.restore();
         }
+        ctx.restore();
 
         // Draw splats
         for (let i = 0; i < this.splats.length; i++) {
@@ -349,19 +336,26 @@ export class NeonGraffitiArchitecture extends Architecture {
             ctx.fill();
         }
 
-        // Draw drips
+        // Draw drips (batch: bodies first, then tips with glow)
         for (let i = 0; i < this.drips.length; i++) {
             const d = this.drips[i];
             const alpha = Math.min(1, d.life / 50);
             ctx.fillStyle = `hsla(${d.color.h}, ${d.color.s}%, ${d.color.l}%, ${alpha * 0.7})`;
             ctx.fillRect(d.x - d.width / 2, d.startY, d.width, d.y - d.startY);
-            // Drip tip glow
+        }
+        // Drip tips with glow (single save/restore)
+        if (this.drips.length > 0) {
             ctx.save();
             ctx.shadowBlur = 6;
-            ctx.shadowColor = `hsla(${d.color.h}, ${d.color.s}%, ${d.color.l}%, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(d.x, d.y, d.width, 0, Math.PI * 2);
-            ctx.fill();
+            for (let i = 0; i < this.drips.length; i++) {
+                const d = this.drips[i];
+                const alpha = Math.min(1, d.life / 50);
+                ctx.shadowColor = `hsla(${d.color.h}, ${d.color.s}%, ${d.color.l}%, ${alpha})`;
+                ctx.fillStyle = `hsla(${d.color.h}, ${d.color.s}%, ${d.color.l}%, ${alpha * 0.7})`;
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.width, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.restore();
         }
 

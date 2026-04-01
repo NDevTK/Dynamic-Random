@@ -149,7 +149,7 @@ export class GravityMarblesArchitecture extends Architecture {
                 if (m.x - m.radius > w) m.x = -m.radius;
             }
 
-            // Marble-marble collisions
+            // Marble-marble collisions (early out with distance squared)
             for (let j = i + 1; j < this.marbles.length; j++) {
                 const o = this.marbles[j];
                 const cdx = o.x - m.x;
@@ -188,6 +188,9 @@ export class GravityMarblesArchitecture extends Architecture {
                 }
             }
         }
+
+        // Sort by depth for draw order (done in update, not draw)
+        this.marbles.sort((a, b) => a.y - b.y);
     }
 
     draw(system) {
@@ -230,32 +233,30 @@ export class GravityMarblesArchitecture extends Architecture {
         ctx.lineTo(system.width, this.floorY);
         ctx.stroke();
 
-        // Draw marbles (sorted by y for depth) - sort in-place to avoid allocation
-        this.marbles.sort((a, b) => a.y - b.y);
-        const sorted = this.marbles;
-
-        for (let i = 0; i < sorted.length; i++) {
-            const m = sorted[i];
+        // Draw marbles sorted by y for depth (sort in update to avoid draw-phase work)
+        for (let i = 0; i < this.marbles.length; i++) {
+            const m = this.marbles[i];
             const mat = m.material;
             const r = m.radius;
             const sq = m.squash;
             const stretchX = 1 + (1 - sq) * 0.5;
             const stretchY = sq;
 
+            // Shadow (drawn in world space, not squash-rotated)
             ctx.save();
-            ctx.translate(m.x, m.y);
-            ctx.scale(stretchX, stretchY);
-            ctx.rotate(m.rotation);
-
-            // Shadow
-            ctx.save();
-            ctx.translate(0, r * 0.3);
+            ctx.translate(m.x, m.y + r * 0.3);
             ctx.scale(1, 0.3);
             ctx.fillStyle = 'rgba(0,0,0,0.2)';
             ctx.beginPath();
             ctx.arc(0, 0, r * 1.1, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+
+            // Marble body with squash/stretch
+            ctx.save();
+            ctx.translate(m.x, m.y);
+            ctx.scale(stretchX, stretchY);
+            ctx.rotate(m.rotation);
 
             if (mat.type === 'glass') {
                 // Translucent with highlight
@@ -339,7 +340,7 @@ export class GravityMarblesArchitecture extends Architecture {
                 ctx.closePath();
                 ctx.fill();
                 // Internal facets
-                ctx.strokeStyle = `hsla(${mat.hue}, ${mat.sat}%, ${mat.light + 20}%, 0.4)`;
+                ctx.strokeStyle = `hsla(${mat.hue}, ${mat.sat}%, ${Math.min(100, mat.light + 20)}%, 0.4)`;
                 ctx.lineWidth = 1;
                 for (let s = 0; s < sides; s++) {
                     const a = (s / sides) * Math.PI * 2;

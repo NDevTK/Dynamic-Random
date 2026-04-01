@@ -103,13 +103,13 @@ export class FireworksArchitecture extends Architecture {
         const targetY = system.height * (0.15 + rng() * 0.35);
         const color = this.palette[Math.floor(rng() * this.palette.length)];
         const style = this.styles[Math.floor(rng() * this.styles.length)];
-        const angle = Math.atan2(targetY - this.groundY, launchX - launchX + (rng() - 0.5) * 40);
+        const drift = (rng() - 0.5) * 40;
         const speed = this.rocketSpeed + rng() * 3;
 
         this.rockets.push({
             x: launchX,
             y: this.groundY,
-            vx: (rng() - 0.5) * 1.5,
+            vx: drift * 0.03 + (rng() - 0.5) * 1.5,
             vy: -speed - rng() * 2,
             targetY,
             color,
@@ -382,6 +382,17 @@ export class FireworksArchitecture extends Architecture {
             p.vy *= 0.99;
             p.life--;
 
+            // Gravity well attracts/repels firework particles
+            if (system.isGravityWell) {
+                const dx = mouse.x - p.x;
+                const dy = mouse.y - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 5 && dist < 300) {
+                    p.vx += (dx / dist) * 0.3;
+                    p.vy += (dy / dist) * 0.3;
+                }
+            }
+
             if (p.life <= 0) {
                 this._recyclePart(p);
                 this.particles[i] = this.particles[this.particles.length - 1];
@@ -407,8 +418,14 @@ export class FireworksArchitecture extends Architecture {
         const ctx = system.ctx;
         const tctx = this._trailCtx;
 
+        // Resize trail canvas if needed
+        if (tctx && (this._trailCanvas.width !== system.width || this._trailCanvas.height !== system.height)) {
+            this._trailCanvas.width = system.width;
+            this._trailCanvas.height = system.height;
+        }
+
         // Fade trail canvas
-        if (tctx && this._trailCanvas.width === system.width) {
+        if (tctx) {
             tctx.fillStyle = `rgba(0,0,0,${this.trailFade})`;
             tctx.fillRect(0, 0, system.width, system.height);
         }
@@ -431,24 +448,19 @@ export class FireworksArchitecture extends Architecture {
             ctx.drawImage(this._trailCanvas, 0, 0);
         }
 
-        // Draw rockets
+        // Draw rockets with glow via shadowBlur (avoids per-rocket gradient creation)
         ctx.globalCompositeOperation = 'lighter';
+        ctx.save();
+        ctx.shadowBlur = 15;
         for (let i = 0; i < this.rockets.length; i++) {
             const r = this.rockets[i];
+            ctx.shadowColor = `hsla(${r.color.h}, 100%, 90%, 0.8)`;
             ctx.fillStyle = `hsla(${r.color.h}, ${r.color.s}%, 80%, 1)`;
             ctx.beginPath();
-            ctx.arc(r.x, r.y, 2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Bright glow around rocket
-            const g = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, 15);
-            g.addColorStop(0, `hsla(${r.color.h}, 100%, 90%, 0.6)`);
-            g.addColorStop(1, 'transparent');
-            ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(r.x, r.y, 15, 0, Math.PI * 2);
+            ctx.arc(r.x, r.y, 3, 0, Math.PI * 2);
             ctx.fill();
         }
+        ctx.restore();
 
         // Draw live particles with glow
         for (let i = 0; i < this.particles.length; i++) {

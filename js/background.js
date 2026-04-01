@@ -64,6 +64,11 @@ import { FractalExplorerArchitecture } from './fractal_explorer_architecture.js'
 import { SpirographArchitecture } from './spirograph_architecture.js';
 import { TruchetArchitecture } from './truchet_architecture.js';
 import { LSystemArchitecture } from './lsystem_architecture.js';
+import { FireworksArchitecture } from './fireworks_architecture.js';
+import { SwarmArchitecture } from './swarm_architecture.js';
+import { NeonGraffitiArchitecture } from './neon_graffiti_architecture.js';
+import { GravityMarblesArchitecture } from './gravity_marbles_architecture.js';
+import { PixelRainArchitecture } from './pixel_rain_architecture.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
@@ -123,13 +128,19 @@ export const ALL_ARCHITECTURES = [
     () => new FractalExplorerArchitecture(),
     () => new SpirographArchitecture(),
     () => new TruchetArchitecture(),
-    () => new LSystemArchitecture()
+    () => new LSystemArchitecture(),
+    () => new FireworksArchitecture(),
+    () => new SwarmArchitecture(),
+    () => new NeonGraffitiArchitecture(),
+    () => new GravityMarblesArchitecture(),
+    () => new PixelRainArchitecture()
 ];
 
-// Cached constructor names to avoid creating throwaway instances in cycleArchitecture()
+// Extract constructor names from factory functions without instantiating them.
+// Each factory is `() => new FooArchitecture()`, so we parse the class name from toString().
 const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
-    const instance = fn();
-    return instance.constructor.name;
+    const match = fn.toString().match(/new\s+(\w+)/);
+    return match ? match[1] : 'Unknown';
 });
 
 // Display-friendly names for the architecture selector UI
@@ -514,6 +525,17 @@ class BackgroundSystem {
         // Spirograph: harmonic/sonic/mechanical themes
         const spirographBlueprints = ['SonicScapes', 'ChronoVerse', 'Classical', 'Papercraft', 'GlacialDrift', 'Crystalline'];
 
+        // Fireworks: celebratory/cosmic/forge themes
+        const fireworksBlueprints = ['CelestialForge', 'StarForged', 'StellarNursery', 'LivingConstellation', 'NeonCyber', 'Classical'];
+        // Swarm: organic/bio/swarm themes
+        const swarmBlueprints = ['SentientSwarm', 'BioMechanical', 'Organic', 'FungalForest', 'CoralReef', 'HauntedRealm'];
+        // Neon graffiti: urban/neon/artistic themes
+        const neonGraffitiBlueprints = ['NeonCyber', 'Painterly', 'LivingInk', 'TechnoUtopia', 'ChromaticAberration'];
+        // Gravity marbles: physics/glass/forge themes
+        const gravityMarblesBlueprints = ['Crystalline', 'GlassySea', 'VolcanicForge', 'MoltenHeart', 'GooeyMess', 'Papercraft'];
+        // Pixel rain: digital/cyber/code themes
+        const pixelRainBlueprints = ['Digital', 'NeonCyber', 'TechnoUtopia', 'ArcaneCodex', 'ChronoVerse', 'Eldritch'];
+
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
@@ -605,6 +627,26 @@ class BackgroundSystem {
         // Spirograph: harmonic/mechanical themes
         else if (spirographBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new SpirographArchitecture();
+        }
+        // Fireworks: celebratory/cosmic themes
+        else if (fireworksBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new FireworksArchitecture();
+        }
+        // Swarm: organic/bio themes
+        else if (swarmBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SwarmArchitecture();
+        }
+        // Neon graffiti: urban/neon themes
+        else if (neonGraffitiBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new NeonGraffitiArchitecture();
+        }
+        // Gravity marbles: physics/glass themes
+        else if (gravityMarblesBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GravityMarblesArchitecture();
+        }
+        // Pixel rain: digital/cyber themes
+        else if (pixelRainBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new PixelRainArchitecture();
         }
         // Speech typography: literary/sonic themes
         else if (speechTypographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {

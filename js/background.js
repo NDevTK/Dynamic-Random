@@ -69,6 +69,11 @@ import { SwarmArchitecture } from './swarm_architecture.js';
 import { NeonGraffitiArchitecture } from './neon_graffiti_architecture.js';
 import { GravityMarblesArchitecture } from './gravity_marbles_architecture.js';
 import { PixelRainArchitecture } from './pixel_rain_architecture.js';
+import { PlasmaBallArchitecture } from './plasma_ball_architecture.js';
+import { MosaicArchitecture } from './mosaic_architecture.js';
+import { GravityPaintArchitecture } from './gravity_paint_architecture.js';
+import { WormholeArchitecture } from './wormhole_architecture.js';
+import { EcosystemArchitecture } from './ecosystem_architecture.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
@@ -133,7 +138,12 @@ export const ALL_ARCHITECTURES = [
     () => new SwarmArchitecture(),
     () => new NeonGraffitiArchitecture(),
     () => new GravityMarblesArchitecture(),
-    () => new PixelRainArchitecture()
+    () => new PixelRainArchitecture(),
+    () => new PlasmaBallArchitecture(),
+    () => new MosaicArchitecture(),
+    () => new GravityPaintArchitecture(),
+    () => new WormholeArchitecture(),
+    () => new EcosystemArchitecture()
 ];
 
 // Extract constructor names from factory functions without instantiating them.
@@ -536,6 +546,17 @@ class BackgroundSystem {
         // Pixel rain: digital/cyber/code themes
         const pixelRainBlueprints = ['Digital', 'NeonCyber', 'TechnoUtopia', 'ArcaneCodex', 'ChronoVerse', 'Eldritch'];
 
+        // Plasma ball: electric/energy/forge themes
+        const plasmaBallBlueprints = ['StarForged', 'CelestialForge', 'VolcanicForge', 'MoltenHeart', 'NeonCyber', 'Eldritch', 'QuantumFoam'];
+        // Mosaic: crystalline/geometric/paper themes
+        const mosaicBlueprints = ['Papercraft', 'Crystalline', 'GlassySea', 'ArcaneCodex', 'Classical', 'Geometric'];
+        // Gravity paint: painterly/ink/fluid themes
+        const gravityPaintBlueprints = ['Painterly', 'LivingInk', 'ChromaticAberration', 'GooeyMess', 'Aetherial', 'MoltenHeart'];
+        // Wormhole: void/phantom/quantum themes
+        const wormholeBlueprints = ['VoidTouched', 'PhantomEcho', 'QuantumFoam', 'ChronoVerse', 'Eldritch', 'AbyssalHorror'];
+        // Ecosystem: organic/bio/swarm themes
+        const ecosystemBlueprints = ['SentientSwarm', 'Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'AbyssalZone'];
+
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
@@ -647,6 +668,26 @@ class BackgroundSystem {
         // Pixel rain: digital/cyber themes
         else if (pixelRainBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new PixelRainArchitecture();
+        }
+        // Plasma ball: electric/energy themes
+        else if (plasmaBallBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new PlasmaBallArchitecture();
+        }
+        // Mosaic: geometric/craft themes
+        else if (mosaicBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new MosaicArchitecture();
+        }
+        // Gravity paint: painterly/fluid themes
+        else if (gravityPaintBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GravityPaintArchitecture();
+        }
+        // Wormhole: void/quantum themes
+        else if (wormholeBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new WormholeArchitecture();
+        }
+        // Ecosystem: organic/bio themes
+        else if (ecosystemBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new EcosystemArchitecture();
         }
         // Speech typography: literary/sonic themes
         else if (speechTypographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {
@@ -788,12 +829,15 @@ class BackgroundSystem {
     }
 
     createShockwave(x, y, fromRemote) {
+        // Cap shockwaves to prevent unbounded growth
+        if (this.shockwaves.length >= 15) return;
         this.shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(this.width, this.height) * 0.8, speed: 10, strength: 2, alpha: 1 });
         // Broadcast to other tabs (normalized coordinates)
         if (!fromRemote && tabSync.tabCount > 1) {
             tabSync.sendEffect('shockwave', { x: x / this.width, y: y / this.height });
         }
-        for(let i=0; i<30; i++) {
+        const sparkCount = Math.min(30, 500 - this.sparks.length); // cap total sparks at 500
+        for(let i=0; i<sparkCount; i++) {
             const angle = this.rng() * Math.PI * 2; const speed = this.rng() * 10 + 5;
             let spark = this.sparkPool.length > 0 ? this.sparkPool.pop() : {};
             spark.x = x; spark.y = y;
@@ -1222,8 +1266,8 @@ class BackgroundSystem {
             ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2); ctx.stroke();
         }
 
-        // Shooting Stars (seed-dependent frequency and color)
-        if (this.rng() < 0.005) {
+        // Shooting Stars (seed-dependent frequency and color) — capped for performance
+        if (this.shootingStars.length < 20 && this.rng() < 0.005) {
             const hue = (this.hue + this.rng() * 60) % 360;
             const isBright = this.rng() > 0.7;
             this.shootingStars.push({

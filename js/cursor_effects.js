@@ -911,13 +911,17 @@ function drawConstellation(sys) {
     ctx.save(); ctx.translate(mx, my);
     ctx.globalCompositeOperation = 'lighter';
 
-    const positions = state.nodes.map(n => {
+    // Reuse position objects to avoid per-frame allocations
+    if (!state._positions || state._positions.length !== state.nodes.length) {
+        state._positions = state.nodes.map(() => ({ x: 0, y: 0 }));
+    }
+    const positions = state._positions;
+    for (let i = 0; i < state.nodes.length; i++) {
+        const n = state.nodes[i];
         n.angle += n.driftSpeed;
-        return {
-            x: Math.cos(n.angle) * n.dist,
-            y: Math.sin(n.angle) * n.dist
-        };
-    });
+        positions[i].x = Math.cos(n.angle) * n.dist;
+        positions[i].y = Math.sin(n.angle) * n.dist;
+    }
 
     // Lines
     ctx.lineWidth = 0.8;
@@ -1818,8 +1822,13 @@ function drawHolographic(sys) {
         state.glitchOffset.y *= 0.8;
     }
 
-    // Project vertices to 2D
-    const projected = state.vertices.map(v => {
+    // Project vertices to 2D (reuse objects to avoid per-frame allocations)
+    if (!state._projected || state._projected.length !== state.vertices.length) {
+        state._projected = state.vertices.map(() => ({ x: 0, y: 0, z: 0 }));
+    }
+    const projected = state._projected;
+    for (let i = 0; i < state.vertices.length; i++) {
+        const v = state.vertices[i];
         // Rotate around Y axis
         let x = v[0] * cosY - v[2] * sinY;
         let z = v[0] * sinY + v[2] * cosY;
@@ -1833,10 +1842,10 @@ function drawHolographic(sys) {
 
         // Perspective projection
         const perspDiv = z + 4;
-        const px = (x / perspDiv) * scale + state.glitchOffset.x;
-        const py = (y / perspDiv) * scale + state.glitchOffset.y;
-        return { x: px, y: py, z: z };
-    });
+        projected[i].x = (x / perspDiv) * scale + state.glitchOffset.x;
+        projected[i].y = (y / perspDiv) * scale + state.glitchOffset.y;
+        projected[i].z = z;
+    }
 
     ctx.save();
     ctx.translate(mx, my);

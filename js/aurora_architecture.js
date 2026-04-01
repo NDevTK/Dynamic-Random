@@ -5,7 +5,7 @@
  */
 
 import { Architecture } from './background_architectures.js';
-import { mouse } from './state.js';
+import { mouse, isLeftMouseDown } from './state.js';
 import { lissajousCurve } from './math_patterns.js';
 
 export class AuroraArchitecture extends Architecture {
@@ -105,29 +105,37 @@ export class AuroraArchitecture extends Architecture {
     update(system) {
         this.magneticPulse += this.windSpeed;
 
-        // Mouse creates magnetic disruptions
         const mx = mouse.x;
         const my = mouse.y;
 
+        // Right-click: strong disruption
         if (system.isGravityWell) {
-            // Strong disruption on right-click
+            if (this.disruptions.length < 10) {
+                this.disruptions.push({
+                    x: mx, y: my,
+                    radius: 0, maxRadius: 400,
+                    speed: 8, strength: 50, life: 1.0
+                });
+            }
+        }
+
+        // Left-click: aurora burst — spawns a bright flare disruption
+        if (isLeftMouseDown && system.tick % 12 === 0 && this.disruptions.length < 10) {
             this.disruptions.push({
                 x: mx, y: my,
-                radius: 0,
-                maxRadius: 400,
-                speed: 8,
-                strength: 50,
-                life: 1.0
+                radius: 0, maxRadius: 250,
+                speed: 5, strength: 80, life: 1.0
             });
         }
 
-        // Update disruptions
+        // Update disruptions (swap-and-pop instead of splice)
         for (let i = this.disruptions.length - 1; i >= 0; i--) {
             const d = this.disruptions[i];
             d.radius += d.speed;
             d.life = 1 - (d.radius / d.maxRadius);
             if (d.life <= 0) {
-                this.disruptions.splice(i, 1);
+                this.disruptions[i] = this.disruptions[this.disruptions.length - 1];
+                this.disruptions.pop();
             }
         }
     }
@@ -137,11 +145,13 @@ export class AuroraArchitecture extends Architecture {
         const tick = system.tick;
         const mx = mouse.x;
         const my = mouse.y;
+        const qualityScale = system.qualityScale || 1;
 
-        // Stars first (behind aurora) - batch by color for fewer state changes
+        // Stars first (behind aurora) - skip some at low quality
         ctx.save();
         ctx.fillStyle = '#fff';
-        for (let i = 0; i < this.groundStars.length; i++) {
+        const starStep = qualityScale < 0.5 ? 3 : qualityScale < 0.75 ? 2 : 1;
+        for (let i = 0; i < this.groundStars.length; i += starStep) {
             const s = this.groundStars[i];
             const twinkle = Math.sin(tick * s.twinkleSpeed + s.twinkle) * 0.3 + 0.7;
             ctx.globalAlpha = s.alpha * twinkle;
@@ -157,8 +167,9 @@ export class AuroraArchitecture extends Architecture {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        const step = 5; // Wider step for performance (was 3)
-        const bands = 4; // Number of vertical bands to approximate gradient
+        // Scale step by quality — wider steps = fewer fillRect calls
+        const step = qualityScale < 0.5 ? 10 : qualityScale < 0.75 ? 7 : 5;
+        const bands = qualityScale < 0.5 ? 2 : 4;
 
         for (let ci = 0; ci < this.curtains.length; ci++) {
             const curtain = this.curtains[ci];

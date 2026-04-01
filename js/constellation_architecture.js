@@ -7,7 +7,7 @@
  */
 
 import { Architecture } from './background_architectures.js';
-import { mouse } from './state.js';
+import { mouse, isLeftMouseDown } from './state.js';
 import { vogelSpiral, fibonacciSpiral } from './math_patterns.js';
 
 export class ConstellationArchitecture extends Architecture {
@@ -23,6 +23,7 @@ export class ConstellationArchitecture extends Architecture {
         this.colorTemp = 0; // 0=warm, 1=cool, 2=mixed
         this.twinkleBase = 0;
         this.revealedLinks = [];
+        this.novaBursts = []; // click-triggered stellar flares
     }
 
     init(system) {
@@ -261,13 +262,38 @@ export class ConstellationArchitecture extends Architecture {
             ss.y += ss.vy;
             ss.life--;
             if (ss.life <= 0) {
-                this.shootingStars.splice(i, 1);
+                this.shootingStars[i] = this.shootingStars[this.shootingStars.length - 1];
+                this.shootingStars.pop();
             }
         }
+
+        // Cap shooting stars
+        while (this.shootingStars.length > 10) this.shootingStars.shift();
 
         // Drift nebula patches
         for (const p of this.nebulaPatches) {
             p.rotation += p.drift * 0.001;
+        }
+
+        // Click creates nova burst — bright stellar flare at cursor
+        if (isLeftMouseDown && system.tick % 15 === 0 && this.novaBursts.length < 5) {
+            this.novaBursts.push({
+                x: mx, y: my,
+                radius: 5, maxRadius: 150 + system.rng() * 100,
+                life: 40, maxLife: 40,
+                hue: system.rng() * 360
+            });
+        }
+
+        // Update nova bursts
+        for (let i = this.novaBursts.length - 1; i >= 0; i--) {
+            const n = this.novaBursts[i];
+            n.life--;
+            n.radius += (n.maxRadius - n.radius) * 0.1;
+            if (n.life <= 0) {
+                this.novaBursts[i] = this.novaBursts[this.novaBursts.length - 1];
+                this.novaBursts.pop();
+            }
         }
 
         // Gravity well scatters nearby constellations visually
@@ -286,31 +312,42 @@ export class ConstellationArchitecture extends Architecture {
     draw(system) {
         const ctx = system.ctx;
         const tick = system.tick;
+        const qualityScale = system.qualityScale || 1;
 
-        // Draw nebula backdrop
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        for (const patch of this.nebulaPatches) {
+        // Draw nebula backdrop (simplified: concentric circles instead of per-frame gradient)
+        if (qualityScale > 0.3) {
             ctx.save();
-            ctx.translate(patch.x, patch.y);
-            ctx.rotate(patch.rotation);
-            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, patch.rx);
-            grad.addColorStop(0, `hsla(${patch.hue}, 60%, 30%, ${patch.alpha})`);
-            grad.addColorStop(0.5, `hsla(${(patch.hue + 30) % 360}, 50%, 20%, ${patch.alpha * 0.5})`);
-            grad.addColorStop(1, 'transparent');
-            ctx.fillStyle = grad;
-            ctx.scale(1, patch.ry / patch.rx);
-            ctx.beginPath();
-            ctx.arc(0, 0, patch.rx, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const patch of this.nebulaPatches) {
+                ctx.save();
+                ctx.translate(patch.x, patch.y);
+                ctx.rotate(patch.rotation);
+                ctx.scale(1, patch.ry / patch.rx);
+                // Inner core
+                ctx.fillStyle = `hsla(${patch.hue}, 60%, 30%, ${patch.alpha})`;
+                ctx.beginPath();
+                ctx.arc(0, 0, patch.rx * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                // Mid ring
+                ctx.fillStyle = `hsla(${(patch.hue + 30) % 360}, 50%, 20%, ${patch.alpha * 0.4})`;
+                ctx.beginPath();
+                ctx.arc(0, 0, patch.rx * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+                // Outer haze
+                ctx.fillStyle = `hsla(${patch.hue}, 40%, 15%, ${patch.alpha * 0.15})`;
+                ctx.beginPath();
+                ctx.arc(0, 0, patch.rx, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.globalCompositeOperation = 'source-over';
             ctx.restore();
         }
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.restore();
 
-        // Draw stars
+        // Draw stars — skip dim unrevealed stars at low quality
         ctx.save();
         for (const star of this.stars) {
+            if (qualityScale < 0.5 && star.sizeClass === 'dim' && star.revealed < 0.1) continue;
             const twinkle = Math.sin(tick * star.twinkleSpeed + star.twinklePhase + this.twinkleBase) * 0.3 + 0.7;
             const revealBoost = star.revealed * 0.5;
             const alpha = Math.min(1, (star.brightness + revealBoost) * twinkle);
@@ -423,5 +460,46 @@ export class ConstellationArchitecture extends Architecture {
         }
         ctx.globalCompositeOperation = 'source-over';
         ctx.restore();
+
+        // Draw nova bursts (click-triggered stellar flares)
+        if (this.novaBursts.length > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const n of this.novaBursts) {
+                const progress = 1 - n.life / n.maxLife;
+                const alpha = (1 - progress) * 0.6;
+
+                // Bright core
+                ctx.fillStyle = `hsla(${n.hue}, 40%, 90%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.radius * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Expanding ring
+                ctx.strokeStyle = `hsla(${n.hue}, 70%, 70%, ${alpha * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Outer glow
+                ctx.fillStyle = `hsla(${n.hue}, 60%, 50%, ${alpha * 0.1})`;
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.radius * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Cross-spike flare
+                const spikeLen = n.radius * 1.2 * (1 - progress);
+                ctx.strokeStyle = `hsla(${n.hue}, 50%, 80%, ${alpha * 0.4})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(n.x - spikeLen, n.y);
+                ctx.lineTo(n.x + spikeLen, n.y);
+                ctx.moveTo(n.x, n.y - spikeLen);
+                ctx.lineTo(n.x, n.y + spikeLen);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
     }
 }

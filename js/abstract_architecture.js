@@ -138,7 +138,7 @@ export class AbstractArchitecture extends Architecture {
         const newBlobs = [];
         this.blobs.forEach(b => {
             const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-            if (speed > 3 && this.blobs.length + newBlobs.length < 16 && Math.random() < 0.005) {
+            if (speed > 3 && this.blobs.length + newBlobs.length < 16 && system.rng() < 0.005) {
                 // Split into two smaller blobs with opposite velocities
                 const halfRadius = b.radius * 0.5;
                 b.radius = halfRadius;
@@ -234,6 +234,7 @@ export class AbstractArchitecture extends Architecture {
     draw(system) {
         const ctx = system.ctx;
         const tick = system.tick;
+        const qualityScale = system.qualityScale || 1;
 
         // Draw floating particles (replaces splatters)
         this.floatingParticles.forEach(fp => {
@@ -249,25 +250,30 @@ export class AbstractArchitecture extends Architecture {
             const h = (b.hue + Math.sin(tick * 0.005) * 20 + 360) % 360;
             const effectiveRadius = b.radius * b.shockScale;
 
-            // -- Glow halo behind each blob --
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            const haloGrad = ctx.createRadialGradient(b.x, b.y, effectiveRadius * 0.5, b.x, b.y, effectiveRadius * 1.4);
-            haloGrad.addColorStop(0, `hsla(${h}, 70%, 50%, 0.12)`);
-            haloGrad.addColorStop(0.6, `hsla(${h}, 70%, 50%, 0.05)`);
-            haloGrad.addColorStop(1, `hsla(${h}, 70%, 50%, 0)`);
-            ctx.fillStyle = haloGrad;
+            // -- Glow halo behind each blob (simplified: solid circle, no gradient) --
+            if (qualityScale > 0.4) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = `hsla(${h}, 70%, 50%, 0.06)`;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, effectiveRadius * 1.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // -- Main blob fill (simplified: concentric circles approximate gradient) --
+            ctx.fillStyle = `hsla(${h}, 60%, 50%, 0.08)`;
             ctx.beginPath();
-            ctx.arc(b.x, b.y, effectiveRadius * 1.4, 0, Math.PI * 2);
+            ctx.arc(b.x, b.y, effectiveRadius, 0, Math.PI * 2);
             ctx.fill();
-            ctx.restore();
-
-            // -- Main blob fill gradient (alpha 0.3 center) --
-            const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, effectiveRadius);
-            grad.addColorStop(0, `hsla(${h}, 60%, 50%, 0.3)`);
-            grad.addColorStop(1, `hsla(${h}, 60%, 50%, 0)`);
-
-            ctx.fillStyle = grad;
+            ctx.fillStyle = `hsla(${h}, 60%, 50%, 0.15)`;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, effectiveRadius * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = `hsla(${h}, 60%, 50%, 0.2)`;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, effectiveRadius * 0.3, 0, Math.PI * 2);
+            ctx.fill();
             ctx.beginPath();
 
             const computedPoints = [];
@@ -318,18 +324,17 @@ export class AbstractArchitecture extends Architecture {
             }
             ctx.restore();
 
-            // -- Glow ring using 'lighter' composite --
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            const ringGrad = ctx.createRadialGradient(b.x, b.y, effectiveRadius * 0.85, b.x, b.y, effectiveRadius * 1.1);
-            ringGrad.addColorStop(0, `hsla(${h}, 80%, 60%, 0)`);
-            ringGrad.addColorStop(0.5, `hsla(${h}, 80%, 60%, 0.08)`);
-            ringGrad.addColorStop(1, `hsla(${h}, 80%, 60%, 0)`);
-            ctx.fillStyle = ringGrad;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, effectiveRadius * 1.1, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            // -- Glow ring using 'lighter' composite (stroked arc, no gradient) --
+            if (qualityScale > 0.5) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.strokeStyle = `hsla(${h}, 80%, 60%, 0.06)`;
+                ctx.lineWidth = effectiveRadius * 0.15;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, effectiveRadius * 0.97, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
 
             // Subtle outline (alpha 0.2)
             ctx.strokeStyle = `hsla(${h}, 60%, 70%, 0.2)`;
@@ -378,12 +383,9 @@ export class AbstractArchitecture extends Architecture {
                     const cpX = midX + perpX * noiseOffset;
                     const cpY = midY + perpY * noiseOffset;
 
-                    const bridgeGrad = ctx.createLinearGradient(a.x, a.y, bB.x, bB.y);
-                    bridgeGrad.addColorStop(0, `hsla(${hA}, 60%, 55%, ${bridgeAlpha})`);
-                    bridgeGrad.addColorStop(0.5, `hsla(${(hA + hB) / 2}, 60%, 55%, ${bridgeAlpha * 0.5})`);
-                    bridgeGrad.addColorStop(1, `hsla(${hB}, 60%, 55%, ${bridgeAlpha})`);
-
-                    ctx.strokeStyle = bridgeGrad;
+                    // Use averaged hue solid color instead of per-bridge gradient
+                    const avgHue = (hA + hB) / 2;
+                    ctx.strokeStyle = `hsla(${avgHue}, 60%, 55%, ${bridgeAlpha})`;
                     ctx.lineWidth = 1.5 * pulse;
                     ctx.beginPath();
                     ctx.moveTo(a.x, a.y);

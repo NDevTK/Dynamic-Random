@@ -49,6 +49,9 @@ export class GlitchArchitecture extends Architecture {
         this.crtCurvature = 0;
         this.vhsTrackingOffset = 0;
         this.vhsTrackingDir = 1;
+        // Cached CRT vignette gradient (recreated on resize via init)
+        this.cachedCrtVignette = null;
+        this.cachedCrtVignetteW = 0;
     }
 
     init(system) {
@@ -248,20 +251,22 @@ export class GlitchArchitecture extends Architecture {
             b.vy *= 0.995;
         }
 
-        // --- Update smear trails ---
+        // --- Update smear trails (swap-and-pop for perf) ---
         for (let i = this.smears.length - 1; i >= 0; i--) {
             this.smears[i].life--;
             this.smears[i].alpha *= 0.88;
             if (this.smears[i].life <= 0) {
-                this.smears.splice(i, 1);
+                this.smears[i] = this.smears[this.smears.length - 1];
+                this.smears.pop();
             }
         }
 
-        // --- Update screen tears ---
+        // --- Update screen tears (swap-and-pop for perf) ---
         for (let i = this.tears.length - 1; i >= 0; i--) {
             this.tears[i].life--;
             if (this.tears[i].life <= 0) {
-                this.tears.splice(i, 1);
+                this.tears[i] = this.tears[this.tears.length - 1];
+                this.tears.pop();
             }
         }
 
@@ -328,11 +333,12 @@ export class GlitchArchitecture extends Architecture {
             this.gravityCorruptionRadius *= 0.9;
         }
 
-        // --- Update static particles for gravity corruption ---
+        // --- Update static particles for gravity corruption (swap-and-pop) ---
         for (let i = this.staticParticles.length - 1; i >= 0; i--) {
             this.staticParticles[i].life--;
             if (this.staticParticles[i].life <= 0) {
-                this.staticParticles.splice(i, 1);
+                this.staticParticles[i] = this.staticParticles[this.staticParticles.length - 1];
+                this.staticParticles.pop();
             }
         }
         // Spawn static in gravity corruption zone
@@ -581,17 +587,22 @@ export class GlitchArchitecture extends Architecture {
         }
 
         // ====== MODE-SPECIFIC OVERLAY ======
+        const qualityScale = system.qualityScale || 1;
         if (this.glitchMode === MODE_CRT) {
-            // CRT scanlines overlay
+            // CRT scanlines overlay — wider spacing at low quality
+            const scanStep = qualityScale < 0.5 ? 6 : 3;
             ctx.fillStyle = 'rgba(0,0,0,0.06)';
-            for (let y = 0; y < h; y += 3) {
+            for (let y = 0; y < h; y += scanStep) {
                 ctx.fillRect(0, y, w, 1);
             }
-            // CRT vignette
-            const grad = ctx.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, w * 0.75);
-            grad.addColorStop(0, 'rgba(0,0,0,0)');
-            grad.addColorStop(1, 'rgba(0,0,0,0.3)');
-            ctx.fillStyle = grad;
+            // CRT vignette (cached gradient — only recreated on resize)
+            if (!this.cachedCrtVignette || this.cachedCrtVignetteW !== w) {
+                this.cachedCrtVignette = ctx.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, w * 0.75);
+                this.cachedCrtVignette.addColorStop(0, 'rgba(0,0,0,0)');
+                this.cachedCrtVignette.addColorStop(1, 'rgba(0,0,0,0.3)');
+                this.cachedCrtVignetteW = w;
+            }
+            ctx.fillStyle = this.cachedCrtVignette;
             ctx.fillRect(0, 0, w, h);
         } else if (this.glitchMode === MODE_VHS) {
             // VHS bottom tracking bar

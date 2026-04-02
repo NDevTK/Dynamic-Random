@@ -81,6 +81,29 @@ export class FlowArchitecture extends Architecture {
         }
 
         this.clickBursts = [];
+
+        // Connection lines between nearby particles
+        this.showConnections = rng() > 0.5;
+        this.connectionDist = 60 + rng() * 80;
+        this.connectionAlpha = 0.05 + rng() * 0.1;
+
+        // Field visualization mode: 0=none, 1=arrows, 2=streamlines
+        this.fieldVizMode = Math.floor(rng() * 3);
+
+        // Spawn zones
+        this.spawnZones = [];
+        if (rng() > 0.5) {
+            const zoneCount = 1 + Math.floor(rng() * 3);
+            for (let i = 0; i < zoneCount; i++) {
+                this.spawnZones.push({
+                    x: system.width * (0.15 + rng() * 0.7),
+                    y: system.height * (0.15 + rng() * 0.7),
+                    radius: 20 + rng() * 40,
+                    rate: 2 + Math.floor(rng() * 3),
+                    hue: (system.hue + rng() * 120) % 360,
+                });
+            }
+        }
     }
 
     _createParticle(system, rng) {
@@ -171,6 +194,27 @@ export class FlowArchitecture extends Architecture {
             if (this.clickBursts[i].life <= 0) {
                 this.clickBursts[i] = this.clickBursts[this.clickBursts.length - 1];
                 this.clickBursts.pop();
+            }
+        }
+
+        // Spawn zone emission
+        for (const zone of this.spawnZones) {
+            if (system.tick % 4 === 0) {
+                // Find a dead particle to reuse
+                for (let i = 0; i < this.particles.length; i++) {
+                    if (this.particles[i].life <= 0) {
+                        const p = this.particles[i];
+                        const angle = Math.random() * Math.PI * 2;
+                        p.x = zone.x + Math.cos(angle) * zone.radius * Math.random();
+                        p.y = zone.y + Math.sin(angle) * zone.radius * Math.random();
+                        p.vx = Math.cos(angle) * 2;
+                        p.vy = Math.sin(angle) * 2;
+                        p.life = p.maxLife;
+                        p.hue = zone.hue + (Math.random() - 0.5) * 30;
+                        p.baseHue = p.hue;
+                        break;
+                    }
+                }
             }
         }
 
@@ -373,6 +417,63 @@ export class FlowArchitecture extends Architecture {
             ctx.beginPath();
             ctx.arc(burst.x, burst.y, radius, 0, Math.PI * 2);
             ctx.stroke();
+        }
+
+        // Draw particle connections (web effect)
+        if (this.showConnections && qualityScale > 0.5) {
+            const connDistSq = this.connectionDist * this.connectionDist;
+            const activeParticles = this.particles.filter(p => p.life > 0);
+            // Only check nearby pairs (limit to avoid O(n^2) explosion)
+            const checkCount = Math.min(activeParticles.length, 80);
+            for (let i = 0; i < checkCount; i++) {
+                const p1 = activeParticles[i];
+                for (let j = i + 1; j < checkCount; j++) {
+                    const p2 = activeParticles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const dSq = dx * dx + dy * dy;
+                    if (dSq < connDistSq) {
+                        const alpha = (1 - Math.sqrt(dSq) / this.connectionDist) * this.connectionAlpha;
+                        const midHue = ((p1.hue + p2.hue) / 2 % 360 + 360) % 360;
+                        ctx.strokeStyle = `hsla(${midHue}, 60%, 60%, ${alpha})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        // Draw field visualization
+        if (this.fieldVizMode === 1 && qualityScale > 0.5) {
+            // Arrow visualization of flow field
+            ctx.strokeStyle = `hsla(${system.hue}, 40%, 50%, 0.04)`;
+            ctx.lineWidth = 1;
+            const step = qualityScale < 0.75 ? 3 : 2;
+            for (let r = 0; r < this.rows; r += step) {
+                for (let c = 0; c < this.cols; c += step) {
+                    const idx = r * this.cols + c;
+                    if (!this.field[idx]) continue;
+                    const fx = c * this.cellSize + this.cellSize / 2;
+                    const fy = r * this.cellSize + this.cellSize / 2;
+                    const len = 15;
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy);
+                    ctx.lineTo(fx + this.field[idx].x * len, fy + this.field[idx].y * len);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Draw spawn zones
+        for (const zone of this.spawnZones) {
+            const pulse = Math.sin(system.tick * 0.05) * 0.3 + 0.7;
+            ctx.fillStyle = `hsla(${zone.hue}, 80%, 50%, ${0.03 * pulse})`;
+            ctx.beginPath();
+            ctx.arc(zone.x, zone.y, zone.radius * pulse, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         // Draw attractor indicators (subtle)

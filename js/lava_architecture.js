@@ -84,6 +84,26 @@ export class LavaArchitecture extends Architecture {
                 heat: 0
             });
         }
+
+        // Surface bubbles
+        this.bubbles = [];
+        this.bubbleTimer = 0;
+
+        // Lava flow mode: 0=classic lamp, 1=volcanic flow, 2=plasma, 3=mercury
+        this.lavaMode = Math.floor(rng() * 4);
+
+        // Heat shimmer lines
+        this.shimmerLines = [];
+        const shimmerCount = 5 + Math.floor(rng() * 5);
+        for (let i = 0; i < shimmerCount; i++) {
+            this.shimmerLines.push({
+                y: rng() * system.height,
+                amplitude: 2 + rng() * 4,
+                frequency: 0.01 + rng() * 0.02,
+                speed: 0.5 + rng() * 1.5,
+                alpha: 0.02 + rng() * 0.04,
+            });
+        }
     }
 
     _generatePalette(rng) {
@@ -144,6 +164,38 @@ export class LavaArchitecture extends Architecture {
         const mx = mouse.x;
         const my = mouse.y;
         this.heatWave += 0.02;
+
+        // Spawn bubbles near hot blobs
+        this.bubbleTimer++;
+        if (this.bubbleTimer % 5 === 0 && this.bubbles.length < 30) {
+            for (const blob of this.blobs) {
+                if (blob.heat > 0.4 && Math.random() < 0.15) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = blob.radius * (0.5 + Math.random() * 0.5);
+                    this.bubbles.push({
+                        x: blob.x + Math.cos(angle) * dist,
+                        y: blob.y + Math.sin(angle) * dist,
+                        size: 2 + Math.random() * 5,
+                        maxSize: 4 + Math.random() * 8,
+                        life: 1,
+                        growSpeed: 0.02 + Math.random() * 0.03,
+                        colorIndex: blob.colorIndex,
+                    });
+                }
+            }
+        }
+
+        // Update bubbles
+        for (let i = this.bubbles.length - 1; i >= 0; i--) {
+            const b = this.bubbles[i];
+            b.size += b.growSpeed;
+            b.y -= 0.3;
+            if (b.size >= b.maxSize) b.life -= 0.05;
+            if (b.life <= 0) {
+                this.bubbles[i] = this.bubbles[this.bubbles.length - 1];
+                this.bubbles.pop();
+            }
+        }
 
         for (const blob of this.blobs) {
             // Oscillating radius using fbm noise for irregular, organic deformation
@@ -301,6 +353,44 @@ export class LavaArchitecture extends Architecture {
                 system.ctx.arc(blob.x, blob.y, blob.radius * 1.2, 0, Math.PI * 2);
                 system.ctx.fill();
             }
+        }
+        system.ctx.restore();
+
+        // Draw surface bubbles
+        system.ctx.save();
+        system.ctx.globalCompositeOperation = 'lighter';
+        for (const b of this.bubbles) {
+            const c = this.palette[b.colorIndex] || this.palette[0];
+            const alpha = b.life * 0.4;
+            // Bubble outline
+            system.ctx.strokeStyle = `rgba(${Math.min(255, c.r + 80)}, ${Math.min(255, c.g + 80)}, ${Math.min(255, c.b + 80)}, ${alpha})`;
+            system.ctx.lineWidth = 1;
+            system.ctx.beginPath();
+            system.ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+            system.ctx.stroke();
+            // Highlight
+            system.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+            system.ctx.beginPath();
+            system.ctx.arc(b.x - b.size * 0.3, b.y - b.size * 0.3, b.size * 0.3, 0, Math.PI * 2);
+            system.ctx.fill();
+        }
+        system.ctx.restore();
+
+        // Heat shimmer distortion lines
+        system.ctx.save();
+        system.ctx.globalCompositeOperation = 'lighter';
+        for (const sh of this.shimmerLines) {
+            sh.y -= sh.speed * 0.3;
+            if (sh.y < -20) sh.y = system.height + 20;
+            system.ctx.beginPath();
+            for (let x = 0; x < system.width; x += 8) {
+                const offset = Math.sin(x * sh.frequency + this.heatWave * 3) * sh.amplitude;
+                if (x === 0) system.ctx.moveTo(x, sh.y + offset);
+                else system.ctx.lineTo(x, sh.y + offset);
+            }
+            system.ctx.strokeStyle = `rgba(255, 200, 100, ${sh.alpha})`;
+            system.ctx.lineWidth = 1;
+            system.ctx.stroke();
         }
         system.ctx.restore();
     }

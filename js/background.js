@@ -84,6 +84,11 @@ import { LightningStormArchitecture } from './lightning_storm_architecture.js';
 import { StainedGlassArchitecture } from './stained_glass_architecture.js';
 import { SandDuneArchitecture } from './sand_dune_architecture.js';
 import { TetrisRainArchitecture } from './tetris_rain_architecture.js';
+import { GravitySandboxArchitecture } from './gravity_sandbox_architecture.js';
+import { AntColonyArchitecture } from './ant_colony_architecture.js';
+import { RetroArcadeArchitecture } from './retro_arcade_architecture.js';
+import { KineticSculptureArchitecture } from './kinetic_sculpture_architecture.js';
+import { PortalArchitecture } from './portal_architecture.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
@@ -163,7 +168,12 @@ export const ALL_ARCHITECTURES = [
     () => new LightningStormArchitecture(),
     () => new StainedGlassArchitecture(),
     () => new SandDuneArchitecture(),
-    () => new TetrisRainArchitecture()
+    () => new TetrisRainArchitecture(),
+    () => new GravitySandboxArchitecture(),
+    () => new AntColonyArchitecture(),
+    () => new RetroArcadeArchitecture(),
+    () => new KineticSculptureArchitecture(),
+    () => new PortalArchitecture()
 ];
 
 // Extract constructor names from factory functions without instantiating them.
@@ -598,6 +608,16 @@ class BackgroundSystem {
         const sandDuneBlueprints = ['VolcanicForge', 'MoltenHeart', 'Classical', 'GlacialDrift', 'AbyssalZone', 'StarForged'];
         // Tetris rain: digital/neon/techno/game themes
         const tetrisRainBlueprints = ['Digital', 'NeonCyber', 'TechnoUtopia', 'Papercraft', 'ChromaticAberration', 'QuantumFoam'];
+        // Gravity sandbox: celestial/forge/stellar themes
+        const gravitySandboxBlueprints = ['StarForged', 'CelestialForge', 'StellarNursery', 'LivingConstellation', 'Classical', 'CosmicWeb', 'QuantumFoam'];
+        // Ant colony: organic/fungal/bio/swarm themes
+        const antColonyBlueprints = ['FungalForest', 'SentientSwarm', 'Organic', 'BioMechanical', 'CoralReef', 'GooeyMess', 'HauntedRealm'];
+        // Retro arcade: digital/neon/techno/game themes
+        const retroArcadeBlueprints = ['NeonCyber', 'Digital', 'TechnoUtopia', 'Papercraft', 'Classical', 'ChromaticAberration'];
+        // Kinetic sculpture: mechanical/classical/forge themes
+        const kineticSculptureBlueprints = ['ChronoVerse', 'Classical', 'Papercraft', 'SonicScapes', 'StarForged', 'CelestialForge', 'Crystalline'];
+        // Portal: void/phantom/quantum/eldritch themes
+        const portalBlueprints = ['VoidTouched', 'PhantomEcho', 'QuantumFoam', 'Eldritch', 'ChronoVerse', 'AbyssalHorror', 'HauntedRealm'];
 
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
@@ -766,6 +786,26 @@ class BackgroundSystem {
         // Tetris rain: digital/neon themes
         else if (tetrisRainBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new TetrisRainArchitecture();
+        }
+        // Gravity sandbox: celestial themes
+        else if (gravitySandboxBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GravitySandboxArchitecture();
+        }
+        // Ant colony: organic/bio themes
+        else if (antColonyBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new AntColonyArchitecture();
+        }
+        // Retro arcade: digital/game themes
+        else if (retroArcadeBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new RetroArcadeArchitecture();
+        }
+        // Kinetic sculpture: mechanical themes
+        else if (kineticSculptureBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new KineticSculptureArchitecture();
+        }
+        // Portal: void/phantom themes
+        else if (portalBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new PortalArchitecture();
         }
         // Paper theater: classical/paper themes
         else if (paperTheaterBlueprints.includes(blueprintName) && this.rng() > 0.5) {

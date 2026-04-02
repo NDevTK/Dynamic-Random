@@ -287,13 +287,13 @@ function applyAnomalyForces(p, i, pJS) {
 // --- Mutator Forces ---
 
 function applyPulsingParticles(p, tick) {
-    if (universeProfile.mutators.includes('Pulsing Particles')) {
+    if (_activeMutators.has('Pulsing Particles')) {
         p.radius = p.radius_initial * (1 + 0.5 * Math.sin(tick * 0.05 + p.seed));
     }
 }
 
 function applyUnstableParticles(p, i, pJS) {
-    if (universeProfile.mutators.includes('Unstable Particles') && seededRandom() < 0.0005) {
+    if (_activeMutators.has('Unstable Particles') && seededRandom() < 0.0005) {
         if (seededRandom() > 0.5 && pJS.particles.array.length < pJS.particles.number.value_max) {
             pJS.fn.modes.pushParticles(1, { x: p.x, y: p.y });
         } else {
@@ -305,7 +305,7 @@ function applyUnstableParticles(p, i, pJS) {
 }
 
 function applyRepulsiveField(p, pJS, isPhased) {
-    if (universeProfile.mutators.includes('Repulsive Field') && !isPhased) {
+    if (_activeMutators.has('Repulsive Field') && !isPhased) {
         const nearby = particleGrid.getNearby(p.x, p.y, 50);
         for (const p2 of nearby) {
             if (p === p2) continue;
@@ -319,7 +319,7 @@ function applyRepulsiveField(p, pJS, isPhased) {
 }
 
 function applyClustering(p, pJS, isPhased, tick) {
-    if (universeProfile.mutators.includes('Clustering') && !isPhased) {
+    if (_activeMutators.has('Clustering') && !isPhased) {
         const pulse = 1.0 + 0.5 * Math.sin(tick * 0.01);
         const nearby = particleGrid.getNearby(p.x, p.y, 125);
         for (const p2 of nearby) {
@@ -334,20 +334,20 @@ function applyClustering(p, pJS, isPhased, tick) {
 }
 
 function applyErratic(p) {
-    if (universeProfile.mutators.includes('Erratic')) {
+    if (_activeMutators.has('Erratic')) {
         p.vx += (seededRandom() - 0.5) * 0.3;
         p.vy += (seededRandom() - 0.5) * 0.3;
     }
 }
 
 function applyRainbow(p, tick) {
-    if (universeProfile.mutators.includes('Rainbow') && !p.colorLocked) {
+    if (_activeMutators.has('Rainbow') && !p.colorLocked) {
         p.color = { rgb: { r: 127 * (1 + Math.sin(tick * 0.05 + p.x * 0.01)), g: 127 * (1 + Math.sin(tick * 0.05 + p.y * 0.01)), b: 127 * (1 + Math.sin(tick * 0.05)) } };
     }
 }
 
 function applyFlickering(p, pJS, tick) {
-    if (universeProfile.mutators.includes('Flickering')) {
+    if (_activeMutators.has('Flickering')) {
         if (tick % Math.floor(20 + p.seed * 20) === 0) {
             p.opacity.value = p.opacity.value > 0 ? 0 : pJS.particles.opacity.value;
         }
@@ -373,7 +373,7 @@ function applyGravityWaves(p, tick) {
 }
 
 function applyParticleDecay(p, i, pJS) {
-    if (universeProfile.mutators.includes('Particle Decay')) {
+    if (_activeMutators.has('Particle Decay')) {
         p.opacity.value = Math.max(0, p.opacity.value - 0.0005);
         if (p.opacity.value === 0) {
             pJS.particles.array.splice(i, 1);
@@ -384,7 +384,7 @@ function applyParticleDecay(p, i, pJS) {
 }
 
 function applyElasticCollisions(p, pJS, isPhased) {
-    if (universeProfile.mutators.includes('Elastic Collisions') && !isPhased) {
+    if (_activeMutators.has('Elastic Collisions') && !isPhased) {
         const nearby = particleGrid.getNearby(p.x, p.y, 20);
         for (const p2 of nearby) {
             if (p === p2) continue;
@@ -400,14 +400,14 @@ function applyElasticCollisions(p, pJS, isPhased) {
 }
 
 function applyNoisy(p) {
-    if (universeProfile.mutators.includes('Noisy')) {
+    if (_activeMutators.has('Noisy')) {
         p.vx += (seededRandom() - 0.5) * 0.2;
         p.vy += (seededRandom() - 0.5) * 0.2;
     }
 }
 
 function applySynchronized(p, tick) {
-    if (universeProfile.mutators.includes('Synchronized')) {
+    if (_activeMutators.has('Synchronized')) {
         const angle = Math.sin(tick * 0.02 + p.seed * 10) * Math.PI;
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
         p.vx = Math.cos(angle) * speed;
@@ -416,7 +416,7 @@ function applySynchronized(p, tick) {
 }
 
 function applyPairBonding(p, pJS) {
-    if (universeProfile.mutators.includes('Pair Bonding') && !p.bondPartner) {
+    if (_activeMutators.has('Pair Bonding') && !p.bondPartner) {
         const nearby = particleGrid.getNearby(p.x, p.y, 50);
         for (const p2 of nearby) {
             if (p === p2 || p2.bondPartner) continue;
@@ -441,7 +441,7 @@ function applyPairBonding(p, pJS) {
 }
 
 function applyFragmenting(p, pJS) {
-    if (universeProfile.mutators.includes('Fragmenting') && seededRandom() < 0.0001 && p.radius > 1 && pJS.particles.array.length < pJS.particles.number.value_max) {
+    if (_activeMutators.has('Fragmenting') && seededRandom() < 0.0001 && p.radius > 1 && pJS.particles.array.length < pJS.particles.number.value_max) {
         p.radius /= 2;
         const newP = safePush(pJS, 1, { x: p.x, y: p.y });
         if (newP) {
@@ -459,7 +459,7 @@ function applyPhotonSails(p) {
 }
 
 function applyChaoticOrbits(p, pJS) {
-    if (universeProfile.mutators.includes('Chaotic Orbits') && pJS.particles.move.attract.enable) {
+    if (_activeMutators.has('Chaotic Orbits') && pJS.particles.move.attract.enable) {
         p.vx += (seededRandom() - 0.5) * 0.4;
         p.vy += (seededRandom() - 0.5) * 0.4;
     }
@@ -473,7 +473,7 @@ function applyTidalForces(p) {
 }
 
 function applySelfPropelled(p) {
-    if (universeProfile.mutators.includes('Self-Propelled')) {
+    if (_activeMutators.has('Self-Propelled')) {
         const angle = p.seed;
         p.vx += Math.cos(angle) * 0.05;
         p.vy += Math.sin(angle) * 0.05;
@@ -481,13 +481,13 @@ function applySelfPropelled(p) {
 }
 
 function applyPhaseScattering(p) {
-    if (universeProfile.mutators.includes('Phase Scattering') && seededRandom() < 0.001) {
+    if (_activeMutators.has('Phase Scattering') && seededRandom() < 0.001) {
         p.opacity.value = seededRandom();
     }
 }
 
 function applyBrownianMotion(p) {
-    if (universeProfile.mutators.includes('BrownianMotion')) {
+    if (_activeMutators.has('BrownianMotion')) {
         p.vx += (seededRandom() - 0.5) * 0.8;
         p.vy += (seededRandom() - 0.5) * 0.8;
     }
@@ -507,11 +507,18 @@ function applyHeavyParticles(p, pJS) {
     }
 }
 
+// Cached mutator Set — rebuilt once per update(), avoids repeated Array.includes()
+let _activeMutators = new Set();
+
+function rebuildMutatorCache() {
+    _activeMutators = new Set(universeProfile.mutators || []);
+}
+
 // Pre-computed average velocity for Choral mutator (avoids O(n^2))
 let choralAvgVx = 0, choralAvgVy = 0;
 
 function precomputeChoralAverage(pJS) {
-    if (!universeProfile.mutators.includes('Choral')) return;
+    if (!_activeMutators || !_activeMutators.has('Choral')) return;
     const arr = pJS.particles.array;
     const len = arr.length;
     if (len === 0) return;
@@ -525,21 +532,21 @@ function precomputeChoralAverage(pJS) {
 }
 
 function applyChoral(p) {
-    if (universeProfile.mutators.includes('Choral')) {
+    if (_activeMutators.has('Choral')) {
         p.vx += (choralAvgVx - p.vx) * 0.001;
         p.vy += (choralAvgVy - p.vy) * 0.001;
     }
 }
 
 function applyCarnival(p, tick) {
-    if (universeProfile.mutators.includes('Carnival') && tick % 10 === 0) {
+    if (_activeMutators.has('Carnival') && tick % 10 === 0) {
         p.color = { rgb: { r: seededRandom() * 255, g: seededRandom() * 255, b: seededRandom() * 255 } };
         p.radius = p.radius_initial * (0.5 + seededRandom());
     }
 }
 
 function applyParticleChains(p, pJS) {
-    if (universeProfile.mutators.includes('ParticleChains')) {
+    if (_activeMutators.has('ParticleChains')) {
         if (!p.chainChild) {
             const nearby = particleGrid.getNearby(p.x, p.y, 30);
             for (const p2 of nearby) {
@@ -712,15 +719,15 @@ function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
         p.radius = p.radius_initial * (1 + _cachedMicBass * 0.5);
     }
 
-    if (p.radius > p.radius_initial && !universeProfile.mutators.includes('Pulsing Particles')) { p.radius -= 0.05; }
+    if (p.radius > p.radius_initial && !_activeMutators.has('Pulsing Particles')) { p.radius -= 0.05; }
     p.vx *= physics.friction; p.vy *= physics.friction;
 }
 
 function handleBoundaryConditions(p, i, pJS) {
-    if (universeProfile.mutators.includes('Torus Field')) {
+    if (_activeMutators.has('Torus Field')) {
         if (p.x < 0) p.x = pJS.canvas.w; if (p.x > pJS.canvas.w) p.x = 0;
         if (p.y < 0) p.y = pJS.canvas.h; if (p.y > pJS.canvas.h) p.y = 0;
-    } else if (universeProfile.mutators.includes('Event Horizon')) {
+    } else if (_activeMutators.has('Event Horizon')) {
         if (p.x < 0 || p.x > pJS.canvas.w || p.y < 0 || p.y > pJS.canvas.h) {
             pJS.particles.array.splice(i, 1);
             return true;
@@ -745,7 +752,7 @@ function updateAllParticles(pJS, worldMouse) {
         for (let step = 0; step < updateSteps; step++) {
             if (timeFactor < 1 && seededRandom() > timeFactor) continue;
 
-            let isPhased = universeProfile.mutators.includes('Phase Shift');
+            let isPhased = _activeMutators.has('Phase Shift');
             for (const zone of activeEffects.phaseZones) {
                 const dx = p.x - zone.x;
                 const dy = p.y - zone.y;
@@ -798,8 +805,10 @@ function updateAnomalies(pJS) {
 }
 
 function enforceParticleLimit(pJS) {
-    if (pJS.particles.array.length > pJS.particles.number.value_max) {
-        pJS.particles.array.splice(0, pJS.particles.array.length - pJS.particles.number.value_max);
+    const excess = pJS.particles.array.length - pJS.particles.number.value_max;
+    if (excess > 0) {
+        // Remove from end (O(1) per pop) instead of splice from start (O(n) shift)
+        pJS.particles.array.length = pJS.particles.number.value_max;
     }
 }
 
@@ -838,6 +847,7 @@ export function update(pJS) {
 
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);
+    rebuildMutatorCache();
     precomputeChoralAverage(pJS);
     precomputeRiverSamples();
 

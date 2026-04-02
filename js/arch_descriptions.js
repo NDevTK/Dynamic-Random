@@ -58,4 +58,29 @@ export const ARCH_DESCRIPTIONS = [
     'Interlocking circles trace rosettes',                        // Spirograph
     'Tiles connect in surprising patterns',                       // Truchet
     'Branching rules grow living structures',                     // LSystem
+    'Explosive bursts paint the night sky',                        // Fireworks
+    'A thousand agents flock as one mind',                         // Swarm
+    'Luminous tags glow on midnight walls',                        // NeonGraffiti
+    'Polished spheres collide and roll',                           // GravityMarbles
+    'Digital rain falls in neon columns',                          // PixelRain
+    'Electric tendrils arc from a glass sphere',                   // PlasmaBall
+    'Tiny tiles assemble a grand vision',                          // Mosaic
+    'Gravity bends paint across the canvas',                       // GravityPaint
+    'Space folds between two distant points',                      // Wormhole
+    'Creatures hunt, grow, and evolve',                            // Ecosystem
+    'Magnetic fluid dances on invisible poles',                     // Ferrofluid
+    'Glittering formations in underground halls',                   // CrystalCave
+    'Neon skylines glitch between dimensions',                     // GlitchCity
+    'Living light pulses in ocean depths',                         // BioluminescentOcean
+    'Paper silhouettes shift in layered scenes',                   // PaperTheater
+    'Iridescent spheres float and merge',                          // BubbleUniverse
+    'Bolts of light crack across the void',                        // LightningStorm
+    'Colored glass fragments catch eternal light',                  // StainedGlass
+    'Wind sculpts endless dunes of golden sand',                   // SandDune
+    'Blocks tumble and stack in pixel rain',                       // TetrisRain
+    'Planets orbit in a celestial sandbox',                        // GravitySandbox
+    'Tiny foragers weave glowing pheromone trails',                // AntColony
+    'Self-playing arcade games light up the dark',                 // RetroArcade
+    'Gears and pendulums tick in mesmerizing sync',                // KineticSculpture
+    'Swirling vortexes bridge distant realms',                     // Portal
 ];

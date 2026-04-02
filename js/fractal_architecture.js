@@ -22,45 +22,115 @@ export class FractalArchitecture extends Architecture {
         this.noise2D = null;
         this.windAngle = 0;
         this.season = 0;
+        this.treeStyle = 0;
+        this.hasBark = false;
+        this.hasRoots = false;
+        this.rootLines = [];
+        this.hasFireflies = false;
+        this.fireflies = [];
+        this.groundFog = false;
     }
 
     init(system) {
-        this.noise2D = createNoise2D(Math.floor(system.rng() * 100000));
-        this.season = system.rng();
-        this.windAngle = (system.rng() - 0.5) * 0.5;
+        const rng = system.rng;
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
+        this.season = rng();
+        this.windAngle = (rng() - 0.5) * 0.5;
 
         this.roots = [];
         this.particles = [];
         this.particlePool = [];
+        this.rootLines = [];
+        this.fireflies = [];
+
+        // Seed-driven style: 0=natural, 1=crystalline, 2=weeping, 3=bonsai, 4=coral
+        this.treeStyle = Math.floor(rng() * 5);
+        this.hasBark = rng() > 0.6;
+        this.hasRoots = rng() > 0.5;
+        this.hasFireflies = rng() > 0.5;
+        this.groundFog = rng() > 0.6;
+
+        // Adjust depth and scale based on style
+        if (this.treeStyle === 3) { // Bonsai: fewer, thicker branches
+            this.maxDepth = 5;
+            this.baseScale = 0.72;
+        } else if (this.treeStyle === 1) { // Crystalline: sharp, many branches
+            this.maxDepth = 7;
+            this.baseScale = 0.62;
+        } else if (this.treeStyle === 4) { // Coral: organic, wide spread
+            this.maxDepth = 5;
+            this.baseScale = 0.75;
+        } else {
+            this.maxDepth = 6;
+            this.baseScale = 0.68;
+        }
 
         // 8-12 roots based on seed for visual density
-        const count = 8 + Math.floor(system.rng() * 5);
+        const count = 8 + Math.floor(rng() * 5);
 
         for (let i = 0; i < count; i++) {
             // Decide pattern: radial vs directional based on seed
-            const patternSeed = system.rng();
+            const patternSeed = rng();
             let baseAngle;
             if (patternSeed < 0.5) {
-                // Radial: evenly spaced angles with slight randomization
-                baseAngle = (i / count) * Math.PI * 2 + (system.rng() - 0.5) * 0.4;
+                baseAngle = (i / count) * Math.PI * 2 + (rng() - 0.5) * 0.4;
             } else {
-                // Directional: clustered angles with more variation
-                baseAngle = system.rng() * Math.PI * 2;
+                baseAngle = rng() * Math.PI * 2;
             }
 
+            // Style-specific branch spread
+            let spread = (Math.PI / 5) + rng() * (Math.PI / 6);
+            if (this.treeStyle === 2) spread *= 0.6; // Weeping: narrow spread
+            if (this.treeStyle === 4) spread *= 1.3; // Coral: wide spread
+
             this.roots.push({
-                x: system.width * (0.15 + system.rng() * 0.7),
-                y: system.height * (0.15 + system.rng() * 0.7),
+                x: system.width * (0.15 + rng() * 0.7),
+                y: system.height * (0.15 + rng() * 0.7),
                 baseAngle: baseAngle,
                 angle: baseAngle,
-                length: system.rng() * 80 + 60,
-                hue: (system.hue + (system.rng() - 0.5) * 80 + 360) % 360,
-                phaseOffset: system.rng() * Math.PI * 2,
-                growthSpeed: 0.008 + system.rng() * 0.012,
-                branchSpread: (Math.PI / 5) + system.rng() * (Math.PI / 6),
+                length: rng() * 80 + 60,
+                hue: (system.hue + (rng() - 0.5) * 80 + 360) % 360,
+                phaseOffset: rng() * Math.PI * 2,
+                growthSpeed: 0.008 + rng() * 0.012,
+                branchSpread: spread,
                 bendVx: 0,
                 bendVy: 0
             });
+        }
+
+        // Generate root lines (underground visual)
+        if (this.hasRoots) {
+            for (const root of this.roots) {
+                const rootCount = 2 + Math.floor(rng() * 3);
+                for (let r = 0; r < rootCount; r++) {
+                    const angle = root.baseAngle + Math.PI + (rng() - 0.5) * 1.2;
+                    this.rootLines.push({
+                        x: root.x,
+                        y: root.y,
+                        angle,
+                        length: 20 + rng() * 40,
+                        hue: root.hue,
+                        segments: 3 + Math.floor(rng() * 3),
+                    });
+                }
+            }
+        }
+
+        // Initial fireflies
+        if (this.hasFireflies) {
+            const ffCount = 15 + Math.floor(rng() * 20);
+            for (let i = 0; i < ffCount; i++) {
+                this.fireflies.push({
+                    x: rng() * system.width,
+                    y: rng() * system.height,
+                    vx: (rng() - 0.5) * 0.5,
+                    vy: (rng() - 0.5) * 0.5,
+                    phase: rng() * Math.PI * 2,
+                    blinkSpeed: 0.02 + rng() * 0.04,
+                    size: 1.5 + rng() * 2,
+                    hue: (system.hue + 40 + rng() * 30) % 360,
+                });
+            }
         }
     }
 
@@ -152,6 +222,27 @@ export class FractalArchitecture extends Architecture {
             }
         }
 
+        // Update fireflies
+        for (const ff of this.fireflies) {
+            ff.x += ff.vx + Math.sin(tick * 0.01 + ff.phase) * 0.3;
+            ff.y += ff.vy + Math.cos(tick * 0.008 + ff.phase) * 0.2;
+            // Wrap around
+            if (ff.x < -20) ff.x = system.width + 20;
+            if (ff.x > system.width + 20) ff.x = -20;
+            if (ff.y < -20) ff.y = system.height + 20;
+            if (ff.y > system.height + 20) ff.y = -20;
+            // Attracted to cursor
+            const fdx = mouse.x - ff.x;
+            const fdy = mouse.y - ff.y;
+            const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+            if (fdist < 200 && fdist > 10) {
+                ff.vx += fdx / fdist * 0.02;
+                ff.vy += fdy / fdist * 0.02;
+            }
+            ff.vx *= 0.98;
+            ff.vy *= 0.98;
+        }
+
         // Update particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
@@ -193,8 +284,64 @@ export class FractalArchitecture extends Architecture {
             );
         }
 
+        // Draw root lines (underground visual)
+        if (this.hasRoots) {
+            ctx.save();
+            ctx.globalAlpha = 0.2;
+            for (const rl of this.rootLines) {
+                const hue = rl.hue;
+                ctx.strokeStyle = `hsla(${hue}, 30%, 25%, 0.3)`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(rl.x, rl.y);
+                let rx = rl.x;
+                let ry = rl.y;
+                for (let s = 0; s < rl.segments; s++) {
+                    const segAngle = rl.angle + (Math.random() - 0.5) * 0.5;
+                    const segLen = rl.length / rl.segments;
+                    rx += Math.cos(segAngle) * segLen;
+                    ry += Math.sin(segAngle) * segLen;
+                    ctx.lineTo(rx, ry);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         // Draw tip particles with glow
         this._drawParticles(ctx, system);
+
+        // Draw fireflies
+        if (this.hasFireflies) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const ff of this.fireflies) {
+                const blink = Math.sin(tick * ff.blinkSpeed + ff.phase) * 0.5 + 0.5;
+                if (blink < 0.2) continue;
+                const alpha = blink * 0.5;
+                const glow = ctx.createRadialGradient(ff.x, ff.y, 0, ff.x, ff.y, ff.size * 4);
+                glow.addColorStop(0, `hsla(${ff.hue}, 80%, 70%, ${alpha})`);
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(ff.x, ff.y, ff.size * 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Ground fog
+        if (this.groundFog) {
+            ctx.save();
+            const fogY = system.height * 0.7;
+            const fogGrad = ctx.createLinearGradient(0, fogY, 0, system.height);
+            fogGrad.addColorStop(0, 'transparent');
+            fogGrad.addColorStop(0.5, `hsla(${system.hue}, 15%, 30%, 0.06)`);
+            fogGrad.addColorStop(1, `hsla(${system.hue}, 10%, 20%, 0.1)`);
+            ctx.fillStyle = fogGrad;
+            ctx.fillRect(0, fogY, system.width, system.height - fogY);
+            ctx.restore();
+        }
     }
 
     /**

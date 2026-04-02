@@ -28,6 +28,14 @@ export class RaindropArchitecture extends Architecture {
         this.cloudCanvas = null;
         this.cloudCtx = null;
         this.tick = 0;
+        this.intensity = 1;
+        this.intensityTarget = 1;
+        this.hasThunder = false;
+        this.thunderTimer = 0;
+        this.mouseRepelStyle = 0;
+        this.hasFogWisps = false;
+        this.fogWisps = [];
+        this.groundReflection = false;
     }
 
     init(system) {
@@ -107,6 +115,33 @@ export class RaindropArchitecture extends Architecture {
         this.ripplePool = [];
         this.splashes = [];
         this.splashPool = [];
+
+        // Mouse repel style: 0=umbrella, 1=vortex, 2=freeze, 3=attract
+        this.mouseRepelStyle = Math.floor(rng() * 4);
+        // Intensity fluctuation (storm surges)
+        this.intensity = 1;
+        this.intensityTarget = 1;
+        // Thunder audio cue visual
+        this.hasThunder = this.weatherType === 1;
+        this.thunderTimer = 0;
+        // Fog wisps that drift across
+        this.hasFogWisps = rng() > 0.5 && (this.weatherType === 7 || this.weatherType === 0 || this.weatherType === 1);
+        this.fogWisps = [];
+        if (this.hasFogWisps) {
+            const wispCount = 3 + Math.floor(rng() * 5);
+            for (let i = 0; i < wispCount; i++) {
+                this.fogWisps.push({
+                    x: rng() * (system.width + 300) - 150,
+                    y: system.height * (0.4 + rng() * 0.4),
+                    width: 100 + rng() * 250,
+                    height: 15 + rng() * 30,
+                    speed: 0.2 + rng() * 0.5,
+                    alpha: 0.03 + rng() * 0.06,
+                });
+            }
+        }
+        // Ground wet reflection
+        this.groundReflection = rng() > 0.4 && this.weatherType !== 4 && this.weatherType !== 6;
     }
 
     _createDrop(system, randomY, rng) {
@@ -141,12 +176,25 @@ export class RaindropArchitecture extends Architecture {
         const isMist = this.weatherType === 7;
         this.tick++;
 
+        // Intensity fluctuation (storm surges)
+        if (rng() < 0.003) {
+            this.intensityTarget = 0.3 + rng() * 1.2;
+        }
+        this.intensity += (this.intensityTarget - this.intensity) * 0.01;
+
         // Wind shifts
         if (rng() < 0.005) {
             this.windTarget = (rng() - 0.5) * (this.weatherType === 1 ? 8 : 4);
         }
         this.windX += (this.windTarget - this.windX) * 0.01;
         const windInfluence = (mx - system.width / 2) / system.width * 2;
+
+        // Update fog wisps
+        for (const wisp of this.fogWisps) {
+            wisp.x += wisp.speed + this.windX * 0.1;
+            if (wisp.x > system.width + wisp.width) wisp.x = -wisp.width;
+            if (wisp.x < -wisp.width * 1.5) wisp.x = system.width;
+        }
 
         // Move clouds
         for (const cloud of this.clouds) {
@@ -180,16 +228,30 @@ export class RaindropArchitecture extends Architecture {
                 if (d.meteorTrail.length > 15) d.meteorTrail.shift();
             }
 
-            // Mouse umbrella: repel drops within radius (depth-aware)
+            // Mouse interaction (style-dependent)
             const umbrellaRadius = 80 + d.depth * 20;
             const mdx = d.x - mx;
             const mdy = d.y - my;
             const mDistSq = mdx * mdx + mdy * mdy;
-            if (mDistSq < umbrellaRadius * umbrellaRadius) {
+            if (mDistSq < umbrellaRadius * umbrellaRadius && mDistSq > 1) {
                 const mDist = Math.sqrt(mDistSq);
                 const force = (umbrellaRadius - mDist) / umbrellaRadius;
-                d.x += (mdx / mDist) * force * 3;
-                d.y += (mdy / mDist) * force * 2;
+                if (this.mouseRepelStyle === 0) {
+                    // Umbrella: push away
+                    d.x += (mdx / mDist) * force * 3;
+                    d.y += (mdy / mDist) * force * 2;
+                } else if (this.mouseRepelStyle === 1) {
+                    // Vortex: swirl around cursor
+                    d.x += (-mdy / mDist) * force * 2;
+                    d.y += (mdx / mDist) * force * 2;
+                } else if (this.mouseRepelStyle === 2) {
+                    // Freeze: slow drops near cursor
+                    d.speed *= (1 - force * 0.8);
+                } else {
+                    // Attract: pull drops toward cursor
+                    d.x -= (mdx / mDist) * force * 1.5;
+                    d.y -= (mdy / mDist) * force * 1;
+                }
             }
 
             // Reset when off screen
@@ -567,6 +629,66 @@ export class RaindropArchitecture extends Architecture {
             acidGrad.addColorStop(1, `hsla(${h}, 90%, 30%, 0.08)`);
             ctx.fillStyle = acidGrad;
             ctx.fillRect(0, system.height * 0.85, system.width, system.height * 0.15);
+            ctx.restore();
+        }
+
+        // Fog wisps
+        if (this.hasFogWisps) {
+            ctx.save();
+            for (const wisp of this.fogWisps) {
+                const grad = ctx.createRadialGradient(
+                    wisp.x, wisp.y, 0,
+                    wisp.x, wisp.y, wisp.width / 2
+                );
+                grad.addColorStop(0, `rgba(120, 130, 150, ${wisp.alpha})`);
+                grad.addColorStop(0.6, `rgba(100, 110, 130, ${wisp.alpha * 0.5})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.ellipse(wisp.x, wisp.y, wisp.width / 2, wisp.height, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Ground wet reflection
+        if (this.groundReflection) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const refY = system.height * 0.88;
+            const refGrad = ctx.createLinearGradient(0, refY, 0, system.height);
+            refGrad.addColorStop(0, 'transparent');
+            refGrad.addColorStop(0.3, `hsla(${h}, ${s * 0.5}%, ${l * 0.3}%, 0.03)`);
+            refGrad.addColorStop(1, `hsla(${h}, ${s * 0.5}%, ${l * 0.3}%, 0.06)`);
+            ctx.fillStyle = refGrad;
+            ctx.fillRect(0, refY, system.width, system.height - refY);
+            // Shimmer lines
+            ctx.strokeStyle = `hsla(${h}, ${s}%, ${l + 10}%, 0.02)`;
+            ctx.lineWidth = 0.5;
+            for (let wy = refY; wy < system.height; wy += 5) {
+                ctx.beginPath();
+                for (let wx = 0; wx < system.width; wx += 8) {
+                    const wave = Math.sin(wx * 0.03 + this.tick * 0.03 + wy * 0.05) * 1;
+                    if (wx === 0) ctx.moveTo(wx, wy + wave);
+                    else ctx.lineTo(wx, wy + wave);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Mouse interaction visualization
+        if (this.mouseRepelStyle === 1) {
+            // Vortex: show swirl indicator
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `hsla(${h}, 50%, 60%, 0.05)`;
+            ctx.lineWidth = 1;
+            for (let r = 20; r < 80; r += 15) {
+                ctx.beginPath();
+                ctx.arc(mouse.x, mouse.y, r, this.tick * 0.05 + r * 0.1, this.tick * 0.05 + r * 0.1 + Math.PI);
+                ctx.stroke();
+            }
             ctx.restore();
         }
     }

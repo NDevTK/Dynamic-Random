@@ -1362,23 +1362,48 @@ export class GeometricArchitecture extends Architecture {
     }
 
     init(system) {
+        const rng = system.rng;
         this.shards = [];
-        this.magneticMode = system.rng() > 0.5; // 50% chance of magnetic alignment mode
-        const count = 50;
+        this.magneticMode = rng() > 0.5;
+        // Seed-driven visual style: 0=wireframe, 1=filled, 2=neon, 3=glass
+        this.visualStyle = Math.floor(rng() * 4);
+        // Connection style: 0=nearest, 1=all-in-range, 2=chain, 3=none
+        this.connectionStyle = Math.floor(rng() * 4);
+        this.connectionRadius = 150 + rng() * 150;
+        this.connectionRadiusSq = this.connectionRadius * this.connectionRadius;
+        // Background grid
+        this.hasGrid = rng() > 0.6;
+        this.gridSpacing = 30 + rng() * 60;
+        this.gridHue = system.hue;
+        // Orbit mode: some shards orbit a center point
+        this.hasOrbits = rng() > 0.5;
+        this.orbitCenterX = system.width * (0.3 + rng() * 0.4);
+        this.orbitCenterY = system.height * (0.3 + rng() * 0.4);
+        // Trail effect
+        this.hasTrails = rng() > 0.6;
+
+        const count = 40 + Math.floor(rng() * 30);
         for (let i = 0; i < count; i++) {
+            const isOrbiter = this.hasOrbits && rng() > 0.5;
             this.shards.push({
-                x: system.rng() * system.width,
-                y: system.rng() * system.height,
-                vx: (system.rng() - 0.5) * 1,
-                vy: (system.rng() - 0.5) * 1,
-                size: system.rng() * 20 + 10,
-                rotation: system.rng() * Math.PI * 2,
-                rotationSpeed: (system.rng() - 0.5) * 0.02,
-                sides: Math.floor(system.rng() * 3) + 3,
+                x: rng() * system.width,
+                y: rng() * system.height,
+                vx: (rng() - 0.5) * 1,
+                vy: (rng() - 0.5) * 1,
+                size: rng() * 20 + 10,
+                rotation: rng() * Math.PI * 2,
+                rotationSpeed: (rng() - 0.5) * 0.02,
+                sides: Math.floor(rng() * 5) + 3, // 3-7 sides for more variety
                 brightness: 0,
-                hueOffset: (system.rng() - 0.5) * 60,
-                innerLayers: 1 + Math.floor(system.rng() * 2), // 1-2 inscribed inner polygons
-                innerScale: 0.4 + system.rng() * 0.3
+                hueOffset: (rng() - 0.5) * 60,
+                innerLayers: 1 + Math.floor(rng() * 2),
+                innerScale: 0.4 + rng() * 0.3,
+                isOrbiter,
+                orbitRadius: isOrbiter ? 100 + rng() * 200 : 0,
+                orbitSpeed: isOrbiter ? (0.002 + rng() * 0.008) * (rng() > 0.5 ? 1 : -1) : 0,
+                orbitPhase: rng() * Math.PI * 2,
+                trailX: [],
+                trailY: [],
             });
         }
     }
@@ -1426,10 +1451,29 @@ export class GeometricArchitecture extends Architecture {
                 }
             });
 
+            // --- Orbiting shards ---
+            if (s.isOrbiter) {
+                s.orbitPhase += s.orbitSpeed * system.speedMultiplier;
+                const targetX = this.orbitCenterX + Math.cos(s.orbitPhase) * s.orbitRadius;
+                const targetY = this.orbitCenterY + Math.sin(s.orbitPhase) * s.orbitRadius;
+                s.vx += (targetX - s.x) * 0.005;
+                s.vy += (targetY - s.y) * 0.005;
+            }
+
             // --- Physics integration ---
             s.x += s.vx * system.speedMultiplier;
             s.y += s.vy * system.speedMultiplier;
             s.rotation += s.rotationSpeed * system.speedMultiplier;
+
+            // Trail tracking
+            if (this.hasTrails) {
+                s.trailX.push(s.x);
+                s.trailY.push(s.y);
+                if (s.trailX.length > 8) {
+                    s.trailX.shift();
+                    s.trailY.shift();
+                }
+            }
 
             // Magnetic mode: shards align rotation to nearest neighbor
             if (this.magneticMode) {
@@ -1472,28 +1516,74 @@ export class GeometricArchitecture extends Architecture {
         const ctx = system.ctx;
         const h = system.hue;
 
-        // --- Batched connection lines using Path2D ---
-        // Throttle connection path rebuilds for performance
-        if (!this.connectionPath || system.tick - this.lastConnectionUpdate > 3) {
-            this.connectionPath = new Path2D();
-            for (let i = 0; i < this.shards.length; i++) {
-                for (let j = i + 1; j < this.shards.length; j++) {
-                    const s1 = this.shards[i];
-                    const s2 = this.shards[j];
-                    const dx = s1.x - s2.x;
-                    const dy = s1.y - s2.y;
-                    if (dx * dx + dy * dy < 40000) {
-                        this.connectionPath.moveTo(s1.x, s1.y);
-                        this.connectionPath.lineTo(s2.x, s2.y);
-                    }
-                }
+        // Background grid
+        if (this.hasGrid) {
+            ctx.strokeStyle = `hsla(${this.gridHue}, 20%, 30%, 0.04)`;
+            ctx.lineWidth = 0.5;
+            const offset = (system.tick * 0.15) % this.gridSpacing;
+            ctx.beginPath();
+            for (let x = -offset; x < system.width + this.gridSpacing; x += this.gridSpacing) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, system.height);
             }
-            this.lastConnectionUpdate = system.tick;
+            for (let y = -offset; y < system.height + this.gridSpacing; y += this.gridSpacing) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(system.width, y);
+            }
+            ctx.stroke();
         }
 
-        ctx.strokeStyle = `hsla(${h}, 50%, 70%, 0.2)`;
-        ctx.lineWidth = 1;
-        ctx.stroke(this.connectionPath);
+        // Shard trails
+        if (this.hasTrails) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineWidth = 0.5;
+            for (const s of this.shards) {
+                if (s.trailX.length < 2) continue;
+                const shardHue = (h + s.hueOffset + 360) % 360;
+                ctx.strokeStyle = `hsla(${shardHue}, 50%, 50%, 0.06)`;
+                ctx.beginPath();
+                ctx.moveTo(s.trailX[0], s.trailY[0]);
+                for (let t = 1; t < s.trailX.length; t++) {
+                    ctx.lineTo(s.trailX[t], s.trailY[t]);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // --- Batched connection lines using Path2D ---
+        if (this.connectionStyle < 3) {
+            if (!this.connectionPath || system.tick - this.lastConnectionUpdate > 3) {
+                this.connectionPath = new Path2D();
+                const radSq = this.connectionRadiusSq;
+                if (this.connectionStyle === 2) {
+                    // Chain: connect each to next nearest
+                    for (let i = 0; i < this.shards.length - 1; i++) {
+                        this.connectionPath.moveTo(this.shards[i].x, this.shards[i].y);
+                        this.connectionPath.lineTo(this.shards[i + 1].x, this.shards[i + 1].y);
+                    }
+                } else {
+                    for (let i = 0; i < this.shards.length; i++) {
+                        for (let j = i + 1; j < this.shards.length; j++) {
+                            const s1 = this.shards[i];
+                            const s2 = this.shards[j];
+                            const dx = s1.x - s2.x;
+                            const dy = s1.y - s2.y;
+                            if (dx * dx + dy * dy < radSq) {
+                                this.connectionPath.moveTo(s1.x, s1.y);
+                                this.connectionPath.lineTo(s2.x, s2.y);
+                            }
+                        }
+                    }
+                }
+                this.lastConnectionUpdate = system.tick;
+            }
+            const connAlpha = this.visualStyle === 2 ? 0.15 : 0.08;
+            ctx.strokeStyle = `hsla(${h}, 50%, 70%, ${connAlpha})`;
+            ctx.lineWidth = this.visualStyle === 2 ? 0.8 : 1;
+            ctx.stroke(this.connectionPath);
+        }
 
         // --- Draw shards with per-shard brightness, hue offset, and glow ---
         this.shards.forEach(s => {

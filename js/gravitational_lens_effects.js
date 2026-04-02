@@ -143,8 +143,8 @@ export class GravitationalLens {
         if (this.mode === 4) {
             // Record smear history
             this.smearHistory.push({ x: mx, y: my });
-            while (this.smearHistory.length > this.smearHistoryMax) {
-                this.smearHistory.shift();
+            if (this.smearHistory.length > this.smearHistoryMax + 10) {
+                this.smearHistory = this.smearHistory.slice(-this.smearHistoryMax);
             }
         }
     }
@@ -271,7 +271,7 @@ export class GravitationalLens {
         this.glassPhase += 0.02;
         const amp = this.glassWobbleAmp * (1 + this._mouseSpeed * 0.03) * this.intensity;
         const freq = this.glassWobbleFreq;
-        const clickAmp = this._isClicking ? amp * 2 : amp;
+        const clickAmp = this._isClicking ? amp * 4 : amp;
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -288,10 +288,11 @@ export class GravitationalLens {
             ctx.beginPath();
 
             const segments = 32;
+            const ringDepth = 1 - i / rings; // Inner rings less wobble for depth
             for (let j = 0; j <= segments; j++) {
                 const a = (j / segments) * Math.PI * 2;
-                const wobble = Math.sin(a * 3 + this.glassPhase + i * 0.5) * clickAmp;
-                const wobble2 = Math.cos(a * 5 + this.glassPhase * 1.3) * clickAmp * 0.5;
+                const wobble = Math.sin(a * 3 + this.glassPhase + i * 0.5) * clickAmp * ringDepth;
+                const wobble2 = Math.cos(a * 5 + this.glassPhase * 1.3) * clickAmp * 0.5 * ringDepth;
                 const r = baseR + wobble + wobble2;
                 const px = mx + Math.cos(a) * r;
                 const py = my + Math.sin(a) * r;
@@ -325,21 +326,32 @@ export class GravitationalLens {
             const endX = f.x + Math.cos(f.angle) * f.length * f.life;
             const endY = f.y + Math.sin(f.angle) * f.length * f.life;
 
-            // Main fracture line with glow
-            ctx.shadowColor = `hsla(${this.hue}, ${this.saturation}%, 70%, ${alpha})`;
-            ctx.shadowBlur = 8 * f.life;
-            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 90%, ${alpha})`;
-            ctx.lineWidth = f.width * f.life;
+            // Main fracture line with manual glow (avoids expensive shadowBlur)
+            // Glow pass (wider, dimmer)
+            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 70%, ${alpha * 0.3})`;
+            ctx.lineWidth = f.width * f.life + 6 * f.life;
             ctx.beginPath();
             ctx.moveTo(f.x, f.y);
 
-            // Jagged line
+            // Jagged line - cache jag points for reuse in core pass
             const steps = 5;
+            const jagPts = [{ x: f.x, y: f.y }];
             for (let s = 1; s <= steps; s++) {
                 const t = s / steps;
                 const jx = f.x + (endX - f.x) * t + (Math.random() - 0.5) * 10 * f.life;
                 const jy = f.y + (endY - f.y) * t + (Math.random() - 0.5) * 10 * f.life;
                 ctx.lineTo(jx, jy);
+                jagPts.push({ x: jx, y: jy });
+            }
+            ctx.stroke();
+
+            // Core pass (thinner, brighter)
+            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 90%, ${alpha})`;
+            ctx.lineWidth = f.width * f.life;
+            ctx.beginPath();
+            ctx.moveTo(jagPts[0].x, jagPts[0].y);
+            for (let s = 1; s < jagPts.length; s++) {
+                ctx.lineTo(jagPts[s].x, jagPts[s].y);
             }
             ctx.stroke();
 
@@ -368,12 +380,27 @@ export class GravitationalLens {
             ctx.fill();
         }
 
-        ctx.shadowBlur = 0;
         ctx.restore();
     }
 
     _drawTemporalSmear(ctx, mx, my, w, h) {
-        if (this.smearHistory.length < 2) return;
+        // Show subtle aura even when stationary
+        if (this.smearHistory.length < 2) {
+            if (this._mouseSpeed < 1) {
+                const idlePulse = Math.sin(this.tick * 0.04) * 0.5 + 0.5;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 20 + idlePulse * 15);
+                grad.addColorStop(0, `hsla(${this.hue}, 60%, 65%, ${0.04 * this.intensity})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(mx, my, 35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+            return;
+        }
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';

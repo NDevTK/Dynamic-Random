@@ -19,6 +19,9 @@ import { MoodAtmosphere } from './mood_atmosphere.js';
 import { GravitationalLens } from './gravitational_lens_effects.js';
 import { SonicBloom } from './sonic_bloom_effects.js';
 import { PixelAlchemy } from './pixel_alchemy_effects.js';
+import { PhantomCursor } from './phantom_cursor_effects.js';
+import { HarmonicResonance } from './harmonic_resonance_effects.js';
+import { LivingInk } from './living_ink_effects.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
@@ -33,6 +36,9 @@ class InteractiveBackgroundEffects {
         this.lens = new GravitationalLens();
         this.bloom = new SonicBloom();
         this.alchemy = new PixelAlchemy();
+        this.phantom = new PhantomCursor();
+        this.harmonics = new HarmonicResonance();
+        this.ink = new LivingInk();
 
         // Sub-system enable flags (set by seed)
         this.hasGrid = false;
@@ -42,6 +48,9 @@ class InteractiveBackgroundEffects {
         this.hasLens = false;
         this.hasBloom = false;
         this.hasAlchemy = false;
+        this.hasPhantom = false;
+        this.hasHarmonics = false;
+        this.hasInk = false;
 
         // Original effect toggles
         this.hasRipples = false;
@@ -81,7 +90,7 @@ class InteractiveBackgroundEffects {
         this.ghosts = [];
         this.ghostPool = [];
         this.maxGhosts = 15;
-        this.ghostStyle = 0;
+        this.ghostStyle = 0; // Base style, individual ghosts get varied styles
 
         // Constellation links
         this.constellationPoints = [];
@@ -151,14 +160,14 @@ class InteractiveBackgroundEffects {
         const hues = this._extractHues(palette);
 
         // --- Enable sub-systems based on seed ---
-        // Pick 3-5 sub-systems from 7 available using a shuffle to guarantee diversity
-        const subsystems = [0, 1, 2, 3, 4, 5, 6];
+        // Pick 4-6 sub-systems from 10 available using a shuffle to guarantee diversity
+        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         // Fisher-Yates shuffle with seeded rng
         for (let i = subsystems.length - 1; i > 0; i--) {
             const j = Math.floor(rng() * (i + 1));
             [subsystems[i], subsystems[j]] = [subsystems[j], subsystems[i]];
         }
-        const enableCount = 3 + Math.floor(rng() * 3); // 3, 4, or 5
+        const enableCount = 4 + Math.floor(rng() * 3); // 4, 5, or 6
         const enabledSet = new Set(subsystems.slice(0, enableCount));
         this.hasGrid = enabledSet.has(0);
         this.hasEchoes = enabledSet.has(1);
@@ -167,6 +176,9 @@ class InteractiveBackgroundEffects {
         this.hasLens = enabledSet.has(4);
         this.hasBloom = enabledSet.has(5);
         this.hasAlchemy = enabledSet.has(6);
+        this.hasPhantom = enabledSet.has(7);
+        this.hasHarmonics = enabledSet.has(8);
+        this.hasInk = enabledSet.has(9);
 
         // Configure enabled sub-systems with normalized hue array
         if (this.hasGrid) this.grid.configure(rng, hues);
@@ -176,6 +188,9 @@ class InteractiveBackgroundEffects {
         if (this.hasLens) this.lens.configure(rng, hues);
         if (this.hasBloom) this.bloom.configure(rng, hues);
         if (this.hasAlchemy) this.alchemy.configure(rng, hues);
+        if (this.hasPhantom) this.phantom.configure(rng, hues);
+        if (this.hasHarmonics) this.harmonics.configure(rng, hues);
+        if (this.hasInk) this.ink.configure(rng, hues);
 
         // --- Original effects (1-3 active) ---
         this.hasRipples = rng() > 0.35;
@@ -231,6 +246,13 @@ class InteractiveBackgroundEffects {
         const my = mouse.y;
         const isClicking = isLeftMouseDown || isRightMouseDown;
 
+        // Track mouse speed for velocity-responsive effects
+        const dx = mx - (this._prevMx || mx);
+        const dy = my - (this._prevMy || my);
+        this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+        this._prevMx = mx;
+        this._prevMy = my;
+
         // Handle clicks
         if (this._clickRegistered) {
             this._clickRegistered = false;
@@ -241,6 +263,7 @@ class InteractiveBackgroundEffects {
                 ripple.y = this._lastClickY;
                 ripple.radius = 0;
                 ripple.alpha = 0.6;
+                ripple.hue = (this.trailHue + Math.random() * 60 - 30 + 360) % 360;
                 this.ripples.push(ripple);
             }
 
@@ -252,7 +275,9 @@ class InteractiveBackgroundEffects {
                     alpha: 0.5,
                 });
                 if (this.constellationPoints.length > this.maxConstellationPoints) {
-                    this.constellationPoints.shift();
+                    // Swap-and-pop first element (O(1) vs shift's O(n))
+                    this.constellationPoints[0] = this.constellationPoints[this.constellationPoints.length - 1];
+                    this.constellationPoints.pop();
                 }
             }
         }
@@ -269,11 +294,24 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Mouse trail
+        // Mouse trail with click burst
         if (this.hasMouseTrail) {
             this.trailPoints.push({ x: mx, y: my, tick: this.tick });
-            while (this.trailPoints.length > this.maxTrailPoints) {
-                this.trailPoints.shift();
+            // Click spawns radial burst of trail points
+            if (this._clickRegistered) {
+                const burstCount = 6;
+                for (let i = 0; i < burstCount; i++) {
+                    const angle = (i / burstCount) * Math.PI * 2;
+                    this.trailPoints.push({
+                        x: mx + Math.cos(angle) * 20,
+                        y: my + Math.sin(angle) * 20,
+                        tick: this.tick,
+                    });
+                }
+            }
+            // Trim excess with slice instead of repeated shift() to avoid O(n^2) churn
+            if (this.trailPoints.length > this.maxTrailPoints + 10) {
+                this.trailPoints = this.trailPoints.slice(-this.maxTrailPoints);
             }
         }
 
@@ -313,13 +351,17 @@ class InteractiveBackgroundEffects {
         }
 
         // Echo ghosts
-        if (this.hasEchoGhosts && this.tick % 6 === 0 && this.ghosts.length < this.maxGhosts) {
+        // Echo ghosts - spawn rate scales with cursor speed
+        const ghostInterval = Math.max(2, 6 - Math.floor(this._mouseSpeed || 0));
+        if (this.hasEchoGhosts && this.tick % ghostInterval === 0 && this.ghosts.length < this.maxGhosts) {
             const ghost = this.ghostPool.length > 0 ? this.ghostPool.pop() : {};
             ghost.x = mx;
             ghost.y = my;
             ghost.life = 30;
             ghost.maxLife = 30;
             ghost.size = 8 + Math.random() * 12;
+            ghost.style = Math.floor(Math.random() * 3); // Per-ghost style variety
+            ghost.hueOffset = Math.random() * 40 - 20; // Per-ghost color
             this.ghosts.push(ghost);
         }
 
@@ -352,6 +394,9 @@ class InteractiveBackgroundEffects {
         if (this.hasLens && q > 0.25) this.lens.update(mx, my, isClicking);
         if (this.hasBloom && q > 0.3) this.bloom.update(mx, my, isClicking);
         if (this.hasAlchemy && q > 0.3) this.alchemy.update(mx, my, isClicking);
+        if (this.hasPhantom && q > 0.3) this.phantom.update(mx, my, isClicking);
+        if (this.hasHarmonics && q > 0.25) this.harmonics.update(mx, my, isClicking);
+        if (this.hasInk && q > 0.3) this.ink.update(mx, my, isClicking);
     }
 
     /**
@@ -366,12 +411,15 @@ class InteractiveBackgroundEffects {
 
         // Draw sub-systems (mood atmosphere first as it's usually a background-level effect)
         if (this.hasAtmosphere && q > 0.25) this.atmosphere.draw(ctx, system);
+        if (this.hasHarmonics && q > 0.25) this.harmonics.draw(ctx, system);
         if (this.hasAlchemy && q > 0.3) this.alchemy.draw(ctx, system);
+        if (this.hasInk && q > 0.3) this.ink.draw(ctx, system);
         if (this.hasGrid && q > 0.25) this.grid.draw(ctx, system);
         if (this.hasEchoes && q > 0.3) this.echoes.draw(ctx, system);
         if (this.hasLens && q > 0.25) this.lens.draw(ctx, system);
         if (this.hasSwarm && q > 0.3) this.swarm.draw(ctx, system);
         if (this.hasBloom && q > 0.3) this.bloom.draw(ctx, system);
+        if (this.hasPhantom && q > 0.3) this.phantom.draw(ctx, system);
 
         // --- Original effects below ---
 
@@ -422,21 +470,23 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Echo ghosts
+        // Echo ghosts with per-ghost style variety
         if (this.hasEchoGhosts) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             for (const ghost of this.ghosts) {
                 const alpha = (ghost.life / ghost.maxLife) * 0.2;
                 const size = ghost.size * (1 - ghost.life / ghost.maxLife) + ghost.size * 0.5;
-                ctx.strokeStyle = `hsla(${this.trailHue}, 50%, 60%, ${alpha})`;
+                const ghostHue = (this.trailHue + (ghost.hueOffset || 0) + 360) % 360;
+                ctx.strokeStyle = `hsla(${ghostHue}, 50%, 60%, ${alpha})`;
                 ctx.lineWidth = 1;
 
-                if (this.ghostStyle === 0) {
+                const style = ghost.style !== undefined ? ghost.style : this.ghostStyle;
+                if (style === 0) {
                     ctx.beginPath();
                     ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
                     ctx.stroke();
-                } else if (this.ghostStyle === 1) {
+                } else if (style === 1) {
                     ctx.beginPath();
                     ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
                     ctx.stroke();
@@ -493,18 +543,19 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Click ripples
+        // Click ripples with per-ripple color variety
         if (this.hasRipples) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = 1.5;
             for (const r of this.ripples) {
-                ctx.strokeStyle = this.rippleColor + r.alpha + ')';
+                const rHue = r.hue !== undefined ? r.hue : this.trailHue;
+                ctx.strokeStyle = `hsla(${rHue}, 70%, 60%, ${r.alpha})`;
                 ctx.beginPath();
                 ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
                 ctx.stroke();
                 if (r.radius > 10) {
-                    ctx.strokeStyle = this.rippleColor + (r.alpha * 0.5) + ')';
+                    ctx.strokeStyle = `hsla(${rHue}, 70%, 60%, ${r.alpha * 0.5})`;
                     ctx.beginPath();
                     ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2);
                     ctx.stroke();
@@ -513,7 +564,7 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Constellation links
+        // Constellation links with glow on recent points
         if (this.hasConstellationLinks && this.constellationPoints.length > 1) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -526,7 +577,7 @@ class InteractiveBackgroundEffects {
                     const dx = p1.x - p2.x;
                     const dy = p1.y - p2.y;
                     const distSq = dx * dx + dy * dy;
-                    if (distSq < 90000) { // 300^2, avoid sqrt
+                    if (distSq < 90000) {
                         const dist = Math.sqrt(distSq);
                         const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist / 300) * 0.3;
                         ctx.strokeStyle = `hsla(${this.constellationHue}, 50%, 70%, ${alpha})`;
@@ -536,7 +587,17 @@ class InteractiveBackgroundEffects {
                         ctx.stroke();
                     }
                 }
-                ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${p1.alpha * 0.6})`;
+                // Star dot with glow for new points
+                const freshness = p1.life > 250 ? (p1.life - 250) / 50 : 0;
+                const dotAlpha = p1.alpha * 0.6;
+                if (freshness > 0) {
+                    // Fresh star glow
+                    ctx.fillStyle = `hsla(${this.constellationHue}, 80%, 85%, ${dotAlpha * freshness * 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(p1.x, p1.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${dotAlpha})`;
                 ctx.beginPath();
                 ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2);
                 ctx.fill();

@@ -155,18 +155,31 @@ export class DimensionalEchoes {
         switch (this.mode) {
             case 0: // Kaleidoscope
                 this.kaleidoTrail.push({ x: mx, y: my });
-                while (this.kaleidoTrail.length > this.maxKaleidoTrail) this.kaleidoTrail.shift();
+                if (this.kaleidoTrail.length > this.maxKaleidoTrail + 10) {
+                    this.kaleidoTrail = this.kaleidoTrail.slice(-this.maxKaleidoTrail);
+                }
                 break;
 
             case 1: // Time echoes
                 this.echoHistory.push({ x: mx, y: my });
-                while (this.echoHistory.length > this.echoHistoryMax) this.echoHistory.shift();
+                if (this.echoHistory.length > this.echoHistoryMax + 20) {
+                    this.echoHistory = this.echoHistory.slice(-this.echoHistoryMax);
+                }
                 break;
 
             case 2: // Dimensional tears
-                // Click-spawned tears
+                // Click-spawned burst of tears
                 if (isClicking && this.tears.length < this.maxTears) {
                     this._spawnTear(mx, my);
+                    // Burst: spawn extra tears radiating from click
+                    if (this.tick % 8 === 0) {
+                        const rng = this._rng;
+                        const ox = (rng() - 0.5) * 80;
+                        const oy = (rng() - 0.5) * 80;
+                        if (this.tears.length < this.maxTears) {
+                            this._spawnTear(mx + ox, my + oy);
+                        }
+                    }
                 }
 
                 // Ambient tears spawn periodically near cursor
@@ -196,6 +209,13 @@ export class DimensionalEchoes {
             case 4: // Shadow theater
                 for (const obj of this.shadowObjects) {
                     obj.rotation += obj.rotSpeed;
+                    // Cursor proximity subtly steers rotation
+                    const dx = mx - obj.x;
+                    const dy = my - obj.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
+                    if (dist < 300) {
+                        obj.rotSpeed += dx / (dist * 5000);
+                    }
                 }
                 break;
 
@@ -204,7 +224,9 @@ export class DimensionalEchoes {
                     const offsetX = Math.sin(this.tick * path.freqX + path.phaseX) * this.quantumDrift;
                     const offsetY = Math.cos(this.tick * path.freqY + path.phaseY) * this.quantumDrift;
                     path.points.push({ x: mx + offsetX, y: my + offsetY });
-                    while (path.points.length > path.maxPoints) path.points.shift();
+                    if (path.points.length > path.maxPoints + 10) {
+                        path.points = path.points.slice(-path.maxPoints);
+                    }
                 }
                 break;
         }
@@ -243,8 +265,18 @@ export class DimensionalEchoes {
     }
 
     _drawKaleidoscope(ctx, w, h) {
-        if (this.kaleidoTrail.length < 2) return;
         const cxCenter = w / 2, cyCenter = h / 2;
+
+        // Ambient pulsing ring at center even when idle
+        const pulse = 0.5 + Math.sin(this.tick * 0.02) * 0.5;
+        const ringR = 15 + pulse * 10;
+        ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 60%, ${0.03 + pulse * 0.02})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(cxCenter, cyCenter, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (this.kaleidoTrail.length < 2) return;
 
         for (let s = 0; s < this.symmetry; s++) {
             const angle = (s / this.symmetry) * Math.PI * 2;
@@ -257,7 +289,7 @@ export class DimensionalEchoes {
             ctx.translate(-cxCenter, -cyCenter);
 
             ctx.beginPath();
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 0.8 + (s % 2) * 1.5; // Alternate thin/thick for depth
             const alpha = 0.15 / Math.sqrt(this.symmetry);
             ctx.strokeStyle = `hsla(${(this.hue + s * 20) % 360}, ${this.saturation}%, 65%, ${alpha})`;
 
@@ -284,7 +316,7 @@ export class DimensionalEchoes {
     }
 
     _drawTimeEchoes(ctx, w, h) {
-        if (this.echoHistory.length < 10) return;
+        if (this.echoHistory.length < 3) return;
 
         for (let layer = 0; layer < this.echoLayers; layer++) {
             const delay = this.echoDelays[layer];

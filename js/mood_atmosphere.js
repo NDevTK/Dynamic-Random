@@ -153,20 +153,26 @@ export class MoodAtmosphere {
         this.tick++;
 
         switch (this.mode) {
-            case 0: this._updateGodRays(mx, my); break;
+            case 0: this._updateGodRays(mx, my, isClicking); break;
             case 1: this._updateElectricStorm(mx, my, isClicking); break;
             case 2: break; // Aurora is purely time-based
             case 3: this._updateFog(mx, my); break;
-            case 4: this._updateEmbers(mx, my); break;
-            case 5: this._updateCaustics(); break;
+            case 4: this._updateEmbers(mx, my, isClicking); break;
+            case 5: this._updateCaustics(mx, my); break;
         }
     }
 
-    _updateGodRays(mx, my) {
+    _updateGodRays(mx, my, isClicking) {
         const targetX = mx / this._w;
         const targetY = my / this._h * 0.3;
         this.raySourceX += (targetX - this.raySourceX) * 0.01;
         this.raySourceY += (targetY - this.raySourceY) * 0.01;
+        // Click creates intensity pulse that decays
+        if (isClicking) {
+            this._rayPulse = Math.min(2, (this._rayPulse || 0) + 0.1);
+        } else {
+            this._rayPulse = Math.max(0, (this._rayPulse || 0) - 0.02);
+        }
     }
 
     _updateElectricStorm(mx, my, isClicking) {
@@ -266,10 +272,26 @@ export class MoodAtmosphere {
         }
     }
 
-    _updateEmbers(mx, my) {
+    _updateEmbers(mx, my, isClicking) {
         // Track peak ember count for smooth heat shimmer
         this._peakEmberCount = Math.max(this._peakEmberCount * 0.995, this.embers.length);
         const rng = this._rng;
+
+        // Click spawns burst of embers at cursor position
+        if (isClicking && this.tick % 3 === 0 && this.embers.length < this.maxEmbers) {
+            const ember = this.emberPool.length > 0 ? this.emberPool.pop() : {};
+            ember.x = mx + (rng() - 0.5) * 30;
+            ember.y = my + (rng() - 0.5) * 30;
+            ember.vx = (rng() - 0.5) * 2;
+            ember.vy = -(1 + rng() * 3);
+            ember.life = 1.0;
+            ember.decay = 0.003 + rng() * 0.004;
+            ember.size = 2 + rng() * 4;
+            ember.wobble = rng() * Math.PI * 2;
+            ember.wobbleSpeed = 0.02 + rng() * 0.04;
+            ember.hueOffset = rng() * 30 - 15;
+            this.embers.push(ember);
+        }
 
         // Spawn embers from bottom
         if (this.tick % 4 === 0 && this.embers.length < this.maxEmbers) {
@@ -312,12 +334,15 @@ export class MoodAtmosphere {
         }
     }
 
-    _updateCaustics() {
+    _updateCaustics(mx, my) {
         this.causticPhase += 0.015;
         // Normalize phase to prevent float precision issues over long sessions
         if (this.causticPhase > Math.PI * 200) {
             this.causticPhase -= Math.PI * 200;
         }
+        // Track mouse for interactive distortion
+        this._causticMx = mx;
+        this._causticMy = my;
     }
 
     draw(ctx, system) {
@@ -340,13 +365,14 @@ export class MoodAtmosphere {
     _drawGodRays(ctx, w, h) {
         const srcX = this.raySourceX * w;
         const srcY = this.raySourceY * h;
+        const pulse = 1 + (this._rayPulse || 0);
 
         ctx.globalCompositeOperation = 'lighter';
 
         for (const ray of this.rays) {
             const oscillation = Math.sin(this.tick * ray.speed + ray.phase);
             const angle = ray.angle + oscillation * 0.1;
-            const intensity = ray.intensity * (0.7 + oscillation * 0.3);
+            const intensity = ray.intensity * (0.7 + oscillation * 0.3) * pulse;
             const alpha = intensity * 0.04;
 
             const length = Math.max(w, h) * 1.5;
@@ -551,11 +577,19 @@ export class MoodAtmosphere {
                            Math.cos(py * 0.02 * c + phase * 0.7 * c) * (1 / c);
                 }
                 val = (val + complexity) / (complexity * 2);
-                val = val * val; // sharpen
+                // Sharper caustic edges with cubic power
+                val = val * val * val;
 
-                if (val < 0.15) continue;
+                if (val < 0.1) continue;
 
-                const alpha = val * 0.08;
+                // Mouse proximity brightens caustics for interactivity
+                const cmx = this._causticMx || 0;
+                const cmy = this._causticMy || 0;
+                const cdx = px - cmx;
+                const cdy = py - cmy;
+                const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
+                const proxBoost = cdist < 200 ? 1 + (1 - cdist / 200) * 0.8 : 1;
+                const alpha = val * 0.08 * proxBoost;
                 const hue = (this.hue + val * 40) % 360;
                 ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 65%, ${alpha})`;
 

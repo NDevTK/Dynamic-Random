@@ -119,9 +119,11 @@ function applyCosmicWebForce(p) {
 }
 
 function applyQuasarForce(p) {
-    activeEffects.quasars.forEach(q => {
+    for (const q of activeEffects.quasars) {
         if (q.isFiring) {
-            const dx = p.x - q.x, dy = p.y - q.y, dist = Math.sqrt(dx * dx + dy * dy);
+            const dx = p.x - q.x, dy = p.y - q.y, distSq = dx * dx + dy * dy;
+            if (distSq < 1) continue;
+            const dist = Math.sqrt(distSq);
             const angleToP = Math.atan2(dy, dx);
             const angleDiff = Math.abs(q.angle - angleToP);
             if (angleDiff < 0.2 || angleDiff > Math.PI * 2 - 0.2) {
@@ -129,7 +131,7 @@ function applyQuasarForce(p) {
                 p.vy += Math.sin(q.angle) * q.strength / dist;
             }
         }
-    });
+    }
 }
 
 function applyCosmicRiftForce(p) {
@@ -160,7 +162,8 @@ function applyIonCloudForce(p, pJS) {
             const nearby = particleGrid.getNearby(cloud.x, cloud.y, cloud.radius);
             for (const p2 of nearby) {
                 if (p === p2) continue;
-                const dist2Sq = Math.pow(cloud.x - p2.x, 2) + Math.pow(cloud.y - p2.y, 2);
+                const cdx = cloud.x - p2.x, cdy = cloud.y - p2.y;
+                const dist2Sq = cdx * cdx + cdy * cdy;
                 if (dist2Sq < cloud.radius * cloud.radius) {
                     p.vx += (p2.x - p.x) * 0.05;
                     p.vy += (p2.y - p.y) * 0.05;
@@ -391,7 +394,8 @@ function applyElasticCollisions(p, pJS, isPhased) {
         for (const p2 of nearby) {
             if (p === p2) continue;
             const dx = p.x - p2.x, dy = p.y - p2.y, distSq = dx * dx + dy * dy;
-            if (distSq < Math.pow(p.radius + p2.radius, 2)) {
+            const combinedR = p.radius + p2.radius;
+            if (distSq < combinedR * combinedR) {
                 const angle = Math.atan2(dy, dx);
                 const force = 0.5 / (distSq * 0.01 + 1);
                 p.vx += Math.cos(angle) * force;
@@ -422,7 +426,8 @@ function applyPairBonding(p, pJS) {
         const nearby = particleGrid.getNearby(p.x, p.y, 50);
         for (const p2 of nearby) {
             if (p === p2 || p2.bondPartner) continue;
-            const dSq = Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2);
+            const bdx = p.x - p2.x, bdy = p.y - p2.y;
+            const dSq = bdx * bdx + bdy * bdy;
             if (dSq < 2500) {
                 p.bondPartner = p2;
                 p2.bondPartner = p;
@@ -509,11 +514,15 @@ function applyHeavyParticles(p, pJS) {
     }
 }
 
-// Cached mutator Set — rebuilt once per update(), avoids repeated Array.includes()
+// Cached mutator Set — only rebuilt when the underlying array changes
 let _activeMutators = new Set();
+let _lastMutatorsRef = null;
 
 function rebuildMutatorCache() {
-    _activeMutators = new Set(universeProfile.mutators || []);
+    const mutators = universeProfile.mutators;
+    if (mutators === _lastMutatorsRef) return; // Skip if same reference (common case)
+    _lastMutatorsRef = mutators;
+    _activeMutators = new Set(mutators || []);
 }
 
 // Pre-computed average velocity for Choral mutator (avoids O(n^2))
@@ -553,8 +562,9 @@ function applyParticleChains(p, pJS) {
             const nearby = particleGrid.getNearby(p.x, p.y, 30);
             for (const p2 of nearby) {
                 if (p === p2 || p2.chainParent) continue;
-                const dSq = Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2);
-                if (dSq < 20 * 20 && !p.chainParent) {
+                const cdx2 = p.x - p2.x, cdy2 = p.y - p2.y;
+                const dSq = cdx2 * cdx2 + cdy2 * cdy2;
+                if (dSq < 400 && !p.chainParent) {
                     p.chainChild = p2;
                     p2.chainParent = p;
                     break;
@@ -619,30 +629,32 @@ function applyCosmicRivers(p) {
 
 function applyMutatorForces(p, i, pJS, isPhased) {
     const tick = getTick();
-    // Only call mutator functions that are actually active (perf: skip ~20 function
-    // calls per particle per frame when those mutators aren't enabled)
+    // Only call mutator functions that are actually active — dispatch directly
+    // to avoid ~20 no-op function calls per particle per frame
     if (_activeMutators.size > 0) {
-        applyPulsingParticles(p, tick);
-        if (applyUnstableParticles(p, i, pJS)) return true;
-        applyRepulsiveField(p, pJS, isPhased);
-        applyClustering(p, pJS, isPhased, tick);
-        applyErratic(p);
-        applyRainbow(p, tick);
-        applyFlickering(p, pJS, tick);
-        if (applyParticleDecay(p, i, pJS)) return true;
-        applyElasticCollisions(p, pJS, isPhased);
-        applyNoisy(p);
-        applySynchronized(p, tick);
-        applyPairBonding(p, pJS);
-        applyFragmenting(p, pJS);
-        applyChaoticOrbits(p, pJS);
-        applySelfPropelled(p);
-        applyPhaseScattering(p);
-        applyBrownianMotion(p);
-        applyHeavyParticles(p, pJS);
-        applyChoral(p);
-        applyCarnival(p, tick);
-        applyParticleChains(p, pJS);
+        if (_activeMutators.has('Pulsing Particles')) applyPulsingParticles(p, tick);
+        if (_activeMutators.has('Unstable Particles') && applyUnstableParticles(p, i, pJS)) return true;
+        if (!isPhased) {
+            if (_activeMutators.has('Repulsive Field')) applyRepulsiveField(p, pJS, isPhased);
+            if (_activeMutators.has('Clustering')) applyClustering(p, pJS, isPhased, tick);
+            if (_activeMutators.has('Elastic Collisions')) applyElasticCollisions(p, pJS, isPhased);
+        }
+        if (_activeMutators.has('Erratic')) applyErratic(p);
+        if (_activeMutators.has('Rainbow')) applyRainbow(p, tick);
+        if (_activeMutators.has('Flickering')) applyFlickering(p, pJS, tick);
+        if (_activeMutators.has('Particle Decay') && applyParticleDecay(p, i, pJS)) return true;
+        if (_activeMutators.has('Noisy')) applyNoisy(p);
+        if (_activeMutators.has('Synchronized')) applySynchronized(p, tick);
+        if (_activeMutators.has('Pair Bonding')) applyPairBonding(p, pJS);
+        if (_activeMutators.has('Fragmenting')) applyFragmenting(p, pJS);
+        if (_activeMutators.has('Chaotic Orbits')) applyChaoticOrbits(p, pJS);
+        if (_activeMutators.has('Self-Propelled')) applySelfPropelled(p);
+        if (_activeMutators.has('Phase Scattering')) applyPhaseScattering(p);
+        if (_activeMutators.has('BrownianMotion')) applyBrownianMotion(p);
+        if (p.isHeavy) applyHeavyParticles(p, pJS);
+        if (_activeMutators.has('Choral')) applyChoral(p);
+        if (_activeMutators.has('Carnival')) applyCarnival(p, tick);
+        if (_activeMutators.has('ParticleChains')) applyParticleChains(p, pJS);
     }
     // These apply regardless of mutators (they use activeEffects arrays)
     if (activeEffects.gravityPockets.length > 0) applyGravityPockets(p);
@@ -785,11 +797,31 @@ function updateAllParticles(pJS, worldMouse) {
 
 const _entangledAliveSet = new Set();
 function updateEntangledGroups(pJS) {
-    activeEffects.entangledGroups.forEach((group, groupIndex) => {
-        const aliveSet = _entangledAliveSet; aliveSet.clear(); for (let i = 0; i < pJS.particles.array.length; i++) aliveSet.add(pJS.particles.array[i]); group.particles = group.particles.filter(p => p && aliveSet.has(p)); if (group.particles.length < 2) { activeEffects.entangledGroups.splice(groupIndex, 1); return; }
-        let currentCX = 0, currentCY = 0; group.particles.forEach(p => { currentCX += p.x; currentCY += p.y; }); currentCX /= group.particles.length;
-        group.particles.forEach((p, pIndex) => { const initialVec = group.initialVectors[pIndex]; if (!initialVec) return; const targetX = currentCX + initialVec.x, targetY = currentCY + initialVec.y; p.vx += (targetX - p.x) * 0.05; p.vy += (targetY - p.y) * 0.05; });
-    });
+    const aliveSet = _entangledAliveSet;
+    aliveSet.clear();
+    const arr = pJS.particles.array;
+    for (let i = 0; i < arr.length; i++) aliveSet.add(arr[i]);
+
+    for (let gi = activeEffects.entangledGroups.length - 1; gi >= 0; gi--) {
+        const group = activeEffects.entangledGroups[gi];
+        group.particles = group.particles.filter(p => p && aliveSet.has(p));
+        if (group.particles.length < 2) {
+            activeEffects.entangledGroups[gi] = activeEffects.entangledGroups[activeEffects.entangledGroups.length - 1];
+            activeEffects.entangledGroups.pop();
+            continue;
+        }
+        let currentCX = 0, currentCY = 0;
+        for (const p of group.particles) { currentCX += p.x; currentCY += p.y; }
+        currentCX /= group.particles.length;
+        currentCY /= group.particles.length;
+        for (let pi = 0; pi < group.particles.length; pi++) {
+            const p = group.particles[pi];
+            const initialVec = group.initialVectors[pi];
+            if (!initialVec) continue;
+            p.vx += (currentCX + initialVec.x - p.x) * 0.05;
+            p.vy += (currentCY + initialVec.y - p.y) * 0.05;
+        }
+    }
 }
 
 // Safe wrapper: pushParticles may return undefined instead of an array

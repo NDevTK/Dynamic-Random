@@ -23,6 +23,7 @@ export class DimensionalEchoes {
         // Mouse tracking (shared across all modes)
         this._mouseX = 0;
         this._mouseY = 0;
+        this._rng = Math.random;
 
         // Kaleidoscope
         this.symmetry = 6;
@@ -65,6 +66,7 @@ export class DimensionalEchoes {
         this.tears = [];
         this.kaleidoTrail = [];
         this._ambientTearTimer = 0;
+        this._rng = rng;
 
         switch (this.mode) {
             case 0: // Kaleidoscope
@@ -171,8 +173,9 @@ export class DimensionalEchoes {
                 this._ambientTearTimer++;
                 if (this._ambientTearTimer > 120 && this.tears.length < this.maxTears) {
                     this._ambientTearTimer = 0;
-                    const ox = (Math.random() - 0.5) * 200;
-                    const oy = (Math.random() - 0.5) * 200;
+                    const rng = this._rng;
+                    const ox = (rng() - 0.5) * 200;
+                    const oy = (rng() - 0.5) * 200;
                     this._spawnTear(mx + ox, my + oy, true);
                 }
 
@@ -208,15 +211,16 @@ export class DimensionalEchoes {
     }
 
     _spawnTear(x, y, ambient = false) {
+        const rng = this._rng;
         const tear = this.tearPool.length > 0 ? this.tearPool.pop() : {};
         tear.x = x;
         tear.y = y;
         tear.width = 0;
         tear.height = 0;
-        tear.maxWidth = ambient ? 15 + Math.random() * 30 : 30 + Math.random() * 60;
-        tear.maxHeight = ambient ? 30 + Math.random() * 60 : 60 + Math.random() * 120;
-        tear.life = ambient ? 100 + Math.floor(Math.random() * 60) : 200;
-        tear.angle = Math.random() * Math.PI;
+        tear.maxWidth = ambient ? 15 + rng() * 30 : 30 + rng() * 60;
+        tear.maxHeight = ambient ? 30 + rng() * 60 : 60 + rng() * 120;
+        tear.life = ambient ? 100 + Math.floor(rng() * 60) : 200;
+        tear.angle = rng() * Math.PI;
         tear.phase = 0;
         this.tears.push(tear);
     }
@@ -403,53 +407,57 @@ export class DimensionalEchoes {
         // Use actual mouse position normalized to -0.5..0.5 for proper parallax
         const normMx = this._mouseX / w - 0.5;
         const normMy = this._mouseY / h - 0.5;
+        const tick = this.tick;
+        const sat = this.saturation;
 
         for (const layer of this.layers) {
             const offsetX = normMx * layer.depth * 80;
             const offsetY = normMy * layer.depth * 80;
-            const drift = this.tick * 0.2 * layer.depth;
+            const drift = tick * 0.2 * layer.depth;
+            const depthRotSpeed = tick * 0.001 * layer.depth;
+            const sizeScale = 0.5 + layer.depth * 0.5;
 
             ctx.save();
             ctx.translate(offsetX, offsetY);
             ctx.globalAlpha = layer.opacity;
+            ctx.strokeStyle = `hsla(${layer.hue}, ${sat}%, 70%, 0.3)`;
+            ctx.lineWidth = 0.5;
 
             for (const el of layer.elements) {
                 const x = ((el.x + drift) % (w + 100)) - 50;
                 const y = el.y;
-                const size = el.size * (0.5 + layer.depth * 0.5);
+                const size = el.size * sizeScale;
+                const halfSize = size / 2;
+                const thirdSize = size / 3;
+                const rot = el.rotation + depthRotSpeed;
 
-                ctx.fillStyle = `hsla(${layer.hue}, ${this.saturation}%, 50%, 0.5)`;
-                ctx.strokeStyle = `hsla(${layer.hue}, ${this.saturation}%, 70%, 0.3)`;
-                ctx.lineWidth = 0.5;
-
-                ctx.save();
-                ctx.translate(x, y);
-                ctx.rotate(el.rotation + this.tick * 0.001 * layer.depth);
+                // Use manual transform math to avoid save/restore per element
+                const cos = Math.cos(rot);
+                const sin = Math.sin(rot);
 
                 switch (el.shape) {
-                    case 0: // Circle
+                    case 0: // Circle (rotation doesn't matter)
                         ctx.beginPath();
-                        ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+                        ctx.arc(x, y, halfSize, 0, Math.PI * 2);
                         ctx.stroke();
-                        // Add subtle fill for depth
-                        ctx.fillStyle = `hsla(${layer.hue}, ${this.saturation}%, 50%, 0.1)`;
+                        ctx.fillStyle = `hsla(${layer.hue}, ${sat}%, 50%, 0.1)`;
                         ctx.fill();
                         break;
                     case 1: // Line
                         ctx.beginPath();
-                        ctx.moveTo(-size / 2, 0);
-                        ctx.lineTo(size / 2, 0);
+                        ctx.moveTo(x - cos * halfSize, y - sin * halfSize);
+                        ctx.lineTo(x + cos * halfSize, y + sin * halfSize);
                         ctx.stroke();
                         break;
                     case 2: // Cross
                         ctx.beginPath();
-                        ctx.moveTo(-size / 3, 0); ctx.lineTo(size / 3, 0);
-                        ctx.moveTo(0, -size / 3); ctx.lineTo(0, size / 3);
+                        ctx.moveTo(x - cos * thirdSize, y - sin * thirdSize);
+                        ctx.lineTo(x + cos * thirdSize, y + sin * thirdSize);
+                        ctx.moveTo(x + sin * thirdSize, y - cos * thirdSize);
+                        ctx.lineTo(x - sin * thirdSize, y + cos * thirdSize);
                         ctx.stroke();
                         break;
                 }
-
-                ctx.restore();
             }
 
             ctx.restore();
@@ -567,7 +575,7 @@ export class DimensionalEchoes {
             ctx.arc(head.x, head.y, cloudSize * 0.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Draw "collapse" connections between branches
+            // Draw "collapse" connections between branches (manual dashes to avoid setLineDash overhead)
             if (b > 0) {
                 const prevPath = this.quantumPaths[b - 1];
                 if (prevPath.points.length > 0) {
@@ -579,12 +587,18 @@ export class DimensionalEchoes {
                         const lineAlpha = (1 - dist / 100) * alpha;
                         ctx.strokeStyle = `hsla(${this.hue}, 40%, 50%, ${lineAlpha})`;
                         ctx.lineWidth = 0.3;
-                        ctx.setLineDash([2, 4]);
+                        // Manual dashed line (avoids setLineDash/resetLineDash per frame)
+                        const nx = pdx / dist, ny = pdy / dist;
+                        const dashLen = 2, gapLen = 4, stepLen = dashLen + gapLen;
                         ctx.beginPath();
-                        ctx.moveTo(head.x, head.y);
-                        ctx.lineTo(prevHead.x, prevHead.y);
+                        for (let d = 0; d < dist; d += stepLen) {
+                            const sx = prevHead.x + nx * d;
+                            const sy = prevHead.y + ny * d;
+                            const segEnd = Math.min(d + dashLen, dist);
+                            ctx.moveTo(sx, sy);
+                            ctx.lineTo(prevHead.x + nx * segEnd, prevHead.y + ny * segEnd);
+                        }
                         ctx.stroke();
-                        ctx.setLineDash([]);
                     }
                 }
             }

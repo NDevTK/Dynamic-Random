@@ -20,6 +20,9 @@ export class ParticleSwarm {
         this.hue = 0;
         this.particles = [];
         this.maxParticles = 80;
+        this._rng = Math.random;
+        this._w = window.innerWidth;
+        this._h = window.innerHeight;
 
         // Murmuration
         this.separationDist = 20;
@@ -57,8 +60,11 @@ export class ParticleSwarm {
         this.hue = palette.length > 0 ? (palette[0].h || Math.floor(rng() * 360)) : Math.floor(rng() * 360);
         this.tick = 0;
         this.particles = [];
+        this._rng = rng;
+        this._w = window.innerWidth;
+        this._h = window.innerHeight;
 
-        const w = window.innerWidth, h = window.innerHeight;
+        const w = this._w, h = this._h;
         this._orbitCenterX = w / 2;
         this._orbitCenterY = h / 2;
 
@@ -180,7 +186,7 @@ export class ParticleSwarm {
     }
 
     _updateMurmuration(mx, my) {
-        const w = window.innerWidth, h = window.innerHeight;
+        const w = this._w, h = this._h;
         const len = this.particles.length;
 
         for (let i = 0; i < len; i++) {
@@ -232,12 +238,13 @@ export class ParticleSwarm {
 
     _updateFireflies(mx, my) {
         const len = this.particles.length;
+        const rng = this._rng;
 
         for (let i = 0; i < len; i++) {
             const p = this.particles[i];
             // Gentle drift
-            p.vx += (Math.random() - 0.5) * 0.1;
-            p.vy += (Math.random() - 0.5) * 0.1;
+            p.vx += (rng() - 0.5) * 0.1;
+            p.vy += (rng() - 0.5) * 0.1;
             p.vx *= 0.95; p.vy *= 0.95;
             p.x += p.vx; p.y += p.vy;
 
@@ -267,14 +274,13 @@ export class ParticleSwarm {
             }
 
             // Wrap
-            const w = window.innerWidth, h = window.innerHeight;
-            if (p.x < -20) p.x = w + 20; if (p.x > w + 20) p.x = -20;
-            if (p.y < -20) p.y = h + 20; if (p.y > h + 20) p.y = -20;
+            if (p.x < -20) p.x = this._w + 20; if (p.x > this._w + 20) p.x = -20;
+            if (p.y < -20) p.y = this._h + 20; if (p.y > this._h + 20) p.y = -20;
         }
     }
 
     _updateMagneticChains(mx, my) {
-        const w = window.innerWidth, h = window.innerHeight;
+        const w = this._w, h = this._h;
 
         for (let i = 0; i < this.particles.length; i++) {
             const p = this.particles[i];
@@ -317,7 +323,7 @@ export class ParticleSwarm {
     }
 
     _updatePredatorPrey(mx, my) {
-        const w = window.innerWidth, h = window.innerHeight;
+        const w = this._w, h = this._h;
 
         for (const p of this.particles) {
             if (p.type === 'prey') {
@@ -405,10 +411,11 @@ export class ParticleSwarm {
     }
 
     _updateSpores(mx, my, isClicking) {
-        const w = window.innerWidth, h = window.innerHeight;
+        const w = this._w, h = this._h;
+        const rng = this._rng;
 
         // Wind shifts
-        this.windAngle += (Math.random() - 0.5) * 0.02;
+        this.windAngle += (rng() - 0.5) * 0.02;
         const windX = Math.cos(this.windAngle) * this.windSpeed;
         const windY = Math.sin(this.windAngle) * this.windSpeed;
 
@@ -418,19 +425,19 @@ export class ParticleSwarm {
         if (isClicking) {
             if (this.burstCooldown === 0 && this.particles.length < this.maxParticles) {
                 this.burstCooldown = 5;
-                const count = 3 + Math.floor(Math.random() * 4);
+                const count = 3 + Math.floor(rng() * 4);
                 for (let i = 0; i < count && this.particles.length < this.maxParticles; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = 1 + Math.random() * 4;
+                    const angle = rng() * Math.PI * 2;
+                    const speed = 1 + rng() * 4;
                     this.particles.push({
                         x: mx, y: my,
                         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
                         life: 1.0,
-                        decay: 0.003 + Math.random() * 0.005,
-                        size: 1 + Math.random() * 3,
-                        spin: (Math.random() - 0.5) * 0.1,
+                        decay: 0.003 + rng() * 0.005,
+                        size: 1 + rng() * 3,
+                        spin: (rng() - 0.5) * 0.1,
                         angle: 0,
-                        hueOffset: Math.random() * 40 - 20,
+                        hueOffset: rng() * 40 - 20,
                     });
                 }
             }
@@ -438,12 +445,12 @@ export class ParticleSwarm {
             // Auto-emit gently when not clicking
             if (this.tick % 15 === 0 && this.particles.length < this.maxParticles / 2) {
                 this.particles.push({
-                    x: mx + (Math.random() - 0.5) * 20,
-                    y: my + (Math.random() - 0.5) * 20,
-                    vx: (Math.random() - 0.5) * 1, vy: -0.5 - Math.random(),
-                    life: 1.0, decay: 0.004 + Math.random() * 0.004,
-                    size: 1 + Math.random() * 2, spin: (Math.random() - 0.5) * 0.05,
-                    angle: 0, hueOffset: Math.random() * 30 - 15,
+                    x: mx + (rng() - 0.5) * 20,
+                    y: my + (rng() - 0.5) * 20,
+                    vx: (rng() - 0.5) * 1, vy: -0.5 - rng(),
+                    life: 1.0, decay: 0.004 + rng() * 0.004,
+                    size: 1 + rng() * 2, spin: (rng() - 0.5) * 0.05,
+                    angle: 0, hueOffset: rng() * 30 - 15,
                 });
             }
         }

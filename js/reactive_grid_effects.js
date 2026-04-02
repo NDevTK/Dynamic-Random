@@ -12,6 +12,8 @@
  * 5 - Gravity Warp: grid deforms as if cursor has mass, cells stretch toward it
  */
 
+const SQRT3 = Math.sqrt(3);
+
 export class ReactiveGrid {
     constructor() {
         this.cols = 0;
@@ -25,6 +27,9 @@ export class ReactiveGrid {
         this.saturation = 70;
         this.tick = 0;
         this.ruleSet = 0;
+
+        // Seeded RNG reference for deterministic cascade spreading
+        this._rng = Math.random;
 
         // Wave mode
         this.waveSpeed = 0.3;
@@ -59,6 +64,7 @@ export class ReactiveGrid {
         this.tick = 0;
         this.pulses = [];
         this._hexSkeletonPath = null;
+        this._rng = rng;
 
         // Mode-specific configuration
         switch (this.mode) {
@@ -179,6 +185,7 @@ export class ReactiveGrid {
 
     _updateCascade(cx, cy, isClicking) {
         const cols = this.cols, rows = this.rows;
+        const rng = this._rng;
 
         // Decay existing energy
         for (let i = 0; i < this.grid.length; i++) {
@@ -190,11 +197,11 @@ export class ReactiveGrid {
             const energy = isClicking ? 1.0 : 0.5;
             this.grid[cy * cols + cx] = Math.max(this.grid[cy * cols + cx], energy);
 
-            // Randomly seed neighbors for branching effect
+            // Seed neighbors for branching effect
             if (this.tick % 3 === 0) {
                 const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]];
                 for (let b = 0; b < this.cascadeBranching; b++) {
-                    const d = dirs[Math.floor(Math.random() * dirs.length)];
+                    const d = dirs[Math.floor(rng() * dirs.length)];
                     const nx = cx + d[0], ny = cy + d[1];
                     if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
                         this.grid[ny * cols + nx] = Math.max(this.grid[ny * cols + nx], energy * 0.7);
@@ -208,9 +215,9 @@ export class ReactiveGrid {
             for (let y = 1; y < rows - 1; y++) {
                 for (let x = 1; x < cols - 1; x++) {
                     const i = y * cols + x;
-                    if (this.grid[i] > 0.3 && Math.random() < this.cascadeChance) {
-                        const dx = Math.random() > 0.5 ? 1 : -1;
-                        const dy = Math.random() > 0.5 ? 1 : -1;
+                    if (this.grid[i] > 0.3 && rng() < this.cascadeChance) {
+                        const dx = rng() > 0.5 ? 1 : -1;
+                        const dy = rng() > 0.5 ? 1 : -1;
                         const ni = (y + dy) * cols + (x + dx);
                         if (this.grid[ni] < this.grid[i] * 0.5) {
                             this.grid[ni] = this.grid[i] * 0.6;
@@ -301,22 +308,28 @@ export class ReactiveGrid {
     }
 
     _updateHexPulse(mx, my, isClicking) {
+        const rng = this._rng;
+
         // Spawn pulses at cursor
         if (this.tick % (isClicking ? 4 : 12) === 0 && this.pulses.length < this.maxPulses) {
             const pulse = this.pulsePool.length > 0 ? this.pulsePool.pop() : {};
-            const angle = Math.random() * Math.PI * 2;
+            const angle = rng() * Math.PI * 2;
             pulse.x = mx;
             pulse.y = my;
-            pulse.vx = Math.cos(angle) * (2 + Math.random() * 3);
-            pulse.vy = Math.sin(angle) * (2 + Math.random() * 3);
+            pulse.vx = Math.cos(angle) * (2 + rng() * 3);
+            pulse.vy = Math.sin(angle) * (2 + rng() * 3);
             pulse.life = 1.0;
-            pulse.decay = 0.008 + Math.random() * 0.01;
-            pulse.size = 3 + Math.random() * 5;
-            pulse.hueOffset = Math.random() * 60 - 30;
+            pulse.decay = 0.008 + rng() * 0.01;
+            pulse.size = 3 + rng() * 5;
+            pulse.hueOffset = rng() * 60 - 30;
             this.pulses.push(pulse);
         }
 
         // Update pulses
+        const hr = this.hexRadius;
+        const hrSqrt3 = hr * SQRT3;
+        const hrSqrt3Half = hrSqrt3 / 2;
+        const hr1_5 = hr * 1.5;
         for (let i = this.pulses.length - 1; i >= 0; i--) {
             const p = this.pulses[i];
             p.x += p.vx;
@@ -325,12 +338,10 @@ export class ReactiveGrid {
 
             // Snap to hex grid nodes for visual effect
             if (this.tick % 8 === 0) {
-                const hr = this.hexRadius;
-                const sqrt3 = Math.sqrt(3);
-                const col = Math.round(p.x / (hr * 1.5));
-                const row = Math.round(p.y / (hr * sqrt3));
-                const snapX = col * hr * 1.5;
-                const snapY = row * hr * sqrt3 + (col % 2 ? hr * sqrt3 / 2 : 0);
+                const col = Math.round(p.x / hr1_5);
+                const row = Math.round(p.y / hrSqrt3);
+                const snapX = col * hr1_5;
+                const snapY = row * hrSqrt3 + (col % 2 ? hrSqrt3Half : 0);
                 p.vx += (snapX - p.x) * 0.05;
                 p.vy += (snapY - p.y) * 0.05;
             }
@@ -411,16 +422,20 @@ export class ReactiveGrid {
     }
 
     _drawWave(ctx, cs, cols, rows) {
-        // Batch positive and negative waves separately for fewer style changes
-        ctx.beginPath();
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-                const val = this.grid[y * cols + x];
-                if (Math.abs(val) < 0.02) continue;
-                const intensity = Math.abs(val);
-                const hueShift = val > 0 ? 0 : 120;
-                ctx.fillStyle = `hsla(${(this.hue + hueShift) % 360}, ${this.saturation}%, ${40 + intensity * 40}%, ${intensity * 0.4})`;
-                ctx.fillRect(x * cs, y * cs, cs, cs);
+        // Two-pass: batch positive waves then negative for fewer style changes
+        const hue = this.hue;
+        const sat = this.saturation;
+        for (let pass = 0; pass < 2; pass++) {
+            const hueShift = pass === 0 ? 0 : 120;
+            const baseHue = (hue + hueShift) % 360;
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const val = this.grid[y * cols + x];
+                    if (pass === 0 ? val < 0.02 : val > -0.02) continue;
+                    const intensity = Math.abs(val);
+                    ctx.fillStyle = `hsla(${baseHue}, ${sat}%, ${40 + intensity * 40}%, ${intensity * 0.4})`;
+                    ctx.fillRect(x * cs, y * cs, cs, cs);
+                }
             }
         }
     }
@@ -484,25 +499,30 @@ export class ReactiveGrid {
 
     _drawHexPulse(ctx, w, h) {
         const hr = this.hexRadius;
-        const sqrt3 = Math.sqrt(3);
 
         // Cache hex skeleton path for performance
         if (!this._hexSkeletonPath || this._hexSkeletonW !== w || this._hexSkeletonH !== h) {
             this._hexSkeletonPath = new Path2D();
             this._hexSkeletonW = w;
             this._hexSkeletonH = h;
-            const hexCols = Math.ceil(w / (hr * 1.5)) + 1;
-            const hexRows = Math.ceil(h / (hr * sqrt3)) + 1;
+            const hr1_5 = hr * 1.5;
+            const hrSqrt3 = hr * SQRT3;
+            const hrSqrt3Half = hrSqrt3 / 2;
+            const hexCols = Math.ceil(w / hr1_5) + 1;
+            const hexRows = Math.ceil(h / hrSqrt3) + 1;
+            // Pre-compute hex vertex offsets (6 vertices)
+            const hexVerts = [];
+            for (let i = 0; i < 6; i++) {
+                const a = Math.PI / 3 * i + Math.PI / 6;
+                hexVerts.push({ x: hr * 0.4 * Math.cos(a), y: hr * 0.4 * Math.sin(a) });
+            }
             for (let col = 0; col < hexCols; col++) {
                 for (let row = 0; row < hexRows; row++) {
-                    const cx = col * hr * 1.5;
-                    const cy = row * hr * sqrt3 + (col % 2 ? hr * sqrt3 / 2 : 0);
-                    for (let i = 0; i < 6; i++) {
-                        const a = Math.PI / 3 * i + Math.PI / 6;
-                        const hx = cx + hr * 0.4 * Math.cos(a);
-                        const hy = cy + hr * 0.4 * Math.sin(a);
-                        if (i === 0) this._hexSkeletonPath.moveTo(hx, hy);
-                        else this._hexSkeletonPath.lineTo(hx, hy);
+                    const cx = col * hr1_5;
+                    const cy = row * hrSqrt3 + (col % 2 ? hrSqrt3Half : 0);
+                    this._hexSkeletonPath.moveTo(cx + hexVerts[0].x, cy + hexVerts[0].y);
+                    for (let i = 1; i < 6; i++) {
+                        this._hexSkeletonPath.lineTo(cx + hexVerts[i].x, cy + hexVerts[i].y);
                     }
                     this._hexSkeletonPath.closePath();
                 }
@@ -527,7 +547,10 @@ export class ReactiveGrid {
         }
 
         // Draw pulses on top
-        for (const p of this.pulses) {
+        const pulses = this.pulses;
+        const pulseLen = pulses.length;
+        for (let pi = 0; pi < pulseLen; pi++) {
+            const p = pulses[pi];
             const alpha = p.life * 0.6;
             const hue = (this.hue + p.hueOffset + 360) % 360;
             ctx.fillStyle = `hsla(${hue}, 80%, 65%, ${alpha})`;
@@ -541,16 +564,16 @@ export class ReactiveGrid {
             ctx.arc(p.x, p.y, p.size * p.life * 2.5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Connection lines to nearby pulses
-            for (const q of this.pulses) {
-                if (q === p) continue;
+            // Connection lines - only check forward to avoid double-drawing (O(n²/2))
+            ctx.lineWidth = 0.5;
+            for (let qi = pi + 1; qi < pulseLen; qi++) {
+                const q = pulses[qi];
                 const dx = q.x - p.x, dy = q.y - p.y;
                 const distSq = dx * dx + dy * dy;
-                if (distSq < 10000) { // within 100px
+                if (distSq < 10000) {
                     const dist = Math.sqrt(distSq);
                     const lineAlpha = Math.min(p.life, q.life) * (1 - dist / 100) * 0.2;
                     ctx.strokeStyle = `hsla(${hue}, 60%, 60%, ${lineAlpha})`;
-                    ctx.lineWidth = 0.5;
                     ctx.beginPath();
                     ctx.moveTo(p.x, p.y);
                     ctx.lineTo(q.x, q.y);

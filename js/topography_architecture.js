@@ -70,10 +70,20 @@ export class TopographyArchitecture extends Architecture {
             });
         }
 
+        // Seed-driven rendering style
+        this.renderStyle = Math.floor(rng() * 3);
+        // 0=classic contours, 1=relief shading (3D), 2=neon wireframe
+
         this.mouseInfluence = 0;
         this.animPhase = rng() * Math.PI * 2;
-        this.staticMap = null; // Cached static peaks (recomputed only when peaks drift)
+        this.staticMap = null;
         this.staticMapTick = -100;
+
+        // Click-spawned peaks
+        this.clickPeaks = [];
+
+        // Elevation markers at peak summits
+        this.showMarkers = rng() > 0.5;
 
         this._computeStaticMap(system);
         this._computeHeightMap(system);
@@ -130,6 +140,27 @@ export class TopographyArchitecture extends Architecture {
                     const distSq = dx * dx + dy * dy;
                     if (distSq < mouseSq * 4) {
                         map[gy * gw + gx] += this.mouseInfluence * Math.exp(-distSq / (2 * mouseSq));
+                    }
+                }
+            }
+        }
+
+        // Add click-spawned peaks
+        for (const cp of this.clickPeaks) {
+            const cpx = cp.x / this.cellSize;
+            const cpy = cp.y / this.cellSize;
+            const cpSpread = 15;
+            const cpSpreadSq = cpSpread * cpSpread;
+            const startY = Math.max(0, Math.floor(cpy - cpSpread * 2));
+            const endY = Math.min(gh, Math.ceil(cpy + cpSpread * 2));
+            const startX = Math.max(0, Math.floor(cpx - cpSpread * 2));
+            const endX = Math.min(gw, Math.ceil(cpx + cpSpread * 2));
+            for (let gy = startY; gy < endY; gy++) {
+                for (let gx = startX; gx < endX; gx++) {
+                    const dx = gx - cpx, dy = gy - cpy;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < cpSpreadSq * 4) {
+                        map[gy * gw + gx] += cp.height * cp.life * Math.exp(-distSq / (2 * cpSpreadSq));
                     }
                 }
             }
@@ -196,6 +227,12 @@ export class TopographyArchitecture extends Architecture {
             if (peak.y < 5 || peak.y > this.gridH - 5) peak.drift.dy *= -1;
         }
 
+        // Decay click peaks
+        for (let i = this.clickPeaks.length - 1; i >= 0; i--) {
+            this.clickPeaks[i].life -= 0.003;
+            if (this.clickPeaks[i].life <= 0) this.clickPeaks.splice(i, 1);
+        }
+
         this._computeHeightMap(system);
 
         // Update flow particles (follow downhill gradient)
@@ -245,12 +282,22 @@ export class TopographyArchitecture extends Architecture {
 
         ctx.save();
 
-        // Draw filled elevation bands
+        // Draw filled elevation bands (with relief shading for style 1)
         ctx.globalAlpha = 0.15;
         for (let gy = 0; gy < gh - 1; gy++) {
             for (let gx = 0; gx < gw - 1; gx++) {
                 const h = map[gy * gw + gx];
-                ctx.fillStyle = this._getContourColor(h, 0.15);
+
+                if (this.renderStyle === 1 && gx > 0 && gy > 0) {
+                    // Relief shading: compute slope for 3D shadow effect
+                    const gradX = map[gy * gw + gx + 1] - map[gy * gw + gx - 1];
+                    const gradY = map[(gy + 1) * gw + gx] - map[(gy - 1) * gw + gx];
+                    // Light from top-left
+                    const shade = Math.max(0, Math.min(1, 0.5 + (gradX * 0.6 - gradY * 0.4)));
+                    ctx.fillStyle = this._getContourColor(h, 0.1 + shade * 0.15);
+                } else {
+                    ctx.fillStyle = this._getContourColor(h, 0.15);
+                }
                 ctx.fillRect(gx * cs, gy * cs, cs, cs);
             }
         }
@@ -263,11 +310,16 @@ export class TopographyArchitecture extends Architecture {
             levels.push(l);
         }
 
+        const isNeon = this.renderStyle === 2;
         for (const level of levels) {
             const isMajor = Math.abs(level % (interval * 4)) < interval * 0.5;
-            const alpha = isMajor ? 0.25 : 0.1;
+            const alpha = isMajor ? (isNeon ? 0.5 : 0.25) : (isNeon ? 0.2 : 0.1);
             ctx.strokeStyle = this._getContourColor(level, alpha);
-            ctx.lineWidth = isMajor ? 1.5 : 0.8;
+            ctx.lineWidth = isMajor ? (isNeon ? 2 : 1.5) : (isNeon ? 1 : 0.8);
+            if (isNeon && isMajor) {
+                ctx.shadowColor = this._getContourColor(level, 0.5);
+                ctx.shadowBlur = 8;
+            }
             ctx.beginPath();
 
             for (let gy = 0; gy < gh - 1; gy++) {
@@ -295,6 +347,25 @@ export class TopographyArchitecture extends Architecture {
                 }
             }
             ctx.stroke();
+            if (isNeon) ctx.shadowBlur = 0;
+        }
+
+        // Draw peak elevation markers
+        if (this.showMarkers) {
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            for (const peak of this.peaks) {
+                if (peak.height > 0.3) {
+                    const px = peak.x * cs, py = peak.y * cs;
+                    const elev = Math.round(peak.height * 1000);
+                    ctx.fillStyle = this._getContourColor(peak.height, 0.4);
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = this._getContourColor(peak.height, 0.3);
+                    ctx.fillText(`${elev}m`, px, py - 6);
+                }
+            }
         }
 
         // Draw flow particles
@@ -319,5 +390,26 @@ export class TopographyArchitecture extends Architecture {
         ctx.globalCompositeOperation = 'source-over';
 
         ctx.restore();
+    }
+
+    onShockwave(x, y) {
+        // Click creates a new terrain peak at cursor location
+        if (this.clickPeaks.length < 10) {
+            this.clickPeaks.push({
+                x, y,
+                height: 0.8 + Math.random() * 0.7,
+                life: 1
+            });
+        }
+        // Scatter flow particles outward from click
+        for (const p of this.flowParticles) {
+            const dx = p.x - x, dy = p.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            if (dist < 200) {
+                const force = (200 - dist) / 200 * 3;
+                p.vx += (dx / dist) * force;
+                p.vy += (dy / dist) * force;
+            }
+        }
     }
 }

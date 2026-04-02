@@ -74,6 +74,11 @@ import { MosaicArchitecture } from './mosaic_architecture.js';
 import { GravityPaintArchitecture } from './gravity_paint_architecture.js';
 import { WormholeArchitecture } from './wormhole_architecture.js';
 import { EcosystemArchitecture } from './ecosystem_architecture.js';
+import { FerrofluidArchitecture } from './ferrofluid_architecture.js';
+import { CrystalCaveArchitecture } from './crystal_cave_architecture.js';
+import { GlitchCityArchitecture } from './glitch_city_architecture.js';
+import { BioluminescentOceanArchitecture } from './bioluminescent_ocean_architecture.js';
+import { PaperTheaterArchitecture } from './paper_theater_architecture.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
@@ -143,7 +148,12 @@ export const ALL_ARCHITECTURES = [
     () => new MosaicArchitecture(),
     () => new GravityPaintArchitecture(),
     () => new WormholeArchitecture(),
-    () => new EcosystemArchitecture()
+    () => new EcosystemArchitecture(),
+    () => new FerrofluidArchitecture(),
+    () => new CrystalCaveArchitecture(),
+    () => new GlitchCityArchitecture(),
+    () => new BioluminescentOceanArchitecture(),
+    () => new PaperTheaterArchitecture()
 ];
 
 // Extract constructor names from factory functions without instantiating them.
@@ -557,6 +567,17 @@ class BackgroundSystem {
         // Ecosystem: organic/bio/swarm themes
         const ecosystemBlueprints = ['SentientSwarm', 'Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'AbyssalZone'];
 
+        // Ferrofluid: magnetic/metallic/forge/void themes
+        const ferrofluidBlueprints = ['MoltenHeart', 'VolcanicForge', 'StarForged', 'VoidTouched', 'CelestialForge', 'GooeyMess', 'AbyssalHorror'];
+        // Crystal cave: crystalline/glacial/arcane/glass themes
+        const crystalCaveBlueprints = ['Crystalline', 'GlacialDrift', 'GlassySea', 'ArcaneCodex', 'Eldritch', 'AbyssalZone'];
+        // Glitch city: cyber/neon/digital/techno themes
+        const glitchCityBlueprints = ['NeonCyber', 'TechnoUtopia', 'Digital', 'HauntedRealm', 'ChronoVerse', 'SonicScapes'];
+        // Bioluminescent ocean: aquatic/abyssal/coral/organic themes
+        const bioluminescentOceanBlueprints = ['AbyssalZone', 'CoralReef', 'AbyssalHorror', 'GlassySea', 'Aetherial', 'GlacialDrift'];
+        // Paper theater: classical/paper/haunted/painterly themes
+        const paperTheaterBlueprints = ['Papercraft', 'Classical', 'HauntedRealm', 'Painterly', 'SilkWeaver', 'LivingInk'];
+
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
@@ -688,6 +709,26 @@ class BackgroundSystem {
         // Ecosystem: organic/bio themes
         else if (ecosystemBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new EcosystemArchitecture();
+        }
+        // Ferrofluid: magnetic/metallic themes
+        else if (ferrofluidBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new FerrofluidArchitecture();
+        }
+        // Crystal cave: crystalline/glacial themes
+        else if (crystalCaveBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new CrystalCaveArchitecture();
+        }
+        // Glitch city: cyber/neon themes
+        else if (glitchCityBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new GlitchCityArchitecture();
+        }
+        // Bioluminescent ocean: aquatic/abyssal themes
+        else if (bioluminescentOceanBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new BioluminescentOceanArchitecture();
+        }
+        // Paper theater: classical/paper themes
+        else if (paperTheaterBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new PaperTheaterArchitecture();
         }
         // Speech typography: literary/sonic themes
         else if (speechTypographyBlueprints.includes(blueprintName) && this.rng() > 0.55) {

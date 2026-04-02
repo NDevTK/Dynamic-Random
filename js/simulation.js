@@ -769,9 +769,10 @@ function updateAllParticles(pJS, worldMouse) {
     }
 }
 
+const _entangledAliveSet = new Set();
 function updateEntangledGroups(pJS) {
     activeEffects.entangledGroups.forEach((group, groupIndex) => {
-        group.particles = group.particles.filter(p => p && pJS.particles.array.includes(p)); if (group.particles.length < 2) { activeEffects.entangledGroups.splice(groupIndex, 1); return; }
+        const aliveSet = _entangledAliveSet; aliveSet.clear(); for (let i = 0; i < pJS.particles.array.length; i++) aliveSet.add(pJS.particles.array[i]); group.particles = group.particles.filter(p => p && aliveSet.has(p)); if (group.particles.length < 2) { activeEffects.entangledGroups.splice(groupIndex, 1); return; }
         let currentCX = 0, currentCY = 0; group.particles.forEach(p => { currentCX += p.x; currentCY += p.y; }); currentCX /= group.particles.length;
         group.particles.forEach((p, pIndex) => { const initialVec = group.initialVectors[pIndex]; if (!initialVec) return; const targetX = currentCX + initialVec.x, targetY = currentCY + initialVec.y; p.vx += (targetX - p.x) * 0.05; p.vy += (targetY - p.y) * 0.05; });
     });

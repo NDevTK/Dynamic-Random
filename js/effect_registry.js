@@ -38,6 +38,11 @@ import { NeonRain } from './neon_rain_effects.js';
 import { AuroraCurtain } from './aurora_curtain_effects.js';
 import { LiquidMetal } from './liquid_metal_effects.js';
 import { RealityFracture } from './reality_fracture_effects.js';
+import { GravityStringArt } from './gravity_string_art_effects.js';
+import { PixelFireflies } from './pixel_fireflies_effects.js';
+import { GeometricTessellation } from './geometric_tessellation_effects.js';
+import { RippleSymphony } from './ripple_symphony_effects.js';
+import { MagneticTopography } from './magnetic_topography_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -119,6 +124,11 @@ export const EFFECT_REGISTRY = [
     { instance: new AuroraCurtain(),            tags: ['ethereal', 'light', 'cosmic'],         minQuality: 0.25, drawOrder: 27 },
     { instance: new LiquidMetal(),              tags: ['fluid', 'fire', 'crystal'],            minQuality: 0.3,  drawOrder: 28 },
     { instance: new RealityFracture(),          tags: ['glitch', 'void', 'temporal'],          minQuality: 0.25, drawOrder: 29 },
+    { instance: new GravityStringArt(),       tags: ['geometric', 'harmonic', 'ethereal'],   minQuality: 0.3,  drawOrder: 30 },
+    { instance: new PixelFireflies(),         tags: ['organic', 'bio', 'light'],             minQuality: 0.3,  drawOrder: 31 },
+    { instance: new GeometricTessellation(),  tags: ['geometric', 'crystal', 'digital'],     minQuality: 0.3,  drawOrder: 32 },
+    { instance: new RippleSymphony(),         tags: ['physics', 'harmonic', 'aquatic'],      minQuality: 0.25, drawOrder: 33 },
+    { instance: new MagneticTopography(),     tags: ['cosmic', 'physics', 'geometric'],      minQuality: 0.25, drawOrder: 34 },
 ];
 
 // Pre-create tag Sets for O(1) intersection
@@ -166,16 +176,25 @@ export function selectEffects(rng, blueprintName, count) {
         totalWeight += w;
     }
 
-    // Weighted selection without replacement
+    // Weighted selection without replacement using compacted array
     const selected = new Set();
-    while (selected.size < count && selected.size < EFFECT_REGISTRY.length) {
-        let roll = rng() * totalWeight;
-        for (let i = 0; i < indices.length; i++) {
-            if (selected.has(indices[i])) continue;
-            roll -= weights[i];
+    // Work on copies so we can compact as we select
+    const remaining = indices.slice();
+    const remWeights = weights.slice();
+    let remCount = remaining.length;
+    let remTotal = totalWeight;
+
+    while (selected.size < count && remCount > 0) {
+        let roll = rng() * remTotal;
+        for (let i = 0; i < remCount; i++) {
+            roll -= remWeights[i];
             if (roll <= 0) {
-                selected.add(indices[i]);
-                totalWeight -= weights[i];
+                selected.add(remaining[i]);
+                remTotal -= remWeights[i];
+                // Compact: swap with last and shrink
+                remaining[i] = remaining[remCount - 1];
+                remWeights[i] = remWeights[remCount - 1];
+                remCount--;
                 break;
             }
         }

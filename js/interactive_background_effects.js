@@ -107,19 +107,20 @@ class InteractiveBackgroundEffects {
     _extractHues(palette) {
         const hues = [];
         const parse = (str) => {
-            const m = str && str.match(/hsla?\(\s*(\d+)/);
-            return m ? parseInt(m[1], 10) : null;
+            if (!str) return null;
+            const m = str.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)/);
+            return m ? { h: parseInt(m[1], 10), s: parseInt(m[2], 10), l: parseInt(m[3], 10) } : null;
         };
         if (palette && palette.primary) {
             for (const c of palette.primary) {
-                const h = parse(c);
-                if (h !== null) hues.push({ h });
+                const parsed = parse(c);
+                if (parsed) hues.push(parsed);
             }
         }
         if (palette && palette.accent) {
             for (const c of palette.accent) {
-                const h = parse(c);
-                if (h !== null) hues.push({ h });
+                const parsed = parse(c);
+                if (parsed) hues.push(parsed);
             }
         }
         return hues;
@@ -141,28 +142,19 @@ class InteractiveBackgroundEffects {
         const hues = this._extractHues(palette);
 
         // --- Enable sub-systems based on seed ---
-        // Each universe gets 2-4 of the new systems
-        const subsystemRoll = rng();
-        this.hasGrid = rng() > 0.4;
-        this.hasEchoes = rng() > 0.45;
-        this.hasSwarm = rng() > 0.4;
-        this.hasAtmosphere = rng() > 0.35;
-
-        // Ensure at least 2 sub-systems are active
-        const active = [this.hasGrid, this.hasEchoes, this.hasSwarm, this.hasAtmosphere];
-        const activeCount = active.filter(Boolean).length;
-        if (activeCount < 2) {
-            // Force enable two random ones
-            const indices = [0, 1, 2, 3].filter(i => !active[i]);
-            for (let i = 0; i < 2 - activeCount && indices.length > 0; i++) {
-                const pick = Math.floor(rng() * indices.length);
-                const idx = indices.splice(pick, 1)[0];
-                if (idx === 0) this.hasGrid = true;
-                else if (idx === 1) this.hasEchoes = true;
-                else if (idx === 2) this.hasSwarm = true;
-                else this.hasAtmosphere = true;
-            }
+        // Pick 2-4 sub-systems using a shuffle to guarantee diversity
+        const subsystems = [0, 1, 2, 3];
+        // Fisher-Yates shuffle with seeded rng
+        for (let i = subsystems.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [subsystems[i], subsystems[j]] = [subsystems[j], subsystems[i]];
         }
+        const enableCount = 2 + Math.floor(rng() * 3); // 2, 3, or 4
+        const enabledSet = new Set(subsystems.slice(0, enableCount));
+        this.hasGrid = enabledSet.has(0);
+        this.hasEchoes = enabledSet.has(1);
+        this.hasSwarm = enabledSet.has(2);
+        this.hasAtmosphere = enabledSet.has(3);
 
         // Configure enabled sub-systems with normalized hue array
         if (this.hasGrid) this.grid.configure(rng, hues);
@@ -334,13 +326,12 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Update sub-systems (skip at very low quality)
-        if (this._qualityScale > 0.25) {
-            if (this.hasGrid) this.grid.update(mx, my, isClicking, this._qualityScale);
-            if (this.hasEchoes) this.echoes.update(mx, my, isClicking);
-            if (this.hasSwarm) this.swarm.update(mx, my, isClicking);
-            if (this.hasAtmosphere) this.atmosphere.update(mx, my, isClicking);
-        }
+        // Update sub-systems (skip at very low quality, use same thresholds as draw)
+        const q = this._qualityScale;
+        if (this.hasAtmosphere && q > 0.25) this.atmosphere.update(mx, my, isClicking);
+        if (this.hasGrid && q > 0.25) this.grid.update(mx, my, isClicking, q);
+        if (this.hasEchoes && q > 0.3) this.echoes.update(mx, my, isClicking);
+        if (this.hasSwarm && q > 0.3) this.swarm.update(mx, my, isClicking);
     }
 
     /**

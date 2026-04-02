@@ -32,6 +32,8 @@ export class MoodAtmosphere {
         this.maxBolts = 6;
         this.ambientCharge = 0;
         this.chargeParticles = [];
+        // Pre-allocated segment buffer to avoid recursive allocation
+        this._segmentBuffer = [];
 
         // Aurora
         this.auroraWaves = [];
@@ -43,6 +45,7 @@ export class MoodAtmosphere {
         this.embers = [];
         this.maxEmbers = 50;
         this.emberPool = [];
+        this._peakEmberCount = 0; // smooth threshold tracking
 
         // Caustics
         this.causticPhase = 0;
@@ -63,8 +66,10 @@ export class MoodAtmosphere {
                 this.raySourceX = 0.2 + rng() * 0.6;
                 this.raySourceY = rng() * 0.3;
                 for (let i = 0; i < this.rayCount; i++) {
+                    // Space rays with guaranteed minimum separation
+                    const baseAngle = (i / this.rayCount) * Math.PI * 0.8 - Math.PI * 0.4;
                     this.rays.push({
-                        angle: (i / this.rayCount) * Math.PI * 0.8 - Math.PI * 0.4 + (rng() - 0.5) * 0.2,
+                        angle: baseAngle + (rng() - 0.5) * (Math.PI * 0.6 / this.rayCount),
                         width: 0.02 + rng() * 0.06,
                         intensity: 0.3 + rng() * 0.7,
                         speed: 0.001 + rng() * 0.003,
@@ -76,6 +81,7 @@ export class MoodAtmosphere {
             case 1: // Electric storm
                 this.bolts = [];
                 this.ambientCharge = 0;
+                this._segmentBuffer = [];
                 this.chargeParticles = [];
                 for (let i = 0; i < 20; i++) {
                     this.chargeParticles.push({
@@ -118,7 +124,7 @@ export class MoodAtmosphere {
                         offset: rng() * window.innerWidth,
                         density: 0.03 + rng() * 0.04,
                         depth: 0.3 + rng() * 0.7,
-                        hue: (this.hue + rng() * 20 - 10) % 360,
+                        hue: (this.hue + rng() * 20 - 10 + 360) % 360,
                     });
                 }
                 break;
@@ -126,6 +132,7 @@ export class MoodAtmosphere {
             case 4: // Embers
                 this.embers = [];
                 this.maxEmbers = 30 + Math.floor(rng() * 30);
+                this._peakEmberCount = 0;
                 break;
 
             case 5: // Caustics
@@ -150,7 +157,6 @@ export class MoodAtmosphere {
     }
 
     _updateGodRays(mx, my) {
-        // Slowly shift ray source toward mouse (subtle parallax)
         const targetX = mx / window.innerWidth;
         const targetY = my / window.innerHeight * 0.3;
         this.raySourceX += (targetX - this.raySourceX) * 0.01;
@@ -158,14 +164,11 @@ export class MoodAtmosphere {
     }
 
     _updateElectricStorm(mx, my, isClicking) {
-        // Build ambient charge
         this.ambientCharge += isClicking ? 0.05 : 0.002;
         if (this.ambientCharge > 1) this.ambientCharge = 1;
 
-        // Spawn bolt on click or randomly when charged
         if ((isClicking || (this.ambientCharge > 0.7 && Math.random() < 0.02)) && this.bolts.length < this.maxBolts) {
             const bolt = this.boltPool.length > 0 ? this.boltPool.pop() : {};
-            // Random start/end points, biased toward cursor for clicks
             if (isClicking) {
                 bolt.x1 = mx + (Math.random() - 0.5) * 200;
                 bolt.y1 = 0;
@@ -179,12 +182,11 @@ export class MoodAtmosphere {
             }
             bolt.life = 8 + Math.floor(Math.random() * 8);
             bolt.maxLife = bolt.life;
-            bolt.segments = this._generateBoltSegments(bolt.x1, bolt.y1, bolt.x2, bolt.y2, 6);
+            bolt.segments = this._generateBoltSegments(bolt.x1, bolt.y1, bolt.x2, bolt.y2);
             this.bolts.push(bolt);
             this.ambientCharge *= 0.3;
         }
 
-        // Update bolts
         for (let i = this.bolts.length - 1; i >= 0; i--) {
             this.bolts[i].life--;
             if (this.bolts[i].life <= 0) {
@@ -194,7 +196,6 @@ export class MoodAtmosphere {
             }
         }
 
-        // Update charge particles
         for (const p of this.chargeParticles) {
             p.x += p.vx; p.y += p.vy;
             p.vx += (Math.random() - 0.5) * 0.1;
@@ -207,26 +208,40 @@ export class MoodAtmosphere {
         }
     }
 
-    _generateBoltSegments(x1, y1, x2, y2, depth) {
-        if (depth === 0) return [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+    /**
+     * Iterative bolt generation - avoids recursive allocation and spread operator GC pressure.
+     */
+    _generateBoltSegments(x1, y1, x2, y2) {
+        const segments = [{ x: x1, y: y1 }];
+        const queue = [{ x1, y1, x2, y2, depth: 6 }];
 
-        const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * Math.abs(x2 - x1) * 0.4;
-        const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * Math.abs(y2 - y1) * 0.15;
+        while (queue.length > 0) {
+            const { x1: sx, y1: sy, x2: ex, y2: ey, depth } = queue.pop();
 
-        const left = this._generateBoltSegments(x1, y1, midX, midY, depth - 1);
-        const right = this._generateBoltSegments(midX, midY, x2, y2, depth - 1);
+            if (depth === 0) {
+                segments.push({ x: ex, y: ey });
+                continue;
+            }
 
-        // Add branch
-        const segments = [...left, ...right.slice(1)];
-        if (depth > 2 && Math.random() < 0.4) {
-            const branchStart = segments[Math.floor(segments.length / 2)];
-            const branchEnd = {
-                x: branchStart.x + (Math.random() - 0.5) * 100,
-                y: branchStart.y + 30 + Math.random() * 80,
-            };
-            segments.push({ x: branchStart.x, y: branchStart.y, branch: true });
-            segments.push(branchEnd);
+            const midX = (sx + ex) / 2 + (Math.random() - 0.5) * Math.abs(ex - sx) * 0.4;
+            const midY = (sy + ey) / 2 + (Math.random() - 0.5) * Math.abs(ey - sy) * 0.15;
+
+            queue.push({ x1: midX, y1: midY, x2: ex, y2: ey, depth: depth - 1 });
+            queue.push({ x1: sx, y1: sy, x2: midX, y2: midY, depth: depth - 1 });
+
+            // Branch
+            if (depth > 2 && Math.random() < 0.4) {
+                segments.push({
+                    x: midX, y: midY, branch: true,
+                });
+                segments.push({
+                    x: midX + (Math.random() - 0.5) * 100,
+                    y: midY + 30 + Math.random() * 80,
+                });
+            }
         }
+
+        segments.push({ x: x2, y: y2 });
         return segments;
     }
 
@@ -237,7 +252,6 @@ export class MoodAtmosphere {
             if (bank.offset > w * 2) bank.offset -= w * 3;
             if (bank.offset < -w) bank.offset += w * 3;
 
-            // Mouse pushes fog slightly
             const dy = my - bank.y;
             if (Math.abs(dy) < bank.height) {
                 bank.y += (dy > 0 ? 0.2 : -0.2);
@@ -246,6 +260,9 @@ export class MoodAtmosphere {
     }
 
     _updateEmbers(mx, my) {
+        // Track peak ember count for smooth heat shimmer
+        this._peakEmberCount = Math.max(this._peakEmberCount * 0.995, this.embers.length);
+
         // Spawn embers from bottom
         if (this.tick % 4 === 0 && this.embers.length < this.maxEmbers) {
             const ember = this.emberPool.length > 0 ? this.emberPool.pop() : {};
@@ -268,12 +285,13 @@ export class MoodAtmosphere {
             e.wobble += e.wobbleSpeed;
             e.x += e.vx + Math.sin(e.wobble) * 0.5;
             e.y += e.vy;
-            e.vy *= 0.999; // slow down slightly
+            e.vy *= 0.999;
 
             // Mouse heat pushes embers away
             const dx = e.x - mx, dy = e.y - my;
-            const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-            if (dist < 100) {
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 10000) {
+                const dist = Math.sqrt(distSq) + 1;
                 e.vx += dx / dist * 0.1;
                 e.vy += dy / dist * 0.1;
             }
@@ -289,6 +307,10 @@ export class MoodAtmosphere {
 
     _updateCaustics() {
         this.causticPhase += 0.015;
+        // Normalize phase to prevent float precision issues over long sessions
+        if (this.causticPhase > Math.PI * 200) {
+            this.causticPhase -= Math.PI * 200;
+        }
     }
 
     draw(ctx, system) {
@@ -320,7 +342,6 @@ export class MoodAtmosphere {
             const intensity = ray.intensity * (0.7 + oscillation * 0.3);
             const alpha = intensity * 0.04;
 
-            // Draw ray as a triangle from source expanding outward
             const length = Math.max(w, h) * 1.5;
             const halfWidth = ray.width * length;
 
@@ -344,6 +365,13 @@ export class MoodAtmosphere {
             ctx.closePath();
             ctx.fill();
         }
+
+        // Subtle source glow
+        const sourceGlow = ctx.createRadialGradient(srcX, srcY, 0, srcX, srcY, 60);
+        sourceGlow.addColorStop(0, `hsla(${this.hue}, ${this.saturation}%, 90%, 0.06)`);
+        sourceGlow.addColorStop(1, 'transparent');
+        ctx.fillStyle = sourceGlow;
+        ctx.fillRect(srcX - 60, srcY - 60, 120, 120);
     }
 
     _drawElectricStorm(ctx, w, h) {
@@ -351,7 +379,7 @@ export class MoodAtmosphere {
         if (this.ambientCharge > 0.1) {
             ctx.globalCompositeOperation = 'lighter';
             const grad = ctx.createLinearGradient(0, 0, 0, h * 0.3);
-            grad.addColorStop(0, `hsla(${this.hue + 200}, 60%, 50%, ${this.ambientCharge * 0.04})`);
+            grad.addColorStop(0, `hsla(${(this.hue + 200) % 360}, 60%, 50%, ${this.ambientCharge * 0.04})`);
             grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, w, h * 0.3);
@@ -361,7 +389,7 @@ export class MoodAtmosphere {
         ctx.globalCompositeOperation = 'lighter';
         for (const p of this.chargeParticles) {
             if (p.brightness < 0.05) continue;
-            ctx.fillStyle = `hsla(${this.hue + 200}, 80%, 80%, ${p.brightness * 0.15})`;
+            ctx.fillStyle = `hsla(${(this.hue + 200) % 360}, 80%, 80%, ${p.brightness * 0.15})`;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
@@ -372,39 +400,35 @@ export class MoodAtmosphere {
             const alpha = (bolt.life / bolt.maxLife);
             ctx.globalCompositeOperation = 'lighter';
 
-            // Glow
-            ctx.strokeStyle = `hsla(${this.hue + 200}, 80%, 80%, ${alpha * 0.3})`;
+            // Glow pass
+            ctx.strokeStyle = `hsla(${(this.hue + 200) % 360}, 80%, 80%, ${alpha * 0.3})`;
             ctx.lineWidth = 4;
-            ctx.beginPath();
-            let branching = false;
-            for (let i = 0; i < bolt.segments.length; i++) {
-                const seg = bolt.segments[i];
-                if (seg.branch) { branching = true; ctx.stroke(); ctx.beginPath(); continue; }
-                if (i === 0 || branching) { ctx.moveTo(seg.x, seg.y); branching = false; }
-                else ctx.lineTo(seg.x, seg.y);
-            }
-            ctx.stroke();
+            this._strokeBoltSegments(ctx, bolt.segments);
 
-            // Core
-            ctx.strokeStyle = `hsla(${this.hue + 200}, 60%, 95%, ${alpha * 0.7})`;
+            // Core pass
+            ctx.strokeStyle = `hsla(${(this.hue + 200) % 360}, 60%, 95%, ${alpha * 0.7})`;
             ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            branching = false;
-            for (let i = 0; i < bolt.segments.length; i++) {
-                const seg = bolt.segments[i];
-                if (seg.branch) { branching = true; ctx.stroke(); ctx.beginPath(); continue; }
-                if (i === 0 || branching) { ctx.moveTo(seg.x, seg.y); branching = false; }
-                else ctx.lineTo(seg.x, seg.y);
-            }
-            ctx.stroke();
+            this._strokeBoltSegments(ctx, bolt.segments);
 
             // Flash at impact point
             if (bolt.life > bolt.maxLife - 3) {
                 const flashAlpha = (bolt.life - bolt.maxLife + 3) / 3 * 0.1;
-                ctx.fillStyle = `hsla(${this.hue + 200}, 50%, 90%, ${flashAlpha})`;
+                ctx.fillStyle = `hsla(${(this.hue + 200) % 360}, 50%, 90%, ${flashAlpha})`;
                 ctx.fillRect(0, 0, w, h);
             }
         }
+    }
+
+    _strokeBoltSegments(ctx, segments) {
+        ctx.beginPath();
+        let branching = false;
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            if (seg.branch) { branching = true; ctx.stroke(); ctx.beginPath(); continue; }
+            if (i === 0 || branching) { ctx.moveTo(seg.x, seg.y); branching = false; }
+            else ctx.lineTo(seg.x, seg.y);
+        }
+        ctx.stroke();
     }
 
     _drawAurora(ctx, w, h) {
@@ -424,7 +448,6 @@ export class MoodAtmosphere {
                 ctx.lineTo(x, y);
             }
 
-            // Close bottom of curtain
             ctx.lineTo(w, baseY + wave.height);
             for (let i = points; i >= 0; i--) {
                 const x = (i / points) * w;
@@ -456,7 +479,6 @@ export class MoodAtmosphere {
             grad.addColorStop(1, 'transparent');
 
             ctx.fillStyle = grad;
-            // Draw shifted by offset for horizontal movement
             ctx.save();
             ctx.translate(bank.offset - w, 0);
             ctx.fillRect(0, bank.y - bank.height / 2, w * 3, bank.height);
@@ -484,10 +506,11 @@ export class MoodAtmosphere {
             ctx.fill();
         }
 
-        // Heat shimmer at bottom
-        if (this.embers.length > 5) {
+        // Heat shimmer at bottom - smooth threshold based on peak count
+        if (this._peakEmberCount > 2) {
+            const shimmerIntensity = Math.min(1, this._peakEmberCount / this.maxEmbers);
             const grad = ctx.createLinearGradient(0, h, 0, h * 0.7);
-            grad.addColorStop(0, `hsla(${this.hue}, 80%, 30%, 0.04)`);
+            grad.addColorStop(0, `hsla(${this.hue}, 80%, 30%, ${0.02 + shimmerIntensity * 0.03})`);
             grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
             ctx.fillRect(0, h * 0.7, w, h * 0.3);
@@ -500,21 +523,28 @@ export class MoodAtmosphere {
         const scale = this.causticScale;
         const cols = Math.ceil(w / scale) + 1;
         const rows = Math.ceil(h / scale) + 1;
+        const complexity = this.causticComplexity;
+        const phase = this.causticPhase;
 
+        // Pre-compute sine table for the current phase to reduce per-cell trig
         ctx.lineWidth = 0.8;
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
+
+        // Skip every other cell at lower quality for performance
+        const step = (cols * rows > 300) ? 2 : 1;
+
+        for (let y = 0; y < rows; y += step) {
+            for (let x = 0; x < cols; x += step) {
                 const px = x * scale;
                 const py = y * scale;
 
                 // Layered sine waves for caustic pattern
                 let val = 0;
-                for (let c = 1; c <= this.causticComplexity; c++) {
-                    val += Math.sin(px * 0.02 * c + this.causticPhase * c) *
-                           Math.cos(py * 0.02 * c + this.causticPhase * 0.7 * c) * (1 / c);
+                for (let c = 1; c <= complexity; c++) {
+                    val += Math.sin(px * 0.02 * c + phase * c) *
+                           Math.cos(py * 0.02 * c + phase * 0.7 * c) * (1 / c);
                 }
-                val = (val + this.causticComplexity) / (this.causticComplexity * 2); // normalize to 0-1
-                val = Math.pow(val, 2); // sharpen
+                val = (val + complexity) / (complexity * 2);
+                val = val * val; // sharpen
 
                 if (val < 0.15) continue;
 
@@ -522,13 +552,13 @@ export class MoodAtmosphere {
                 const hue = (this.hue + val * 40) % 360;
                 ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 65%, ${alpha})`;
 
-                // Draw as small curved line segment
-                const nextVal = Math.sin(px * 0.02 + this.causticPhase) * Math.cos((py + scale) * 0.02 + this.causticPhase * 0.7);
+                const drawScale = scale * step;
+                const nextVal = Math.sin(px * 0.02 + phase) * Math.cos((py + drawScale) * 0.02 + phase * 0.7);
                 const curve = nextVal * 10;
 
                 ctx.beginPath();
                 ctx.moveTo(px, py);
-                ctx.quadraticCurveTo(px + curve, py + scale / 2, px + scale, py + scale);
+                ctx.quadraticCurveTo(px + curve, py + drawScale / 2, px + drawScale, py + drawScale);
                 ctx.stroke();
             }
         }

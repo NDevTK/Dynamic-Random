@@ -20,13 +20,17 @@ export class DimensionalEchoes {
         this.hue = 0;
         this.saturation = 70;
 
+        // Mouse tracking (shared across all modes)
+        this._mouseX = 0;
+        this._mouseY = 0;
+
         // Kaleidoscope
         this.symmetry = 6;
         this.kaleidoTrail = [];
         this.maxKaleidoTrail = 30;
 
         // Time echoes
-        this.echoHistory = []; // ring buffer of past positions
+        this.echoHistory = [];
         this.echoHistoryMax = 300;
         this.echoLayers = 5;
         this.echoDelays = [];
@@ -37,6 +41,7 @@ export class DimensionalEchoes {
         this.maxTears = 8;
         this.tearHue = 0;
         this.tearStyle = 0;
+        this._ambientTearTimer = 0;
 
         // Parallax layers
         this.layers = [];
@@ -59,10 +64,11 @@ export class DimensionalEchoes {
         this.echoHistory = [];
         this.tears = [];
         this.kaleidoTrail = [];
+        this._ambientTearTimer = 0;
 
         switch (this.mode) {
             case 0: // Kaleidoscope
-                this.symmetry = 4 + Math.floor(rng() * 8); // 4-11 fold symmetry
+                this.symmetry = 4 + Math.floor(rng() * 8);
                 break;
 
             case 1: // Time echoes
@@ -74,7 +80,7 @@ export class DimensionalEchoes {
                 break;
 
             case 2: // Dimensional tears
-                this.tearHue = (this.hue + 120 + rng() * 60) % 360; // contrasting hue
+                this.tearHue = (this.hue + 120 + rng() * 60) % 360;
                 this.tearStyle = Math.floor(rng() * 3);
                 break;
 
@@ -99,7 +105,7 @@ export class DimensionalEchoes {
                         x: rng() * window.innerWidth,
                         y: rng() * window.innerHeight,
                         size: 20 + rng() * 80,
-                        shape: Math.floor(rng() * 4), // 0=circle 1=square 2=triangle 3=diamond
+                        shape: Math.floor(rng() * 4),
                         rotation: rng() * Math.PI * 2,
                         rotSpeed: (rng() - 0.5) * 0.01,
                     });
@@ -141,6 +147,8 @@ export class DimensionalEchoes {
 
     update(mx, my, isClicking) {
         this.tick++;
+        this._mouseX = mx;
+        this._mouseY = my;
 
         switch (this.mode) {
             case 0: // Kaleidoscope
@@ -154,18 +162,18 @@ export class DimensionalEchoes {
                 break;
 
             case 2: // Dimensional tears
+                // Click-spawned tears
                 if (isClicking && this.tears.length < this.maxTears) {
-                    const tear = this.tearPool.length > 0 ? this.tearPool.pop() : {};
-                    tear.x = mx;
-                    tear.y = my;
-                    tear.width = 0;
-                    tear.height = 0;
-                    tear.maxWidth = 30 + Math.random() * 60;
-                    tear.maxHeight = 60 + Math.random() * 120;
-                    tear.life = 200;
-                    tear.angle = Math.random() * Math.PI;
-                    tear.phase = 0;
-                    this.tears.push(tear);
+                    this._spawnTear(mx, my);
+                }
+
+                // Ambient tears spawn periodically near cursor
+                this._ambientTearTimer++;
+                if (this._ambientTearTimer > 120 && this.tears.length < this.maxTears) {
+                    this._ambientTearTimer = 0;
+                    const ox = (Math.random() - 0.5) * 200;
+                    const oy = (Math.random() - 0.5) * 200;
+                    this._spawnTear(mx + ox, my + oy, true);
                 }
 
                 for (let i = this.tears.length - 1; i >= 0; i--) {
@@ -199,6 +207,20 @@ export class DimensionalEchoes {
         }
     }
 
+    _spawnTear(x, y, ambient = false) {
+        const tear = this.tearPool.length > 0 ? this.tearPool.pop() : {};
+        tear.x = x;
+        tear.y = y;
+        tear.width = 0;
+        tear.height = 0;
+        tear.maxWidth = ambient ? 15 + Math.random() * 30 : 30 + Math.random() * 60;
+        tear.maxHeight = ambient ? 30 + Math.random() * 60 : 60 + Math.random() * 120;
+        tear.life = ambient ? 100 + Math.floor(Math.random() * 60) : 200;
+        tear.angle = Math.random() * Math.PI;
+        tear.phase = 0;
+        this.tears.push(tear);
+    }
+
     draw(ctx, system) {
         const w = system.width, h = system.height;
         ctx.save();
@@ -218,17 +240,17 @@ export class DimensionalEchoes {
 
     _drawKaleidoscope(ctx, w, h) {
         if (this.kaleidoTrail.length < 2) return;
-        const cx = w / 2, cy = h / 2;
+        const cxCenter = w / 2, cyCenter = h / 2;
 
         for (let s = 0; s < this.symmetry; s++) {
             const angle = (s / this.symmetry) * Math.PI * 2;
             const mirror = s % 2 === 0 ? 1 : -1;
 
             ctx.save();
-            ctx.translate(cx, cy);
+            ctx.translate(cxCenter, cyCenter);
             ctx.rotate(angle);
             ctx.scale(mirror, 1);
-            ctx.translate(-cx, -cy);
+            ctx.translate(-cxCenter, -cyCenter);
 
             ctx.beginPath();
             ctx.lineWidth = 1.5;
@@ -242,13 +264,14 @@ export class DimensionalEchoes {
             }
             ctx.stroke();
 
-            // Draw dots at trail points
-            for (let i = 0; i < this.kaleidoTrail.length; i += 3) {
+            // Draw dots at trail points with varying size
+            for (let i = 0; i < this.kaleidoTrail.length; i += 2) {
                 const p = this.kaleidoTrail[i];
                 const dotAlpha = (i / this.kaleidoTrail.length) * alpha;
+                const dotSize = 1.5 + (i / this.kaleidoTrail.length) * 2;
                 ctx.fillStyle = `hsla(${(this.hue + s * 20 + i * 5) % 360}, 80%, 70%, ${dotAlpha})`;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, dotSize, 0, Math.PI * 2);
                 ctx.fill();
             }
 
@@ -271,28 +294,40 @@ export class DimensionalEchoes {
             const scale = 1 + layer * 0.05;
 
             ctx.save();
-            // Slight scale to give depth illusion
             ctx.translate(w / 2, h / 2);
             ctx.scale(scale, scale);
             ctx.translate(-w / 2, -h / 2);
 
-            // Draw echo trail
+            // Draw echo trail with smooth curve
             ctx.beginPath();
             ctx.lineWidth = 2 + layer;
             ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 60%, ${alpha})`;
             for (let i = startIdx; i < endIdx; i++) {
                 const p = this.echoHistory[i];
                 if (i === startIdx) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
+                else {
+                    // Use quadratic curve for smoother trails
+                    const prev = this.echoHistory[i - 1];
+                    const cpx = (prev.x + p.x) / 2;
+                    const cpy = (prev.y + p.y) / 2;
+                    ctx.quadraticCurveTo(prev.x, prev.y, cpx, cpy);
+                }
             }
             ctx.stroke();
 
-            // Ghost dot at echo head
+            // Ghost dot at echo head with pulsing glow
             if (endIdx > 0) {
                 const head = this.echoHistory[endIdx - 1];
-                ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${alpha * 3})`;
+                const pulse = 0.7 + Math.sin(this.tick * 0.1 + layer) * 0.3;
+                // Outer glow
+                ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${alpha * 2 * pulse})`;
                 ctx.beginPath();
-                ctx.arc(head.x, head.y, 4 + layer * 2, 0, Math.PI * 2);
+                ctx.arc(head.x, head.y, 6 + layer * 3, 0, Math.PI * 2);
+                ctx.fill();
+                // Inner core
+                ctx.fillStyle = `hsla(${hue}, 90%, 85%, ${alpha * 4 * pulse})`;
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 2 + layer, 0, Math.PI * 2);
                 ctx.fill();
             }
 
@@ -311,21 +346,22 @@ export class DimensionalEchoes {
             ctx.translate(tear.x, tear.y);
             ctx.rotate(tear.angle);
 
-            // The tear crack
+            // The tear crack with jagged edges
             ctx.strokeStyle = `hsla(${this.tearHue}, 90%, 80%, ${alpha})`;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            const segments = 8;
+            const segments = 10;
             for (let i = 0; i <= segments; i++) {
                 const t = i / segments;
                 const y = (t - 0.5) * tear.height;
                 const wobble = Math.sin(t * Math.PI * 3 + tear.phase * 0.05) * tear.width * 0.3;
-                if (i === 0) ctx.moveTo(wobble, y);
-                else ctx.lineTo(wobble, y);
+                const jag = Math.sin(t * Math.PI * 7 + tear.phase * 0.08) * tear.width * 0.1;
+                if (i === 0) ctx.moveTo(wobble + jag, y);
+                else ctx.lineTo(wobble + jag, y);
             }
             ctx.stroke();
 
-            // Glow around tear
+            // Inner glow (the "other dimension" light)
             const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(tear.width, tear.height));
             grad.addColorStop(0, `hsla(${this.tearHue}, 80%, 70%, ${alpha * 0.5})`);
             grad.addColorStop(0.5, `hsla(${this.tearHue}, 60%, 40%, ${alpha * 0.2})`);
@@ -335,8 +371,9 @@ export class DimensionalEchoes {
 
             // "Other dimension" streaks emanating from tear
             if (this.tearStyle >= 1) {
-                for (let i = 0; i < 5; i++) {
-                    const a = (i / 5) * Math.PI * 2 + tear.phase * 0.02;
+                const streakCount = this.tearStyle === 2 ? 8 : 5;
+                for (let i = 0; i < streakCount; i++) {
+                    const a = (i / streakCount) * Math.PI * 2 + tear.phase * 0.02;
                     const len = 20 + Math.sin(tear.phase * 0.1 + i) * 15;
                     ctx.strokeStyle = `hsla(${(this.tearHue + 60) % 360}, 70%, 60%, ${alpha * 0.4})`;
                     ctx.lineWidth = 0.5;
@@ -347,17 +384,29 @@ export class DimensionalEchoes {
                 }
             }
 
+            // Particle leak effect - small dots drifting out of tear
+            if (tear.phase > 10 && tear.phase % 3 === 0) {
+                const dotAngle = tear.phase * 0.2;
+                const dotDist = (tear.phase % 30) * 1.5;
+                const dotAlpha = alpha * Math.max(0, 1 - dotDist / 45);
+                ctx.fillStyle = `hsla(${this.tearHue}, 80%, 75%, ${dotAlpha})`;
+                ctx.beginPath();
+                ctx.arc(Math.cos(dotAngle) * dotDist, Math.sin(dotAngle) * dotDist, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
             ctx.restore();
         }
     }
 
     _drawParallaxLayers(ctx, w, h) {
-        const mx = w / 2;
-        const my = h / 2;
+        // Use actual mouse position normalized to -0.5..0.5 for proper parallax
+        const normMx = this._mouseX / w - 0.5;
+        const normMy = this._mouseY / h - 0.5;
 
         for (const layer of this.layers) {
-            const offsetX = (mx - w / 2) * layer.depth * 0.1;
-            const offsetY = (my - h / 2) * layer.depth * 0.1;
+            const offsetX = normMx * layer.depth * 80;
+            const offsetY = normMy * layer.depth * 80;
             const drift = this.tick * 0.2 * layer.depth;
 
             ctx.save();
@@ -382,6 +431,9 @@ export class DimensionalEchoes {
                         ctx.beginPath();
                         ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
                         ctx.stroke();
+                        // Add subtle fill for depth
+                        ctx.fillStyle = `hsla(${layer.hue}, ${this.saturation}%, 50%, 0.1)`;
+                        ctx.fill();
                         break;
                     case 1: // Line
                         ctx.beginPath();
@@ -405,13 +457,13 @@ export class DimensionalEchoes {
     }
 
     _drawShadowTheater(ctx, w, h) {
-        // Use mouse position as light source
-        const lightX = this.kaleidoTrail?.length > 0 ? this.kaleidoTrail[this.kaleidoTrail.length - 1]?.x : w / 2;
-        const lightY = this.kaleidoTrail?.length > 0 ? this.kaleidoTrail[this.kaleidoTrail.length - 1]?.y : h / 2;
+        // Use tracked mouse position as light source
+        const lightX = this._mouseX;
+        const lightY = this._mouseY;
 
         for (const obj of this.shadowObjects) {
-            const dx = obj.x - (lightX || w / 2);
-            const dy = obj.y - (lightY || h / 2);
+            const dx = obj.x - lightX;
+            const dy = obj.y - lightY;
             const dist = Math.sqrt(dx * dx + dy * dy) + 1;
             const shadowLen = Math.min(200, 5000 / dist);
             const shadowAngle = Math.atan2(dy, dx);
@@ -428,61 +480,52 @@ export class DimensionalEchoes {
             ctx.fillStyle = `hsla(${this.hue}, 30%, 10%, ${alpha})`;
             ctx.globalCompositeOperation = 'source-over';
 
-            switch (obj.shape) {
-                case 0:
-                    ctx.beginPath(); ctx.arc(0, 0, obj.size / 2, 0, Math.PI * 2); ctx.fill();
-                    break;
-                case 1:
-                    ctx.fillRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size);
-                    break;
-                case 2:
-                    ctx.beginPath();
-                    ctx.moveTo(0, -obj.size / 2);
-                    ctx.lineTo(obj.size / 2, obj.size / 2);
-                    ctx.lineTo(-obj.size / 2, obj.size / 2);
-                    ctx.closePath(); ctx.fill();
-                    break;
-                case 3:
-                    ctx.beginPath();
-                    ctx.moveTo(0, -obj.size / 2);
-                    ctx.lineTo(obj.size / 2, 0);
-                    ctx.lineTo(0, obj.size / 2);
-                    ctx.lineTo(-obj.size / 2, 0);
-                    ctx.closePath(); ctx.fill();
-                    break;
-            }
+            this._drawShape(ctx, obj.shape, obj.size, true);
             ctx.restore();
 
-            // Draw the object itself (faint outline)
+            // Draw the object itself (faint outline with glow)
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Object glow based on proximity to light
+            const glowIntensity = Math.max(0, 0.08 - dist / 5000);
+            if (glowIntensity > 0.01) {
+                ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, 60%, ${glowIntensity})`;
+                this._drawShape(ctx, obj.shape, obj.size * 1.5, true);
+            }
+
             ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 50%, 0.08)`;
             ctx.lineWidth = 0.5;
-            ctx.globalCompositeOperation = 'lighter';
-            switch (obj.shape) {
-                case 0:
-                    ctx.beginPath(); ctx.arc(0, 0, obj.size / 2, 0, Math.PI * 2); ctx.stroke();
-                    break;
-                case 1:
-                    ctx.strokeRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size);
-                    break;
-                case 2:
-                    ctx.beginPath();
-                    ctx.moveTo(0, -obj.size / 2);
-                    ctx.lineTo(obj.size / 2, obj.size / 2);
-                    ctx.lineTo(-obj.size / 2, obj.size / 2);
-                    ctx.closePath(); ctx.stroke();
-                    break;
-                case 3:
-                    ctx.beginPath();
-                    ctx.moveTo(0, -obj.size / 2);
-                    ctx.lineTo(obj.size / 2, 0);
-                    ctx.lineTo(0, obj.size / 2);
-                    ctx.lineTo(-obj.size / 2, 0);
-                    ctx.closePath(); ctx.stroke();
-                    break;
-            }
+            this._drawShape(ctx, obj.shape, obj.size, false);
 
             ctx.restore();
         }
+    }
+
+    _drawShape(ctx, shape, size, fill) {
+        ctx.beginPath();
+        switch (shape) {
+            case 0:
+                ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+                break;
+            case 1:
+                ctx.rect(-size / 2, -size / 2, size, size);
+                break;
+            case 2:
+                ctx.moveTo(0, -size / 2);
+                ctx.lineTo(size / 2, size / 2);
+                ctx.lineTo(-size / 2, size / 2);
+                ctx.closePath();
+                break;
+            case 3:
+                ctx.moveTo(0, -size / 2);
+                ctx.lineTo(size / 2, 0);
+                ctx.lineTo(0, size / 2);
+                ctx.lineTo(-size / 2, 0);
+                ctx.closePath();
+                break;
+        }
+        if (fill) ctx.fill();
+        else ctx.stroke();
     }
 
     _drawQuantumSuperposition(ctx) {
@@ -493,23 +536,35 @@ export class DimensionalEchoes {
             const alpha = 0.12 / this.quantumBranches;
             const hue = (this.hue + path.hueOffset + 360) % 360;
 
-            // Draw path
+            // Draw path with smooth interpolation
             ctx.beginPath();
             ctx.lineWidth = 1;
             ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 60%, ${alpha})`;
-            for (let i = 0; i < path.points.length; i++) {
-                const p = path.points[i];
-                if (i === 0) ctx.moveTo(p.x, p.y);
-                else ctx.lineTo(p.x, p.y);
+            ctx.moveTo(path.points[0].x, path.points[0].y);
+            for (let i = 1; i < path.points.length; i++) {
+                const prev = path.points[i - 1];
+                const cur = path.points[i];
+                const cpx = (prev.x + cur.x) / 2;
+                const cpy = (prev.y + cur.y) / 2;
+                ctx.quadraticCurveTo(prev.x, prev.y, cpx, cpy);
             }
             ctx.stroke();
 
-            // Draw quantum "probability cloud" at head
+            // Draw quantum "probability cloud" at head with shimmer
             const head = path.points[path.points.length - 1];
-            const cloudSize = 8 + Math.sin(this.tick * 0.05 + b) * 4;
-            ctx.fillStyle = `hsla(${hue}, 80%, 65%, ${alpha * 2})`;
+            const shimmer = 0.7 + Math.sin(this.tick * 0.08 + b * 1.5) * 0.3;
+            const cloudSize = (8 + Math.sin(this.tick * 0.05 + b) * 4) * shimmer;
+
+            // Outer probability cloud
+            ctx.fillStyle = `hsla(${hue}, 60%, 55%, ${alpha * 1.5})`;
             ctx.beginPath();
-            ctx.arc(head.x, head.y, cloudSize, 0, Math.PI * 2);
+            ctx.arc(head.x, head.y, cloudSize * 1.8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner bright core
+            ctx.fillStyle = `hsla(${hue}, 80%, 75%, ${alpha * 3})`;
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, cloudSize * 0.5, 0, Math.PI * 2);
             ctx.fill();
 
             // Draw "collapse" connections between branches
@@ -517,11 +572,12 @@ export class DimensionalEchoes {
                 const prevPath = this.quantumPaths[b - 1];
                 if (prevPath.points.length > 0) {
                     const prevHead = prevPath.points[prevPath.points.length - 1];
-                    const dx = head.x - prevHead.x;
-                    const dy = head.y - prevHead.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const pdx = head.x - prevHead.x;
+                    const pdy = head.y - prevHead.y;
+                    const dist = Math.sqrt(pdx * pdx + pdy * pdy);
                     if (dist < 100) {
-                        ctx.strokeStyle = `hsla(${this.hue}, 40%, 50%, ${(1 - dist / 100) * alpha})`;
+                        const lineAlpha = (1 - dist / 100) * alpha;
+                        ctx.strokeStyle = `hsla(${this.hue}, 40%, 50%, ${lineAlpha})`;
                         ctx.lineWidth = 0.3;
                         ctx.setLineDash([2, 4]);
                         ctx.beginPath();
@@ -531,6 +587,29 @@ export class DimensionalEchoes {
                         ctx.setLineDash([]);
                     }
                 }
+            }
+        }
+
+        // Draw interference pattern at center of all quantum paths
+        if (this.quantumPaths.length > 1 && this.tick % 2 === 0) {
+            let avgX = 0, avgY = 0, count = 0;
+            for (const path of this.quantumPaths) {
+                if (path.points.length > 0) {
+                    const head = path.points[path.points.length - 1];
+                    avgX += head.x;
+                    avgY += head.y;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                avgX /= count;
+                avgY /= count;
+                const interferenceAlpha = 0.03 + Math.sin(this.tick * 0.15) * 0.02;
+                ctx.strokeStyle = `hsla(${this.hue}, 50%, 60%, ${interferenceAlpha})`;
+                ctx.lineWidth = 0.3;
+                ctx.beginPath();
+                ctx.arc(avgX, avgY, 15 + Math.sin(this.tick * 0.1) * 5, 0, Math.PI * 2);
+                ctx.stroke();
             }
         }
     }

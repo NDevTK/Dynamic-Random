@@ -19,6 +19,7 @@ export class ReactiveGrid {
         this.cellSize = 0;
         this.grid = null;
         this.prevGrid = null;
+        this.automataBuffer = null; // Persistent buffer for automata (avoids per-frame alloc)
         this.mode = 0;
         this.hue = 0;
         this.saturation = 70;
@@ -45,8 +46,10 @@ export class ReactiveGrid {
         this.warpStrength = 0;
         this.restPositions = null;
 
-        // Cached rendering
-        this._lastQuality = 1;
+        // Cached hex skeleton path
+        this._hexSkeletonPath = null;
+        this._hexSkeletonW = 0;
+        this._hexSkeletonH = 0;
     }
 
     configure(rng, palette) {
@@ -55,6 +58,7 @@ export class ReactiveGrid {
         this.saturation = 50 + rng() * 40;
         this.tick = 0;
         this.pulses = [];
+        this._hexSkeletonPath = null;
 
         // Mode-specific configuration
         switch (this.mode) {
@@ -96,6 +100,11 @@ export class ReactiveGrid {
         const len = this.cols * this.rows;
         this.grid = new Float32Array(len);
         this.prevGrid = new Float32Array(len);
+
+        // Persistent automata buffer to avoid per-frame allocation
+        if (this.mode === 3) {
+            this.automataBuffer = new Float32Array(len);
+        }
 
         if (this.mode === 5) {
             this.restPositions = new Float32Array(len * 2);
@@ -146,7 +155,7 @@ export class ReactiveGrid {
             }
         }
 
-        // Wave equation: new = 2*current - previous + speed*(neighbors - 4*current)
+        // Wave equation with proper boundary handling
         for (let y = 1; y < rows - 1; y++) {
             for (let x = 1; x < cols - 1; x++) {
                 const i = y * cols + x;
@@ -155,6 +164,16 @@ export class ReactiveGrid {
                 this.grid[i] = (2 * this.prevGrid[i] - this.grid[i] +
                     this.waveSpeed * (neighbors - 4 * this.prevGrid[i])) * this.waveDamping;
             }
+        }
+
+        // Copy inner boundary values to edges so they don't create dead zones
+        for (let x = 0; x < cols; x++) {
+            this.grid[x] = this.grid[cols + x] * 0.5;                               // top edge
+            this.grid[(rows - 1) * cols + x] = this.grid[(rows - 2) * cols + x] * 0.5; // bottom edge
+        }
+        for (let y = 0; y < rows; y++) {
+            this.grid[y * cols] = this.grid[y * cols + 1] * 0.5;                    // left edge
+            this.grid[y * cols + cols - 1] = this.grid[y * cols + cols - 2] * 0.5;  // right edge
         }
     }
 
@@ -211,12 +230,11 @@ export class ReactiveGrid {
                 const py = y * cs + cs / 2;
                 const dx = px - mx;
                 const dy = py - my;
-                const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-                // Magnetic field strength falls off with distance squared
-                const field = Math.min(1, 200 / (dist * dist) * 100);
+                const distSq = dx * dx + dy * dy + 1;
+                // Dipole field: strength ~ 1/r^2, capped at 1
+                const field = Math.min(1, 20000 / distSq);
                 // Direction angle for field lines
                 const angle = Math.atan2(dy, dx);
-                // Encode both magnitude and angle
                 this.grid[y * cols + x] = field;
                 this.prevGrid[y * cols + x] = angle;
             }
@@ -242,29 +260,40 @@ export class ReactiveGrid {
         // Run automata rules every 4 frames
         if (this.tick % 4 !== 0) return;
 
-        const temp = new Float32Array(this.grid);
+        // Copy current state into persistent buffer (no allocation)
+        this.automataBuffer.set(this.grid);
+        const src = this.automataBuffer;
+
+        // Bitmask lookup for neighbor rules (faster than Array.includes)
+        // ruleSet 2: Day&Night B3678/S34678 -> birth mask: (1<<3)|(1<<6)|(1<<7)|(1<<8), survive: (1<<3)|(1<<4)|(1<<6)|(1<<7)|(1<<8)
+        // ruleSet 3: Diamoeba B35678/S5678 -> birth: (1<<3)|(1<<5)|(1<<6)|(1<<7)|(1<<8), survive: (1<<5)|(1<<6)|(1<<7)|(1<<8)
+        const BIRTH_MASKS = [0, 0, (1 << 3) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 3) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8)];
+        const SURVIVE_MASKS = [0, 0, (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7) | (1 << 8), (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8)];
+
         for (let y = 1; y < rows - 1; y++) {
             for (let x = 1; x < cols - 1; x++) {
                 let neighbors = 0;
                 for (let dy = -1; dy <= 1; dy++) {
                     for (let dx = -1; dx <= 1; dx++) {
                         if (dx === 0 && dy === 0) continue;
-                        if (temp[(y + dy) * cols + (x + dx)] > 0.5) neighbors++;
+                        if (src[(y + dy) * cols + (x + dx)] > 0.5) neighbors++;
                     }
                 }
-                const alive = temp[y * cols + x] > 0.5;
+                const alive = src[y * cols + x] > 0.5;
+                const i = y * cols + x;
+                const nBit = 1 << neighbors;
                 switch (this.ruleSet) {
-                    case 0: // Classic life
-                        this.grid[y * cols + x] = (alive ? (neighbors === 2 || neighbors === 3) : neighbors === 3) ? 1.0 : this.grid[y * cols + x] * 0.85;
+                    case 0: // Classic life B3/S23
+                        this.grid[i] = (alive ? (neighbors === 2 || neighbors === 3) : neighbors === 3) ? 1.0 : this.grid[i] * 0.85;
                         break;
-                    case 1: // Seeds (B2/S)
-                        this.grid[y * cols + x] = (!alive && neighbors === 2) ? 1.0 : (alive ? 0 : this.grid[y * cols + x] * 0.9);
+                    case 1: // Seeds B2/S
+                        this.grid[i] = (!alive && neighbors === 2) ? 1.0 : (alive ? 0 : this.grid[i] * 0.9);
                         break;
-                    case 2: // Day & Night (B3678/S34678)
-                        this.grid[y * cols + x] = (alive ? [3, 4, 6, 7, 8].includes(neighbors) : [3, 6, 7, 8].includes(neighbors)) ? 1.0 : this.grid[y * cols + x] * 0.88;
+                    case 2: // Day & Night
+                        this.grid[i] = (alive ? (SURVIVE_MASKS[2] & nBit) : (BIRTH_MASKS[2] & nBit)) ? 1.0 : this.grid[i] * 0.88;
                         break;
-                    case 3: // Diamoeba (B35678/S5678)
-                        this.grid[y * cols + x] = (alive ? [5, 6, 7, 8].includes(neighbors) : [3, 5, 6, 7, 8].includes(neighbors)) ? 1.0 : this.grid[y * cols + x] * 0.9;
+                    case 3: // Diamoeba
+                        this.grid[i] = (alive ? (SURVIVE_MASKS[3] & nBit) : (BIRTH_MASKS[3] & nBit)) ? 1.0 : this.grid[i] * 0.9;
                         break;
                 }
             }
@@ -297,10 +326,11 @@ export class ReactiveGrid {
             // Snap to hex grid nodes for visual effect
             if (this.tick % 8 === 0) {
                 const hr = this.hexRadius;
+                const sqrt3 = Math.sqrt(3);
                 const col = Math.round(p.x / (hr * 1.5));
-                const row = Math.round(p.y / (hr * Math.sqrt(3)));
+                const row = Math.round(p.y / (hr * sqrt3));
                 const snapX = col * hr * 1.5;
-                const snapY = row * hr * Math.sqrt(3) + (col % 2 ? hr * Math.sqrt(3) / 2 : 0);
+                const snapY = row * hr * sqrt3 + (col % 2 ? hr * sqrt3 / 2 : 0);
                 p.vx += (snapX - p.x) * 0.05;
                 p.vy += (snapY - p.y) * 0.05;
             }
@@ -312,20 +342,33 @@ export class ReactiveGrid {
             }
         }
 
-        // Also paint energy into grid for hex glow
-        this.grid.fill(0);
+        // Decay grid glow gradually instead of hard-resetting
+        for (let i = 0; i < this.grid.length; i++) {
+            this.grid[i] *= 0.92;
+        }
+        // Paint pulse energy into grid cells
         for (const p of this.pulses) {
             const gx = Math.floor(p.x / this.cellSize);
             const gy = Math.floor(p.y / this.cellSize);
             if (gx >= 0 && gx < this.cols && gy >= 0 && gy < this.rows) {
                 this.grid[gy * this.cols + gx] = Math.max(this.grid[gy * this.cols + gx], p.life);
             }
+            // Also light up adjacent cells for wider glow
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = gx + dx, ny = gy + dy;
+                    if (nx >= 0 && nx < this.cols && ny >= 0 && ny < this.rows) {
+                        this.grid[ny * this.cols + nx] = Math.max(this.grid[ny * this.cols + nx], p.life * 0.3);
+                    }
+                }
+            }
         }
     }
 
     _updateGravityWarp(mx, my) {
         if (!this.restPositions) return;
-        const cols = this.cols, rows = this.rows, cs = this.cellSize;
+        const cols = this.cols, rows = this.rows;
 
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
@@ -337,12 +380,9 @@ export class ReactiveGrid {
                 const distSq = dx * dx + dy * dy + 1;
                 const dist = Math.sqrt(distSq);
                 const force = this.warpStrength / distSq;
-                // Pull toward cursor with distance falloff
                 const pullX = -dx / dist * force;
                 const pullY = -dy / dist * force;
-                // Store displacement as grid value (magnitude)
                 this.grid[y * cols + x] = Math.min(1, Math.sqrt(pullX * pullX + pullY * pullY) / 5);
-                // Store actual displaced positions for rendering
                 this.prevGrid[y * cols + x] = Math.atan2(pullY, pullX);
             }
         }
@@ -371,6 +411,8 @@ export class ReactiveGrid {
     }
 
     _drawWave(ctx, cs, cols, rows) {
+        // Batch positive and negative waves separately for fewer style changes
+        ctx.beginPath();
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
                 const val = this.grid[y * cols + x];
@@ -413,7 +455,6 @@ export class ReactiveGrid {
                 ctx.lineTo(px + Math.cos(angle) * len / 2, py + Math.sin(angle) * len / 2);
                 ctx.stroke();
 
-                // Draw small arrow head
                 if (field > 0.1) {
                     const tipX = px + Math.cos(angle) * len / 2;
                     const tipY = py + Math.sin(angle) * len / 2;
@@ -445,32 +486,50 @@ export class ReactiveGrid {
         const hr = this.hexRadius;
         const sqrt3 = Math.sqrt(3);
 
-        // Draw hex grid skeleton (faint)
-        ctx.strokeStyle = `hsla(${this.hue}, 30%, 30%, 0.06)`;
-        ctx.lineWidth = 0.5;
-        const hexCols = Math.ceil(w / (hr * 1.5)) + 1;
-        const hexRows = Math.ceil(h / (hr * sqrt3)) + 1;
-
-        for (let col = 0; col < hexCols; col++) {
-            for (let row = 0; row < hexRows; row++) {
-                const cx = col * hr * 1.5;
-                const cy = row * hr * sqrt3 + (col % 2 ? hr * sqrt3 / 2 : 0);
-                ctx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    const a = Math.PI / 3 * i + Math.PI / 6;
-                    const hx = cx + hr * 0.4 * Math.cos(a);
-                    const hy = cy + hr * 0.4 * Math.sin(a);
-                    i === 0 ? ctx.moveTo(hx, hy) : ctx.lineTo(hx, hy);
+        // Cache hex skeleton path for performance
+        if (!this._hexSkeletonPath || this._hexSkeletonW !== w || this._hexSkeletonH !== h) {
+            this._hexSkeletonPath = new Path2D();
+            this._hexSkeletonW = w;
+            this._hexSkeletonH = h;
+            const hexCols = Math.ceil(w / (hr * 1.5)) + 1;
+            const hexRows = Math.ceil(h / (hr * sqrt3)) + 1;
+            for (let col = 0; col < hexCols; col++) {
+                for (let row = 0; row < hexRows; row++) {
+                    const cx = col * hr * 1.5;
+                    const cy = row * hr * sqrt3 + (col % 2 ? hr * sqrt3 / 2 : 0);
+                    for (let i = 0; i < 6; i++) {
+                        const a = Math.PI / 3 * i + Math.PI / 6;
+                        const hx = cx + hr * 0.4 * Math.cos(a);
+                        const hy = cy + hr * 0.4 * Math.sin(a);
+                        if (i === 0) this._hexSkeletonPath.moveTo(hx, hy);
+                        else this._hexSkeletonPath.lineTo(hx, hy);
+                    }
+                    this._hexSkeletonPath.closePath();
                 }
-                ctx.closePath();
-                ctx.stroke();
             }
         }
 
-        // Draw pulses
+        // Draw cached hex skeleton
+        ctx.strokeStyle = `hsla(${this.hue}, 30%, 30%, 0.06)`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke(this._hexSkeletonPath);
+
+        // Draw hex cell glow from grid energy
+        const cs = this.cellSize;
+        for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+                const val = this.grid[y * this.cols + x];
+                if (val < 0.03) continue;
+                const hue = (this.hue + val * 40) % 360;
+                ctx.fillStyle = `hsla(${hue}, 70%, 55%, ${val * 0.2})`;
+                ctx.fillRect(x * cs, y * cs, cs, cs);
+            }
+        }
+
+        // Draw pulses on top
         for (const p of this.pulses) {
             const alpha = p.life * 0.6;
-            const hue = (this.hue + p.hueOffset) % 360;
+            const hue = (this.hue + p.hueOffset + 360) % 360;
             ctx.fillStyle = `hsla(${hue}, 80%, 65%, ${alpha})`;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
@@ -481,32 +540,56 @@ export class ReactiveGrid {
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size * p.life * 2.5, 0, Math.PI * 2);
             ctx.fill();
+
+            // Connection lines to nearby pulses
+            for (const q of this.pulses) {
+                if (q === p) continue;
+                const dx = q.x - p.x, dy = q.y - p.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq < 10000) { // within 100px
+                    const dist = Math.sqrt(distSq);
+                    const lineAlpha = Math.min(p.life, q.life) * (1 - dist / 100) * 0.2;
+                    ctx.strokeStyle = `hsla(${hue}, 60%, 60%, ${lineAlpha})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(q.x, q.y);
+                    ctx.stroke();
+                }
+            }
         }
     }
 
     _drawGravityWarp(ctx, cs, cols, rows) {
+        if (!this.restPositions) return;
         ctx.lineWidth = 1;
+
+        // Batch faint dots first
+        ctx.fillStyle = `hsla(${this.hue}, 20%, 25%, 0.1)`;
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
-                if (!this.restPositions) continue;
+                const displacement = this.grid[y * cols + x];
+                if (displacement < 0.01) {
+                    const idx = (y * cols + x) * 2;
+                    ctx.fillRect(this.restPositions[idx] - 1, this.restPositions[idx + 1] - 1, 2, 2);
+                }
+            }
+        }
+
+        // Draw displaced particles
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                const displacement = this.grid[y * cols + x];
+                if (displacement < 0.01) continue;
+
                 const idx = (y * cols + x) * 2;
                 const rx = this.restPositions[idx];
                 const ry = this.restPositions[idx + 1];
-                const displacement = this.grid[y * cols + x];
                 const angle = this.prevGrid[y * cols + x];
-
-                if (displacement < 0.01) {
-                    // Draw faint grid dot at rest
-                    ctx.fillStyle = `hsla(${this.hue}, 20%, 25%, 0.1)`;
-                    ctx.fillRect(rx - 1, ry - 1, 2, 2);
-                    continue;
-                }
-
                 const pullDist = displacement * 40;
                 const dx = rx + Math.cos(angle) * pullDist;
                 const dy = ry + Math.sin(angle) * pullDist;
 
-                // Draw stretched line from rest to displaced position
                 const hue = (this.hue + displacement * 80) % 360;
                 ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 55%, ${displacement * 0.5})`;
                 ctx.beginPath();
@@ -514,7 +597,6 @@ export class ReactiveGrid {
                 ctx.lineTo(dx, dy);
                 ctx.stroke();
 
-                // Bright dot at displaced position
                 ctx.fillStyle = `hsla(${hue}, 80%, 70%, ${displacement * 0.6})`;
                 ctx.beginPath();
                 ctx.arc(dx, dy, 1.5 + displacement * 2, 0, Math.PI * 2);

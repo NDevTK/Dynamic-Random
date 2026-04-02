@@ -93,6 +93,10 @@ import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
 import { multiMonitor } from './multi_monitor.js';
+import { TimeWarpArchitecture } from './time_warp_architecture.js';
+import { DreamWeaverArchitecture } from './dream_weaver_architecture.js';
+import { ChaosMosaicArchitecture } from './chaos_mosaic_architecture.js';
+import { interactiveEffects } from './interactive_background_effects.js';
 
 // All available architectures for wildcard selection
 export const ALL_ARCHITECTURES = [
@@ -173,7 +177,10 @@ export const ALL_ARCHITECTURES = [
     () => new AntColonyArchitecture(),
     () => new RetroArcadeArchitecture(),
     () => new KineticSculptureArchitecture(),
-    () => new PortalArchitecture()
+    () => new PortalArchitecture(),
+    () => new TimeWarpArchitecture(),
+    () => new DreamWeaverArchitecture(),
+    () => new ChaosMosaicArchitecture()
 ];
 
 // Extract constructor names from factory functions without instantiating them.
@@ -264,7 +271,12 @@ class BackgroundSystem {
 
     init() {
         document.body.prepend(this.canvas);
-        window.addEventListener('resize', () => this.resize());
+        // Throttle resize to prevent canvas resize thrashing (perf fix)
+        let resizeTimer = 0;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => this.resize(), 100);
+        });
 
         window.addEventListener('contextmenu', (e) => {
             if (!e.target.closest('#ui-container')) {
@@ -619,6 +631,13 @@ class BackgroundSystem {
         // Portal: void/phantom/quantum/eldritch themes
         const portalBlueprints = ['VoidTouched', 'PhantomEcho', 'QuantumFoam', 'Eldritch', 'ChronoVerse', 'AbyssalHorror', 'HauntedRealm'];
 
+        // Time warp: temporal/chronological/void themes
+        const timeWarpBlueprints = ['ChronoVerse', 'PhantomEcho', 'VoidTouched', 'QuantumFoam', 'Eldritch', 'StarForged', 'CelestialForge'];
+        // Dream weaver: surreal/painterly/aetherial/phantom themes
+        const dreamWeaverBlueprints = ['Aetherial', 'Painterly', 'PhantomEcho', 'HauntedRealm', 'LivingInk', 'VoidTouched', 'GlacialDrift', 'Classical'];
+        // Chaos mosaic: digital/quantum/arcane/eldritch themes
+        const chaosMosaicBlueprints = ['QuantumFoam', 'Digital', 'ArcaneCodex', 'Eldritch', 'NeonCyber', 'TechnoUtopia', 'SentientSwarm'];
+
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
@@ -806,6 +825,18 @@ class BackgroundSystem {
         // Portal: void/phantom themes
         else if (portalBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new PortalArchitecture();
+        }
+        // Time warp: temporal/chronological themes
+        else if (timeWarpBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TimeWarpArchitecture();
+        }
+        // Dream weaver: surreal/painterly themes
+        else if (dreamWeaverBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new DreamWeaverArchitecture();
+        }
+        // Chaos mosaic: digital/quantum themes
+        else if (chaosMosaicBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new ChaosMosaicArchitecture();
         }
         // Paper theater: classical/paper themes
         else if (paperTheaterBlueprints.includes(blueprintName) && this.rng() > 0.5) {
@@ -1204,6 +1235,8 @@ class BackgroundSystem {
         }
 
         this.drawInteractiveEffects();
+        interactiveEffects.update(this);
+        interactiveEffects.draw(this.ctx, this);
         this.applyBGMutators();
         postProcessing.apply(this.ctx, this);
 

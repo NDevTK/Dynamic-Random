@@ -23,6 +23,15 @@ export class TerrainArchitecture extends Architecture {
         this.moonY = 0;
         this.moonPhase = 0;
         this.noise2D = null;
+        this.shootingStars = [];
+        this.hasWater = false;
+        this.waterLevel = 0;
+        this.waterHue = 0;
+        this.hasGrass = false;
+        this.grassPatches = [];
+        this.ambientHue = 0;
+        this.hasMeteors = false;
+        this.lightBeams = [];
     }
 
     init(system) {
@@ -158,9 +167,55 @@ export class TerrainArchitecture extends Architecture {
                 phase: rng() * Math.PI * 2
             });
         }
+
+        // Water body at the bottom of the terrain
+        this.hasWater = rng() > 0.45;
+        this.waterLevel = system.height * (0.7 + rng() * 0.15);
+        this.waterHue = this.timeOfDay === 3 ? 20 : (this.timeOfDay === 0 ? 230 : 210);
+        this.ambientHue = system.hue;
+
+        // Shooting stars (night/twilight only)
+        this.shootingStars = [];
+        this.hasMeteors = (this.timeOfDay === 0 || this.timeOfDay === 4) && rng() > 0.3;
+
+        // Animated grass patches on near layers
+        this.hasGrass = rng() > 0.4;
+        this.grassPatches = [];
+        if (this.hasGrass && this.layers.length > 0) {
+            const nearLayer = this.layers[this.layers.length - 1];
+            for (let i = 0; i < nearLayer.points.length; i += 3 + Math.floor(rng() * 4)) {
+                const pt = nearLayer.points[i];
+                if (pt) {
+                    this.grassPatches.push({
+                        x: pt.x,
+                        y: pt.y,
+                        height: 5 + rng() * 12,
+                        count: 3 + Math.floor(rng() * 5),
+                        phase: rng() * Math.PI * 2,
+                        hue: (system.hue + 80 + rng() * 40) % 360,
+                    });
+                }
+            }
+        }
+
+        // Volumetric light beams (dawn/sunset)
+        this.lightBeams = [];
+        if ((this.timeOfDay === 1 || this.timeOfDay === 3) && rng() > 0.3) {
+            const beamCount = 3 + Math.floor(rng() * 5);
+            for (let i = 0; i < beamCount; i++) {
+                this.lightBeams.push({
+                    x: rng() * system.width,
+                    width: 20 + rng() * 60,
+                    alpha: 0.02 + rng() * 0.04,
+                    angle: (rng() - 0.5) * 0.3,
+                });
+            }
+        }
     }
 
     update(system) {
+        const tick = system.tick;
+
         // Move clouds
         this.clouds.forEach(c => {
             c.x += c.speed * system.speedMultiplier;
@@ -172,10 +227,32 @@ export class TerrainArchitecture extends Architecture {
         // Atmospheric particles
         this.particles.forEach(p => {
             p.x += p.vx * system.speedMultiplier;
-            p.y += Math.sin(system.tick * 0.01 + p.phase) * 0.2;
+            p.y += Math.sin(tick * 0.01 + p.phase) * 0.2;
             if (p.x < -10) p.x = system.width + 10;
             else if (p.x > system.width + 10) p.x = -10;
         });
+
+        // Shooting stars
+        if (this.hasMeteors && Math.random() < 0.008 && this.shootingStars.length < 5) {
+            this.shootingStars.push({
+                x: Math.random() * system.width,
+                y: Math.random() * system.height * 0.3,
+                vx: 4 + Math.random() * 8,
+                vy: 2 + Math.random() * 4,
+                life: 20 + Math.random() * 20,
+                maxLife: 40,
+                size: 1 + Math.random() * 1.5,
+            });
+        }
+        for (let i = this.shootingStars.length - 1; i >= 0; i--) {
+            const ss = this.shootingStars[i];
+            ss.x += ss.vx;
+            ss.y += ss.vy;
+            ss.life--;
+            if (ss.life <= 0 || ss.x > system.width + 50 || ss.y > system.height * 0.5) {
+                this.shootingStars.splice(i, 1);
+            }
+        }
     }
 
     draw(system) {
@@ -338,6 +415,114 @@ export class TerrainArchitecture extends Architecture {
                 ctx.fillRect(0, layer.points[0].y - 30 - offsetY, system.width, 80);
             }
         });
+
+        // Volumetric light beams (dawn/sunset)
+        if (this.lightBeams.length > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const beam of this.lightBeams) {
+                const bx = beam.x - mx * 0.5;
+                ctx.save();
+                ctx.translate(bx, 0);
+                ctx.rotate(beam.angle);
+                const grad = ctx.createLinearGradient(-beam.width / 2, 0, beam.width / 2, 0);
+                const beamColor = this.timeOfDay === 1 ? '255, 200, 100' : '255, 120, 50';
+                grad.addColorStop(0, 'transparent');
+                grad.addColorStop(0.5, `rgba(${beamColor}, ${beam.alpha})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.fillRect(-beam.width / 2, 0, beam.width, system.height * 0.7);
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        // Animated grass
+        if (this.hasGrass && this.grassPatches.length > 0) {
+            const nearLayer = this.layers[this.layers.length - 1];
+            const offsetX = mx * nearLayer.parallaxFactor * 20;
+            const offsetY = my * nearLayer.parallaxFactor * 10;
+            ctx.save();
+            ctx.lineWidth = 1;
+            for (const grass of this.grassPatches) {
+                const gx = grass.x - offsetX;
+                const gy = grass.y - offsetY;
+                const windSway = Math.sin(tick * 0.015 + grass.phase) * 3;
+                ctx.strokeStyle = `hsla(${grass.hue}, 40%, ${nearLayer.lightness + 5}%, 0.4)`;
+                for (let b = 0; b < grass.count; b++) {
+                    const bx = gx + (b - grass.count / 2) * 3;
+                    const topX = bx + windSway + (b - grass.count / 2) * 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, gy);
+                    ctx.quadraticCurveTo(bx + windSway * 0.5, gy - grass.height * 0.6, topX, gy - grass.height);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        // Water body with reflections
+        if (this.hasWater) {
+            const wl = this.waterLevel;
+            // Water surface gradient
+            const waterGrad = ctx.createLinearGradient(0, wl, 0, system.height);
+            const waterAlpha = this.timeOfDay === 0 ? 0.3 : 0.2;
+            waterGrad.addColorStop(0, `hsla(${this.waterHue}, 40%, 25%, ${waterAlpha})`);
+            waterGrad.addColorStop(0.5, `hsla(${this.waterHue}, 50%, 15%, ${waterAlpha * 1.3})`);
+            waterGrad.addColorStop(1, `hsla(${this.waterHue}, 60%, 8%, ${waterAlpha * 1.5})`);
+            ctx.fillStyle = waterGrad;
+            ctx.fillRect(0, wl, system.width, system.height - wl);
+
+            // Shimmer waves
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `hsla(${this.waterHue}, 30%, 60%, 0.05)`;
+            ctx.lineWidth = 0.5;
+            for (let wy = wl; wy < system.height; wy += 8) {
+                ctx.beginPath();
+                for (let wx = 0; wx < system.width; wx += 6) {
+                    const waveY = wy + Math.sin(wx * 0.02 + tick * 0.02 + wy * 0.1) * 1.5;
+                    if (wx === 0) ctx.moveTo(wx, waveY);
+                    else ctx.lineTo(wx, waveY);
+                }
+                ctx.stroke();
+            }
+
+            // Celestial reflection in water
+            if (this.timeOfDay === 0 || this.timeOfDay === 4) {
+                const refX = system.width * this.moonX - mx;
+                const refY = wl + (wl - system.height * this.moonY + my) * 0.3;
+                const refGlow = ctx.createRadialGradient(refX, refY, 5, refX, refY, 60);
+                refGlow.addColorStop(0, 'rgba(200, 200, 180, 0.06)');
+                refGlow.addColorStop(1, 'transparent');
+                ctx.fillStyle = refGlow;
+                ctx.beginPath();
+                ctx.arc(refX, refY, 60, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Shooting stars
+        if (this.shootingStars.length > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const ss of this.shootingStars) {
+                const alpha = ss.life / ss.maxLife;
+                ctx.strokeStyle = `rgba(255, 255, 240, ${alpha * 0.8})`;
+                ctx.lineWidth = ss.size;
+                ctx.beginPath();
+                ctx.moveTo(ss.x, ss.y);
+                ctx.lineTo(ss.x - ss.vx * 3, ss.y - ss.vy * 3);
+                ctx.stroke();
+                // Bright head
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(ss.x, ss.y, ss.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
 
         // Atmospheric particles
         ctx.globalCompositeOperation = 'lighter';

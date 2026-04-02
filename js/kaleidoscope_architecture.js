@@ -22,6 +22,17 @@ export class KaleidoscopeArchitecture extends Architecture {
         this.colorScheme = [];
         this.zoomPulse = 0;
         this.innerRotation = 0;
+        this.morphProgress = 0;
+        this.morphTarget = 0;
+        this.morphActive = false;
+        this.radialBands = [];
+        this.trailFade = 0.05;
+        this.drawStyle = 0;
+        this.pulseRings = [];
+        this.breatheSpeed = 0;
+        this.breatheAmount = 0;
+        this.hasWebPattern = false;
+        this.webDensity = 0;
     }
 
     init(system) {
@@ -32,10 +43,46 @@ export class KaleidoscopeArchitecture extends Architecture {
         this.rotationSpeed = (rng() - 0.5) * 0.005;
         this.innerRotation = 0;
 
-        // Pattern type
-        this.patternType = Math.floor(rng() * 6);
+        // Pattern type (expanded range for more seed variety)
+        this.patternType = Math.floor(rng() * 8);
         // 0 = geometric shapes, 1 = orbital dots, 2 = spirograph curves
         // 3 = crystalline shards, 4 = organic tendrils, 5 = mathematical
+        // 6 = fractal snowflake, 7 = interference rings
+
+        // Drawing style: how shapes are rendered
+        this.drawStyle = Math.floor(rng() * 4); // 0=fill+stroke, 1=outline only, 2=glow, 3=dotted
+
+        // Trail persistence: how fast the trail fades (more variety)
+        this.trailFade = 0.02 + rng() * 0.08;
+
+        // Breathing: entire pattern expands/contracts
+        this.breatheSpeed = 0.002 + rng() * 0.006;
+        this.breatheAmount = 0.02 + rng() * 0.08;
+
+        // Web pattern: radial connecting lines between elements
+        this.hasWebPattern = rng() > 0.5;
+        this.webDensity = 0.3 + rng() * 0.7;
+
+        // Radial bands: concentric colored rings that pulse
+        this.radialBands = [];
+        if (rng() > 0.4) {
+            const bandCount = 2 + Math.floor(rng() * 5);
+            for (let i = 0; i < bandCount; i++) {
+                this.radialBands.push({
+                    radius: 60 + i * (Math.min(system.width, system.height) * 0.35 / bandCount),
+                    width: 1 + rng() * 3,
+                    hueOffset: rng() * 60,
+                    pulsePhase: rng() * Math.PI * 2,
+                    pulseSpeed: 0.005 + rng() * 0.015,
+                    dashLength: rng() > 0.5 ? 5 + rng() * 20 : 0,
+                });
+            }
+        }
+
+        // Pulse rings from clicks
+        this.pulseRings = [];
+        this.morphProgress = 0;
+        this.morphActive = false;
 
         // Color scheme
         const baseHue = system.hue;
@@ -103,7 +150,16 @@ export class KaleidoscopeArchitecture extends Architecture {
     update(system) {
         this.rotation += this.rotationSpeed * system.speedMultiplier;
         this.innerRotation += 0.002 * system.speedMultiplier;
-        this.zoomPulse = Math.sin(system.tick * 0.003) * 0.05;
+        this.zoomPulse = Math.sin(system.tick * this.breatheSpeed) * this.breatheAmount;
+
+        // Mouse distance from center affects rotation speed
+        const cx = system.width / 2;
+        const cy = system.height / 2;
+        const mdx = mouse.x - cx;
+        const mdy = mouse.y - cy;
+        const mouseDist = Math.sqrt(mdx * mdx + mdy * mdy);
+        const mouseInfluence = Math.min(1, mouseDist / 400);
+        this.rotation += mouseInfluence * 0.001 * system.speedMultiplier;
 
         // Update element positions
         this.elements.forEach(e => {
@@ -115,6 +171,37 @@ export class KaleidoscopeArchitecture extends Architecture {
             if (e.distFromCenter < 30) e.distFromCenter = 30;
             if (e.distFromCenter > maxDist) e.distFromCenter = maxDist;
         });
+
+        // Update pulse rings from clicks
+        for (let i = this.pulseRings.length - 1; i >= 0; i--) {
+            this.pulseRings[i].radius += 2;
+            this.pulseRings[i].alpha *= 0.97;
+            if (this.pulseRings[i].alpha < 0.01) {
+                this.pulseRings.splice(i, 1);
+            }
+        }
+
+        // Morphing: gradually shift pattern type on click
+        if (this.morphActive) {
+            this.morphProgress += 0.02;
+            if (this.morphProgress >= 1) {
+                this.morphActive = false;
+                this.morphProgress = 0;
+            }
+        }
+
+        // Detect clicks via shockwaves
+        if (system.shockwaves) {
+            for (const sw of system.shockwaves) {
+                if (sw.radius < 15 && this.pulseRings.length < 8) {
+                    this.pulseRings.push({
+                        radius: 10,
+                        alpha: 0.5,
+                        hue: this.colorScheme[Math.floor(Math.random() * this.colorScheme.length)],
+                    });
+                }
+            }
+        }
     }
 
     draw(system) {
@@ -127,8 +214,8 @@ export class KaleidoscopeArchitecture extends Architecture {
         const mOffsetX = (mouse.x - centerX) * 0.05;
         const mOffsetY = (mouse.y - centerY) * 0.05;
 
-        // Fade trail canvas
-        this.trailCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        // Fade trail canvas (seed-driven fade speed)
+        this.trailCtx.fillStyle = `rgba(0, 0, 0, ${this.trailFade})`;
         this.trailCtx.fillRect(0, 0, system.width, system.height);
 
         // Draw to trail canvas
@@ -245,6 +332,65 @@ export class KaleidoscopeArchitecture extends Architecture {
             }
             tctx.closePath();
             tctx.stroke();
+        } else if (this.patternType === 6) {
+            // Fractal snowflake: recursive hexagonal lines
+            tctx.strokeStyle = `hsla(${this.colorScheme[0]}, 70%, 70%, 0.06)`;
+            tctx.lineWidth = 0.8;
+            const armLen = 80 + Math.sin(tick * 0.005) * 20;
+            for (let arm = 0; arm < this.symmetry; arm++) {
+                const baseA = (arm / this.symmetry) * Math.PI * 2;
+                tctx.beginPath();
+                tctx.moveTo(0, 0);
+                const x1 = Math.cos(baseA) * armLen;
+                const y1 = Math.sin(baseA) * armLen;
+                tctx.lineTo(x1, y1);
+                // Sub-branches
+                for (let sub = 0; sub < 3; sub++) {
+                    const t = 0.3 + sub * 0.25;
+                    const bx = Math.cos(baseA) * armLen * t;
+                    const by = Math.sin(baseA) * armLen * t;
+                    const subLen = armLen * (0.4 - sub * 0.1);
+                    for (let side = -1; side <= 1; side += 2) {
+                        const subA = baseA + side * Math.PI / 3;
+                        tctx.moveTo(bx, by);
+                        tctx.lineTo(bx + Math.cos(subA) * subLen, by + Math.sin(subA) * subLen);
+                    }
+                }
+                tctx.stroke();
+            }
+        } else if (this.patternType === 7) {
+            // Interference rings: concentric circles that pulse
+            tctx.strokeStyle = `hsla(${this.colorScheme[1] || this.colorScheme[0]}, 60%, 60%, 0.04)`;
+            tctx.lineWidth = 1;
+            for (let r = 20; r < Math.min(system.width, system.height) * 0.4; r += 15) {
+                const wobble = Math.sin(r * 0.05 + tick * 0.008) * 5;
+                tctx.beginPath();
+                tctx.arc(0, 0, r + wobble, 0, Math.PI * 2);
+                tctx.stroke();
+            }
+        }
+
+        // Web pattern: connect elements with radial lines
+        if (this.hasWebPattern && this.patternType < 5) {
+            tctx.strokeStyle = `hsla(${this.colorScheme[0]}, 40%, 50%, ${0.03 * this.webDensity})`;
+            tctx.lineWidth = 0.5;
+            tctx.beginPath();
+            for (let i = 0; i < this.elements.length; i++) {
+                const e = this.elements[i];
+                const ex = Math.cos(e.angle + this.innerRotation) * e.distFromCenter;
+                const ey = Math.sin(e.angle + this.innerRotation) * e.distFromCenter;
+                tctx.moveTo(0, 0);
+                tctx.lineTo(ex, ey);
+                // Connect to next element
+                if (i < this.elements.length - 1) {
+                    const e2 = this.elements[i + 1];
+                    const ex2 = Math.cos(e2.angle + this.innerRotation) * e2.distFromCenter;
+                    const ey2 = Math.sin(e2.angle + this.innerRotation) * e2.distFromCenter;
+                    tctx.moveTo(ex, ey);
+                    tctx.lineTo(ex2, ey2);
+                }
+            }
+            tctx.stroke();
         }
 
         tctx.restore();
@@ -288,5 +434,41 @@ export class KaleidoscopeArchitecture extends Architecture {
             ctx.stroke();
         }
         ctx.restore();
+
+        // Radial bands: seed-driven concentric rings that pulse
+        if (this.radialBands.length > 0) {
+            ctx.save();
+            ctx.translate(centerX + mOffsetX, centerY + mOffsetY);
+            ctx.rotate(this.rotation * 0.3);
+            for (const band of this.radialBands) {
+                const pulse = Math.sin(tick * band.pulseSpeed + band.pulsePhase) * 0.3 + 0.7;
+                const r = band.radius * pulse;
+                const hue = (this.colorScheme[0] + band.hueOffset) % 360;
+                ctx.strokeStyle = `hsla(${hue}, 60%, 55%, 0.1)`;
+                ctx.lineWidth = band.width;
+                if (band.dashLength > 0) {
+                    ctx.setLineDash([band.dashLength, band.dashLength * 0.8]);
+                }
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            ctx.restore();
+        }
+
+        // Pulse rings from clicks
+        if (this.pulseRings.length > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const pr of this.pulseRings) {
+                ctx.strokeStyle = `hsla(${pr.hue}, 80%, 70%, ${pr.alpha})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(centerX + mOffsetX, centerY + mOffsetY, pr.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
     }
 }

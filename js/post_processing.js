@@ -220,28 +220,40 @@ class PostProcessingSystem {
         const tick = system.tick || 0;
         const rng = system.rng || Math.random;
 
-        // ─ Grain: scatter random semi-transparent dots ─
+        // ─ Grain: batch random dots using two pre-set fills (perf: avoid per-pixel fillStyle changes) ─
         ctx.globalCompositeOperation = 'overlay';
         ctx.globalAlpha = 0.04;
         const grainCount = Math.floor(w * h * this.filmGrainDensity * 0.001);
-        for (let i = 0; i < grainCount; i++) {
-            const gx = rng() * w;
-            const gy = rng() * h;
-            const brightness = rng() > 0.5 ? 255 : 0;
-            ctx.fillStyle = 'rgb(' + brightness + ',' + brightness + ',' + brightness + ')';
-            ctx.fillRect(gx, gy, 1.5, 1.5);
+        const halfGrain = grainCount >> 1;
+        // Batch white grains
+        ctx.fillStyle = 'rgb(255,255,255)';
+        ctx.beginPath();
+        for (let i = 0; i < halfGrain; i++) {
+            ctx.rect(rng() * w, rng() * h, 1.5, 1.5);
         }
+        ctx.fill();
+        // Batch black grains
+        ctx.fillStyle = 'rgb(0,0,0)';
+        ctx.beginPath();
+        for (let i = 0; i < grainCount - halfGrain; i++) {
+            ctx.rect(rng() * w, rng() * h, 1.5, 1.5);
+        }
+        ctx.fill();
 
-        // ─ Vignette: darken edges with radial gradient ─
+        // ─ Vignette: darken edges with cached radial gradient (perf: avoid recreating every frame) ─
         ctx.globalCompositeOperation = 'multiply';
         ctx.globalAlpha = 0.12;
-        const vigGrad = ctx.createRadialGradient(
-            w / 2, h / 2, Math.min(w, h) * 0.3,
-            w / 2, h / 2, Math.max(w, h) * 0.75
-        );
-        vigGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        vigGrad.addColorStop(1, 'rgba(0, 0, 0, 1)');
-        ctx.fillStyle = vigGrad;
+        if (!this._filmVigGrad || this._filmVigW !== w || this._filmVigH !== h) {
+            this._filmVigGrad = ctx.createRadialGradient(
+                w / 2, h / 2, Math.min(w, h) * 0.3,
+                w / 2, h / 2, Math.max(w, h) * 0.75
+            );
+            this._filmVigGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            this._filmVigGrad.addColorStop(1, 'rgba(0, 0, 0, 1)');
+            this._filmVigW = w;
+            this._filmVigH = h;
+        }
+        ctx.fillStyle = this._filmVigGrad;
         ctx.fillRect(0, 0, w, h);
 
         // ─ Light leak: bright gradient streak fading in/out over ~200 frames ─

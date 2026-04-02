@@ -36,6 +36,7 @@ import { themeEditor } from './theme_editor.js';
 import { embedMode } from './embed_mode.js';
 import { multiMonitor } from './multi_monitor.js';
 import { loadingAnimation } from './loading_animation.js';
+import { interactiveEffects } from './interactive_background_effects.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Loading animation (must be first) ---
@@ -71,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     timeline.init();
     themeEditor.init();
     multiMonitor.init();
+    interactiveEffects.init();
     embedMode.init();
 
     initializeEventListeners(pJS);

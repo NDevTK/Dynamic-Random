@@ -265,22 +265,24 @@ function applyEchoingVoidForce(p) {
 }
 
 function applyAnomalyForces(p, i, pJS) {
-    applyNebulaForce(p);
-    applyPulsarForce(p);
-    if (applyBlackHoleForce(p, i, pJS)) return true;
-    applyWhiteHoleForce(p);
-    applyCosmicWebForce(p);
-    applyQuasarForce(p);
-    applyCosmicRiftForce(p);
-    applyIonCloudForce(p, pJS);
-    applySupergiantStarForce(p);
-    applyCrystallineFieldForce(p);
-    if (applyNegativeSpaceForce(p, i, pJS)) return true;
-    applyStellarWindForce(p);
-    applyMicrowaveBackgroundForce(p);
-    applyParticleAcceleratorForce(p);
-    applySpacetimeFoamForce(p);
-    applyEchoingVoidForce(p);
+    // Skip force functions when their anomaly arrays are empty (perf: avoids
+    // function-call overhead + empty-loop iteration for every particle)
+    if (activeEffects.nebulas.length > 0) applyNebulaForce(p);
+    if (activeEffects.pulsars.length > 0) applyPulsarForce(p);
+    if (activeEffects.blackHoles.length > 0 && applyBlackHoleForce(p, i, pJS)) return true;
+    if (activeEffects.whiteHoles.length > 0) applyWhiteHoleForce(p);
+    if (activeEffects.cosmicWebs.length > 0) applyCosmicWebForce(p);
+    if (activeEffects.quasars.length > 0) applyQuasarForce(p);
+    if (activeEffects.cosmicRifts.length > 0) applyCosmicRiftForce(p);
+    if (activeEffects.ionClouds.length > 0) applyIonCloudForce(p, pJS);
+    if (activeEffects.supergiantStars.length > 0) applySupergiantStarForce(p);
+    if (activeEffects.crystallineFields.length > 0) applyCrystallineFieldForce(p);
+    if (activeEffects.negativeSpaces.length > 0 && applyNegativeSpaceForce(p, i, pJS)) return true;
+    if (activeEffects.stellarWinds.length > 0) applyStellarWindForce(p);
+    if (activeEffects.microwaveBackgrounds.length > 0) applyMicrowaveBackgroundForce(p);
+    if (activeEffects.particleAccelerators.length > 0) applyParticleAcceleratorForce(p);
+    if (activeEffects.spacetimeFoam.length > 0) applySpacetimeFoamForce(p);
+    if (activeEffects.echoingVoids.length > 0) applyEchoingVoidForce(p);
     return false;
 }
 
@@ -617,32 +619,37 @@ function applyCosmicRivers(p) {
 
 function applyMutatorForces(p, i, pJS, isPhased) {
     const tick = getTick();
-    applyPulsingParticles(p, tick);
-    if (applyUnstableParticles(p, i, pJS)) return true;
-    applyRepulsiveField(p, pJS, isPhased);
-    applyClustering(p, pJS, isPhased, tick);
-    applyErratic(p);
-    applyRainbow(p, tick);
-    applyFlickering(p, pJS, tick);
-    applyGravityPockets(p);
-    applyGravityWaves(p, tick);
-    if (applyParticleDecay(p, i, pJS)) return true;
-    applyElasticCollisions(p, pJS, isPhased);
-    applyNoisy(p);
-    applySynchronized(p, tick);
-    applyPairBonding(p, pJS);
-    applyFragmenting(p, pJS);
-    applyPhotonSails(p);
-    applyChaoticOrbits(p, pJS);
-    applyTidalForces(p);
-    applySelfPropelled(p);
-    applyPhaseScattering(p);
-    applyBrownianMotion(p);
-    applyHeavyParticles(p, pJS);
-    applyChoral(p);
-    applyCarnival(p, tick);
-    applyParticleChains(p, pJS);
-    applyCosmicRivers(p);
+    // Only call mutator functions that are actually active (perf: skip ~20 function
+    // calls per particle per frame when those mutators aren't enabled)
+    if (_activeMutators.size > 0) {
+        applyPulsingParticles(p, tick);
+        if (applyUnstableParticles(p, i, pJS)) return true;
+        applyRepulsiveField(p, pJS, isPhased);
+        applyClustering(p, pJS, isPhased, tick);
+        applyErratic(p);
+        applyRainbow(p, tick);
+        applyFlickering(p, pJS, tick);
+        if (applyParticleDecay(p, i, pJS)) return true;
+        applyElasticCollisions(p, pJS, isPhased);
+        applyNoisy(p);
+        applySynchronized(p, tick);
+        applyPairBonding(p, pJS);
+        applyFragmenting(p, pJS);
+        applyChaoticOrbits(p, pJS);
+        applySelfPropelled(p);
+        applyPhaseScattering(p);
+        applyBrownianMotion(p);
+        applyHeavyParticles(p, pJS);
+        applyChoral(p);
+        applyCarnival(p, tick);
+        applyParticleChains(p, pJS);
+    }
+    // These apply regardless of mutators (they use activeEffects arrays)
+    if (activeEffects.gravityPockets.length > 0) applyGravityPockets(p);
+    if (activeEffects.gravityWaves.length > 0) applyGravityWaves(p, tick);
+    if (activeEffects.photonSails.length > 0) applyPhotonSails(p);
+    if (activeEffects.tidalForces.length > 0) applyTidalForces(p);
+    if (activeEffects.cosmicRivers.length > 0) applyCosmicRivers(p);
     return false;
 }
 

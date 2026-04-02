@@ -1,0 +1,433 @@
+/**
+ * @file interactive_background_effects.js
+ * @description A global interactive effects layer that runs on top of all background
+ * architectures. Adds seed-driven mouse-reactive distortions, click ripples,
+ * particle trails, and ambient phenomena that make the background feel alive and
+ * responsive. This layer is lightweight and composites on top of whatever
+ * architecture is currently active.
+ *
+ * Effects are selected and parameterized by the seeded RNG, so each universe
+ * gets a unique combination of interactive behaviors.
+ */
+
+import { mouse } from './state.js';
+
+class InteractiveBackgroundEffects {
+    constructor() {
+        this.initialized = false;
+        this.tick = 0;
+
+        // Effect toggles (set by seed)
+        this.hasRipples = false;
+        this.hasMouseTrail = false;
+        this.hasGravityField = false;
+        this.hasHeatMap = false;
+        this.hasEchoGhosts = false;
+        this.hasConstellationLinks = false;
+
+        // Ripples
+        this.ripples = [];
+        this.ripplePool = [];
+        this.maxRipples = 12;
+
+        // Mouse trail (smooth ribbon)
+        this.trailPoints = [];
+        this.maxTrailPoints = 40;
+        this.trailHue = 0;
+        this.trailWidth = 2;
+        this.trailStyle = 0;
+
+        // Gravity field visualization
+        this.fieldLines = [];
+        this.fieldStrength = 0;
+        this.fieldHue = 0;
+
+        // Heat map (tracks mouse dwell time)
+        this.heatGrid = null;
+        this.heatCols = 0;
+        this.heatRows = 0;
+        this.heatCellSize = 40;
+        this.heatDecay = 0.995;
+        this.heatHue = 0;
+
+        // Echo ghosts (afterimages of mouse movement)
+        this.ghosts = [];
+        this.ghostPool = [];
+        this.maxGhosts = 15;
+        this.ghostStyle = 0;
+
+        // Constellation links (connect click points)
+        this.constellationPoints = [];
+        this.maxConstellationPoints = 20;
+        this.constellationHue = 0;
+
+        // Click tracking
+        this._lastClickX = 0;
+        this._lastClickY = 0;
+        this._clickRegistered = false;
+    }
+
+    init() {
+        if (this.initialized) return;
+        this.initialized = true;
+
+        window.addEventListener('click', (e) => {
+            this._lastClickX = e.clientX;
+            this._lastClickY = e.clientY;
+            this._clickRegistered = true;
+        });
+    }
+
+    /**
+     * Configure effects based on seeded RNG and palette.
+     * Called once per universe generation.
+     */
+    configure(rng, palette) {
+        this.tick = 0;
+        this.ripples = [];
+        this.trailPoints = [];
+        this.ghosts = [];
+        this.constellationPoints = [];
+
+        // Randomly enable effects (each universe gets 2-4 effects)
+        this.hasRipples = rng() > 0.3;
+        this.hasMouseTrail = rng() > 0.4;
+        this.hasGravityField = rng() > 0.7;
+        this.hasHeatMap = rng() > 0.65;
+        this.hasEchoGhosts = rng() > 0.5;
+        this.hasConstellationLinks = rng() > 0.6;
+
+        // Parameterize enabled effects
+        this.trailHue = palette.length > 0 ? palette[0].h || 200 : 200;
+        this.trailWidth = 1 + rng() * 4;
+        this.trailStyle = Math.floor(rng() * 4); // 0=solid, 1=dotted, 2=gradient, 3=rainbow
+        this.fieldStrength = 0.5 + rng() * 1.5;
+        this.fieldHue = palette.length > 1 ? palette[1].h || 120 : 120;
+        this.heatHue = palette.length > 2 ? palette[2].h || 0 : 0;
+        this.heatDecay = 0.992 + rng() * 0.006;
+        this.ghostStyle = Math.floor(rng() * 3); // 0=circle, 1=ring, 2=cross
+        this.constellationHue = palette.length > 0 ? palette[0].h || 60 : 60;
+
+        // Ripple style
+        this.rippleColor = `hsla(${this.trailHue}, 70%, 60%,`;
+        this.rippleSpeed = 3 + rng() * 5;
+        this.rippleMaxRadius = 80 + rng() * 120;
+
+        // Initialize heat grid
+        this.heatCols = Math.ceil(window.innerWidth / this.heatCellSize);
+        this.heatRows = Math.ceil(window.innerHeight / this.heatCellSize);
+        this.heatGrid = new Float32Array(this.heatCols * this.heatRows);
+
+        // Generate gravity field lines
+        if (this.hasGravityField) {
+            this.fieldLines = [];
+            const lineCount = 6 + Math.floor(rng() * 10);
+            for (let i = 0; i < lineCount; i++) {
+                this.fieldLines.push({
+                    angle: (i / lineCount) * Math.PI * 2,
+                    length: 50 + rng() * 150,
+                    width: 0.5 + rng() * 1.5,
+                    phase: rng() * Math.PI * 2,
+                    speed: 0.02 + rng() * 0.04,
+                });
+            }
+        }
+    }
+
+    /**
+     * Update all active interactive effects. Called each frame from background.animate().
+     */
+    update(system) {
+        this.tick++;
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        // Handle clicks
+        if (this._clickRegistered) {
+            this._clickRegistered = false;
+
+            // Spawn ripple
+            if (this.hasRipples && this.ripples.length < this.maxRipples) {
+                const ripple = this.ripplePool.length > 0 ? this.ripplePool.pop() : {};
+                ripple.x = this._lastClickX;
+                ripple.y = this._lastClickY;
+                ripple.radius = 0;
+                ripple.alpha = 0.6;
+                this.ripples.push(ripple);
+            }
+
+            // Add constellation point
+            if (this.hasConstellationLinks) {
+                this.constellationPoints.push({
+                    x: this._lastClickX,
+                    y: this._lastClickY,
+                    life: 300,
+                    alpha: 0.5,
+                });
+                if (this.constellationPoints.length > this.maxConstellationPoints) {
+                    this.constellationPoints.shift();
+                }
+            }
+        }
+
+        // Update ripples
+        for (let i = this.ripples.length - 1; i >= 0; i--) {
+            const r = this.ripples[i];
+            r.radius += this.rippleSpeed;
+            r.alpha = Math.max(0, 1 - r.radius / this.rippleMaxRadius) * 0.4;
+            if (r.radius > this.rippleMaxRadius) {
+                this.ripplePool.push(r);
+                this.ripples[i] = this.ripples[this.ripples.length - 1];
+                this.ripples.pop();
+            }
+        }
+
+        // Update mouse trail
+        if (this.hasMouseTrail) {
+            this.trailPoints.push({ x: mx, y: my, tick: this.tick });
+            while (this.trailPoints.length > this.maxTrailPoints) {
+                this.trailPoints.shift();
+            }
+        }
+
+        // Update heat map
+        if (this.hasHeatMap && this.heatGrid) {
+            const hx = Math.floor(mx / this.heatCellSize);
+            const hy = Math.floor(my / this.heatCellSize);
+            if (hx >= 0 && hx < this.heatCols && hy >= 0 && hy < this.heatRows) {
+                // Heat up nearby cells
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const nx = hx + dx;
+                        const ny = hy + dy;
+                        if (nx >= 0 && nx < this.heatCols && ny >= 0 && ny < this.heatRows) {
+                            const dist = Math.abs(dx) + Math.abs(dy);
+                            this.heatGrid[ny * this.heatCols + nx] = Math.min(1,
+                                this.heatGrid[ny * this.heatCols + nx] + (dist === 0 ? 0.05 : 0.02));
+                        }
+                    }
+                }
+            }
+            // Decay all heat
+            for (let i = 0; i < this.heatGrid.length; i++) {
+                this.heatGrid[i] *= this.heatDecay;
+            }
+        }
+
+        // Spawn echo ghosts
+        if (this.hasEchoGhosts && this.tick % 6 === 0 && this.ghosts.length < this.maxGhosts) {
+            const ghost = this.ghostPool.length > 0 ? this.ghostPool.pop() : {};
+            ghost.x = mx;
+            ghost.y = my;
+            ghost.life = 30;
+            ghost.maxLife = 30;
+            ghost.size = 8 + Math.random() * 12;
+            this.ghosts.push(ghost);
+        }
+
+        for (let i = this.ghosts.length - 1; i >= 0; i--) {
+            this.ghosts[i].life--;
+            if (this.ghosts[i].life <= 0) {
+                this.ghostPool.push(this.ghosts[i]);
+                this.ghosts[i] = this.ghosts[this.ghosts.length - 1];
+                this.ghosts.pop();
+            }
+        }
+
+        // Update constellation point lifetimes
+        for (let i = this.constellationPoints.length - 1; i >= 0; i--) {
+            this.constellationPoints[i].life--;
+            this.constellationPoints[i].alpha = Math.min(0.5, this.constellationPoints[i].life / 100);
+            if (this.constellationPoints[i].life <= 0) {
+                this.constellationPoints.splice(i, 1);
+            }
+        }
+    }
+
+    /**
+     * Draw all active interactive effects onto the background canvas.
+     */
+    draw(ctx, system) {
+        if (!this.initialized) return;
+
+        const w = system.width;
+        const h = system.height;
+
+        // Heat map (draw first, underneath other effects)
+        if (this.hasHeatMap && this.heatGrid) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (let y = 0; y < this.heatRows; y++) {
+                for (let x = 0; x < this.heatCols; x++) {
+                    const heat = this.heatGrid[y * this.heatCols + x];
+                    if (heat > 0.01) {
+                        const alpha = heat * 0.15;
+                        const lightness = 40 + heat * 30;
+                        ctx.fillStyle = `hsla(${this.heatHue + heat * 60}, 80%, ${lightness}%, ${alpha})`;
+                        ctx.fillRect(x * this.heatCellSize, y * this.heatCellSize,
+                            this.heatCellSize, this.heatCellSize);
+                    }
+                }
+            }
+            ctx.restore();
+        }
+
+        // Gravity field lines radiating from cursor
+        if (this.hasGravityField) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const mx = mouse.x;
+            const my = mouse.y;
+            for (const line of this.fieldLines) {
+                const a = line.angle + Math.sin(this.tick * line.speed + line.phase) * 0.3;
+                const len = line.length + Math.sin(this.tick * 0.02 + line.phase) * 20;
+
+                const x1 = mx + Math.cos(a) * 15;
+                const y1 = my + Math.sin(a) * 15;
+                const x2 = mx + Math.cos(a) * len;
+                const y2 = my + Math.sin(a) * len;
+
+                const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+                grad.addColorStop(0, `hsla(${this.fieldHue}, 60%, 60%, 0.2)`);
+                grad.addColorStop(1, 'transparent');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = line.width;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Echo ghosts
+        if (this.hasEchoGhosts) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const ghost of this.ghosts) {
+                const alpha = (ghost.life / ghost.maxLife) * 0.2;
+                const size = ghost.size * (1 - ghost.life / ghost.maxLife) + ghost.size * 0.5;
+                ctx.strokeStyle = `hsla(${this.trailHue}, 50%, 60%, ${alpha})`;
+                ctx.lineWidth = 1;
+
+                if (this.ghostStyle === 0) {
+                    ctx.beginPath();
+                    ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (this.ghostStyle === 1) {
+                    ctx.beginPath();
+                    ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(ghost.x, ghost.y, size * 0.5, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(ghost.x - size, ghost.y);
+                    ctx.lineTo(ghost.x + size, ghost.y);
+                    ctx.moveTo(ghost.x, ghost.y - size);
+                    ctx.lineTo(ghost.x, ghost.y + size);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        // Mouse trail ribbon
+        if (this.hasMouseTrail && this.trailPoints.length > 2) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineWidth = this.trailWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (this.trailStyle === 3) {
+                // Rainbow trail
+                for (let i = 1; i < this.trailPoints.length; i++) {
+                    const alpha = i / this.trailPoints.length;
+                    const hue = (this.trailHue + i * 8) % 360;
+                    ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${alpha * 0.3})`;
+                    ctx.beginPath();
+                    ctx.moveTo(this.trailPoints[i - 1].x, this.trailPoints[i - 1].y);
+                    ctx.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
+                    ctx.stroke();
+                }
+            } else if (this.trailStyle === 1) {
+                // Dotted trail
+                for (let i = 0; i < this.trailPoints.length; i += 2) {
+                    const alpha = i / this.trailPoints.length;
+                    ctx.fillStyle = `hsla(${this.trailHue}, 60%, 60%, ${alpha * 0.3})`;
+                    ctx.beginPath();
+                    ctx.arc(this.trailPoints[i].x, this.trailPoints[i].y, this.trailWidth, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else {
+                // Solid or gradient trail
+                ctx.beginPath();
+                ctx.moveTo(this.trailPoints[0].x, this.trailPoints[0].y);
+                for (let i = 1; i < this.trailPoints.length; i++) {
+                    ctx.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
+                }
+                const lastAlpha = 0.25;
+                ctx.strokeStyle = `hsla(${this.trailHue}, 60%, 60%, ${lastAlpha})`;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Click ripples
+        if (this.hasRipples) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineWidth = 1.5;
+            for (const r of this.ripples) {
+                ctx.strokeStyle = this.rippleColor + r.alpha + ')';
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                // Inner ring
+                if (r.radius > 10) {
+                    ctx.strokeStyle = this.rippleColor + (r.alpha * 0.5) + ')';
+                    ctx.beginPath();
+                    ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        // Constellation links between click points
+        if (this.hasConstellationLinks && this.constellationPoints.length > 1) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineWidth = 0.5;
+
+            // Draw lines between nearby points
+            for (let i = 0; i < this.constellationPoints.length; i++) {
+                const p1 = this.constellationPoints[i];
+                for (let j = i + 1; j < this.constellationPoints.length; j++) {
+                    const p2 = this.constellationPoints[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 300) {
+                        const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist / 300) * 0.3;
+                        ctx.strokeStyle = `hsla(${this.constellationHue}, 50%, 70%, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+                // Draw point
+                ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${p1.alpha * 0.6})`;
+                ctx.beginPath();
+                ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
+}
+
+export const interactiveEffects = new InteractiveBackgroundEffects();

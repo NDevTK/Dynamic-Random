@@ -15,6 +15,7 @@ import { cursorTrails } from './cursor_trails.js';
 import { ambientFX } from './ambient_fx.js';
 import { warpField } from './warp_field.js';
 import { ambientSound } from './ambient_sound.js';
+import { interactiveEffects } from './interactive_background_effects.js';
 
 /**
  * Generates a new universe based on a seed.
@@ -80,6 +81,7 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     ambientFX.configure(seededRandom, fxPalette);
     warpField.configure(seededRandom, fxPalette);
     ambientSound.configure(seededRandom, fxPalette);
+    interactiveEffects.configure(seededRandom, fxPalette);
 
     setUniverseProfile(profile);
     setUniverseState({ energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 });

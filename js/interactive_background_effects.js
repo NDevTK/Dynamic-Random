@@ -33,6 +33,11 @@ import { DimensionalPortal } from './dimensional_portal_effects.js';
 import { SoundWaveSculptor } from './sound_wave_sculptor_effects.js';
 import { EmotionWeather } from './emotion_weather_effects.js';
 import { GravitationalCalligraphy } from './gravitational_calligraphy_effects.js';
+import { ChromaticWorms } from './chromatic_worms_effects.js';
+import { VoidTentacles } from './void_tentacles_effects.js';
+import { GlitchMemory } from './glitch_memory_effects.js';
+import { PrismRefraction } from './prism_refraction_effects.js';
+import { CosmicDust } from './cosmic_dust_effects.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
@@ -60,6 +65,11 @@ class InteractiveBackgroundEffects {
         this.soundWaves = new SoundWaveSculptor();
         this.weather = new EmotionWeather();
         this.calligraphy = new GravitationalCalligraphy();
+        this.chromaticWorms = new ChromaticWorms();
+        this.voidTentacles = new VoidTentacles();
+        this.glitchMemory = new GlitchMemory();
+        this.prismRefraction = new PrismRefraction();
+        this.cosmicDust = new CosmicDust();
 
         // Sub-system enable flags (set by seed)
         this.hasGrid = false;
@@ -82,6 +92,11 @@ class InteractiveBackgroundEffects {
         this.hasSoundWaves = false;
         this.hasWeather = false;
         this.hasCalligraphy = false;
+        this.hasChromaticWorms = false;
+        this.hasVoidTentacles = false;
+        this.hasGlitchMemory = false;
+        this.hasPrismRefraction = false;
+        this.hasCosmicDust = false;
 
         // Original effect toggles
         this.hasRipples = false;
@@ -191,8 +206,8 @@ class InteractiveBackgroundEffects {
         const hues = this._extractHues(palette);
 
         // --- Enable sub-systems based on seed ---
-        // Pick 6-10 sub-systems from 20 available using a shuffle to guarantee diversity
-        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+        // Pick 6-10 sub-systems from 25 available using a shuffle to guarantee diversity
+        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
         // Fisher-Yates shuffle with seeded rng
         for (let i = subsystems.length - 1; i > 0; i--) {
             const j = Math.floor(rng() * (i + 1));
@@ -220,6 +235,11 @@ class InteractiveBackgroundEffects {
         this.hasSoundWaves = enabledSet.has(17);
         this.hasWeather = enabledSet.has(18);
         this.hasCalligraphy = enabledSet.has(19);
+        this.hasChromaticWorms = enabledSet.has(20);
+        this.hasVoidTentacles = enabledSet.has(21);
+        this.hasGlitchMemory = enabledSet.has(22);
+        this.hasPrismRefraction = enabledSet.has(23);
+        this.hasCosmicDust = enabledSet.has(24);
 
         // Configure enabled sub-systems with normalized hue array
         if (this.hasGrid) this.grid.configure(rng, hues);
@@ -242,6 +262,11 @@ class InteractiveBackgroundEffects {
         if (this.hasSoundWaves) this.soundWaves.configure(rng, hues);
         if (this.hasWeather) this.weather.configure(rng, hues);
         if (this.hasCalligraphy) this.calligraphy.configure(rng, hues);
+        if (this.hasChromaticWorms) this.chromaticWorms.configure(rng, hues);
+        if (this.hasVoidTentacles) this.voidTentacles.configure(rng, hues);
+        if (this.hasGlitchMemory) this.glitchMemory.configure(rng, hues);
+        if (this.hasPrismRefraction) this.prismRefraction.configure(rng, hues);
+        if (this.hasCosmicDust) this.cosmicDust.configure(rng, hues);
 
         // --- Original effects (1-3 active) ---
         this.hasRipples = rng() > 0.35;
@@ -458,6 +483,11 @@ class InteractiveBackgroundEffects {
         if (this.hasSoundWaves && q > 0.3) this.soundWaves.update(mx, my, isClicking);
         if (this.hasWeather && q > 0.25) this.weather.update(mx, my, isClicking);
         if (this.hasCalligraphy && q > 0.3) this.calligraphy.update(mx, my, isClicking);
+        if (this.hasChromaticWorms && q > 0.3) this.chromaticWorms.update(mx, my, isClicking);
+        if (this.hasVoidTentacles && q > 0.3) this.voidTentacles.update(mx, my, isClicking);
+        if (this.hasGlitchMemory && q > 0.25) this.glitchMemory.update(mx, my, isClicking);
+        if (this.hasPrismRefraction && q > 0.3) this.prismRefraction.update(mx, my, isClicking);
+        if (this.hasCosmicDust && q > 0.25) this.cosmicDust.update(mx, my, isClicking);
     }
 
     /**
@@ -491,6 +521,11 @@ class InteractiveBackgroundEffects {
         if (this.hasSoundWaves && q > 0.3) this.soundWaves.draw(ctx, system);
         if (this.hasPortals && q > 0.3) this.portals.draw(ctx, system);
         if (this.hasCalligraphy && q > 0.3) this.calligraphy.draw(ctx, system);
+        if (this.hasCosmicDust && q > 0.25) this.cosmicDust.draw(ctx, system);
+        if (this.hasChromaticWorms && q > 0.3) this.chromaticWorms.draw(ctx, system);
+        if (this.hasVoidTentacles && q > 0.3) this.voidTentacles.draw(ctx, system);
+        if (this.hasGlitchMemory && q > 0.25) this.glitchMemory.draw(ctx, system);
+        if (this.hasPrismRefraction && q > 0.3) this.prismRefraction.draw(ctx, system);
 
         // --- Original effects below ---
 

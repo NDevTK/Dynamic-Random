@@ -158,6 +158,16 @@ export class ConstellationArchitecture extends Architecture {
         this.mouseTrail = [];
         this.trailPool = [];
         this.shootingStars = [];
+
+        // Periodic supernova events (seed-driven timing)
+        this.supernovaTimer = 300 + Math.floor(rng() * 600);
+        this.supernovae = [];
+
+        // Star parallax depth layers (seed-driven)
+        this.hasParallax = rng() > 0.5;
+
+        // Constellation name reveal
+        this.showNames = rng() > 0.4;
     }
 
     _generateName(rng) {
@@ -296,6 +306,41 @@ export class ConstellationArchitecture extends Architecture {
             }
         }
 
+        // Periodic supernova events
+        this.supernovaTimer--;
+        if (this.supernovaTimer <= 0) {
+            this.supernovaTimer = 400 + Math.floor(Math.random() * 800);
+            // Pick a random giant star to go supernova
+            const giants = this.stars.filter(s => s.sizeClass === 'giant');
+            if (giants.length > 0 && this.supernovae.length < 3) {
+                const star = giants[Math.floor(Math.random() * giants.length)];
+                this.supernovae.push({
+                    x: star.x, y: star.y,
+                    radius: 0, maxRadius: 300 + Math.random() * 200,
+                    life: 1, hue: star.colorShift + 30,
+                    ringCount: 3 + Math.floor(Math.random() * 3),
+                    debrisCount: 20 + Math.floor(Math.random() * 20),
+                    debris: Array.from({length: 20 + Math.floor(Math.random() * 20)}, () => ({
+                        angle: Math.random() * Math.PI * 2,
+                        speed: 1 + Math.random() * 4,
+                        dist: 0,
+                        size: 0.5 + Math.random() * 1.5
+                    }))
+                });
+            }
+        }
+
+        // Update supernovae
+        for (let i = this.supernovae.length - 1; i >= 0; i--) {
+            const sn = this.supernovae[i];
+            sn.life -= 0.005;
+            sn.radius += (sn.maxRadius - sn.radius) * 0.03;
+            for (const d of sn.debris) d.dist += d.speed;
+            if (sn.life <= 0) {
+                this.supernovae.splice(i, 1);
+            }
+        }
+
         // Gravity well scatters nearby constellations visually
         if (system.isGravityWell) {
             for (const s of this.stars) {
@@ -387,7 +432,7 @@ export class ConstellationArchitecture extends Architecture {
         }
         ctx.restore();
 
-        // Draw constellation lines
+        // Draw constellation lines and names
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         for (const constellation of this.constellations) {
@@ -407,9 +452,65 @@ export class ConstellationArchitecture extends Architecture {
                 ctx.stroke();
             }
             ctx.setLineDash([]);
+
+            // Show constellation name when sufficiently revealed
+            if (this.showNames && constellation.revealed > 0.5 && constellation.members.length > 0) {
+                let cx = 0, cy = 0;
+                for (const idx of constellation.members) {
+                    cx += this.stars[idx].x;
+                    cy += this.stars[idx].y;
+                }
+                cx /= constellation.members.length;
+                cy /= constellation.members.length;
+
+                ctx.font = '11px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = `hsla(${constellation.hue}, 40%, 80%, ${(constellation.revealed - 0.5) * 0.6})`;
+                ctx.fillText(constellation.name, cx, cy - 15);
+            }
         }
         ctx.globalCompositeOperation = 'source-over';
         ctx.restore();
+
+        // Draw supernovae
+        if (this.supernovae.length > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const sn of this.supernovae) {
+                const a = sn.life;
+                // Bright core flash
+                if (a > 0.7) {
+                    ctx.fillStyle = `rgba(255, 255, 240, ${(a - 0.7) * 2})`;
+                    ctx.beginPath();
+                    ctx.arc(sn.x, sn.y, 20 * (1 - a + 0.3), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                // Expanding rings
+                for (let r = 0; r < sn.ringCount; r++) {
+                    const ringR = sn.radius * (0.5 + r * 0.25);
+                    ctx.strokeStyle = `hsla(${sn.hue + r * 30}, 60%, 70%, ${a * 0.3 / (r + 1)})`;
+                    ctx.lineWidth = 2 - r * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(sn.x, sn.y, ringR, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                // Debris particles
+                for (const d of sn.debris) {
+                    const dx = sn.x + Math.cos(d.angle) * d.dist;
+                    const dy = sn.y + Math.sin(d.angle) * d.dist;
+                    ctx.fillStyle = `hsla(${sn.hue + 60}, 50%, 80%, ${a * 0.4})`;
+                    ctx.beginPath();
+                    ctx.arc(dx, dy, d.size * a, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                // Outer glow
+                ctx.fillStyle = `hsla(${sn.hue}, 60%, 50%, ${a * 0.06})`;
+                ctx.beginPath();
+                ctx.arc(sn.x, sn.y, sn.radius * 1.3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
 
         // Draw mouse reveal radius (subtle)
         const mx = mouse.x;

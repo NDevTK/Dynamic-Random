@@ -14,44 +14,99 @@ export class AbstractArchitecture extends Architecture {
         this.blobs = [];
         this.floatingParticles = [];
         this.noise2D = null;
+        this.visualMode = 0;
+        this.colorMode = 0;
+        this.blobShape = 0;
+        this.clickBursts = [];
+        this.trailCanvas = null;
+        this.trailCtx = null;
     }
 
     init(system) {
-        this.noise2D = createNoise2D(Math.floor(system.rng() * 100000));
+        const rng = system.rng;
+        this.noise2D = createNoise2D(Math.floor(rng() * 100000));
+
+        // Seed-driven visual mode: dramatically changes appearance
+        this.visualMode = Math.floor(rng() * 5);
+        // 0=classic glow, 1=spiky/crystalline, 2=translucent layers, 3=neon outline, 4=watercolor
+
+        // Seed-driven color mode
+        this.colorMode = Math.floor(rng() * 4);
+        // 0=hue spread, 1=monochromatic, 2=complementary, 3=rainbow cycle
+
+        // Seed-driven blob shape complexity
+        this.blobShape = Math.floor(rng() * 3);
+        // 0=smooth (12pts), 1=complex (20pts), 2=angular (6pts)
+        const pointCounts = [12, 20, 6];
+        const pointCount = pointCounts[this.blobShape];
+
+        // Variable blob count per seed (6-16)
+        const count = 6 + Math.floor(rng() * 10);
+
         this.blobs = [];
-        const count = 12;
         for (let i = 0; i < count; i++) {
+            const baseRadius = this.visualMode === 1 ? (rng() * 80 + 50) : (rng() * 150 + 100);
             this.blobs.push({
-                x: system.rng() * system.width,
-                y: system.rng() * system.height,
-                radius: system.rng() * 150 + 100,
-                vx: (system.rng() - 0.5) * 1.5,
-                vy: (system.rng() - 0.5) * 1.5,
-                points: Array.from({length: 12}, (_, j) => ({
-                    angle: (j / 12) * Math.PI * 2,
-                    offset: system.rng() * 0.2 + 0.9,
-                    baseOffset: system.rng() * 0.2 + 0.9,
-                    speed: system.rng() * 0.02 + 0.01,
-                    phase: system.rng() * Math.PI * 2
+                x: rng() * system.width,
+                y: rng() * system.height,
+                radius: baseRadius,
+                vx: (rng() - 0.5) * 1.5,
+                vy: (rng() - 0.5) * 1.5,
+                points: Array.from({length: pointCount}, (_, j) => ({
+                    angle: (j / pointCount) * Math.PI * 2,
+                    offset: rng() * 0.3 + 0.85,
+                    baseOffset: rng() * 0.3 + 0.85,
+                    speed: rng() * 0.02 + 0.01,
+                    phase: rng() * Math.PI * 2
                 })),
-                hue: (system.hue + (system.rng() - 0.5) * 100 + 360) % 360,
-                shockScale: 1.0 // for shockwave expand/contract
+                hue: this._getBlobHue(system.hue, rng, i, count),
+                shockScale: 1.0,
+                pulsePhase: rng() * Math.PI * 2,
+                pulseSpeed: 0.005 + rng() * 0.02
             });
         }
 
-        // Floating particles that drift between blobs (replaces splatters)
+        // Floating particles - count varies with visual mode
+        const particleCount = this.visualMode === 4 ? 80 : 40;
         this.floatingParticles = [];
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < particleCount; i++) {
             this.floatingParticles.push({
-                x: system.rng() * system.width,
-                y: system.rng() * system.height,
-                vx: (system.rng() - 0.5) * 0.4,
-                vy: (system.rng() - 0.5) * 0.4,
-                radius: system.rng() * 2.5 + 1,
-                alpha: system.rng() * 0.3 + 0.1,
-                hue: (system.hue + (system.rng() - 0.5) * 40 + 360) % 360,
-                phase: system.rng() * Math.PI * 2
+                x: rng() * system.width,
+                y: rng() * system.height,
+                vx: (rng() - 0.5) * 0.4,
+                vy: (rng() - 0.5) * 0.4,
+                radius: rng() * 2.5 + 1,
+                alpha: rng() * 0.3 + 0.1,
+                hue: (system.hue + (rng() - 0.5) * 40 + 360) % 360,
+                phase: rng() * Math.PI * 2
             });
+        }
+
+        // Trail canvas for watercolor mode
+        if (this.visualMode === 4) {
+            this.trailCanvas = document.createElement('canvas');
+            this.trailCanvas.width = system.width;
+            this.trailCanvas.height = system.height;
+            this.trailCtx = this.trailCanvas.getContext('2d');
+        } else {
+            this.trailCanvas = null;
+        }
+
+        this.clickBursts = [];
+    }
+
+    _getBlobHue(baseHue, rng, index, total) {
+        switch (this.colorMode) {
+            case 0: // Spread (original behavior)
+                return (baseHue + (rng() - 0.5) * 100 + 360) % 360;
+            case 1: // Monochromatic (subtle variation)
+                return (baseHue + (rng() - 0.5) * 20 + 360) % 360;
+            case 2: // Complementary (two opposing hues)
+                return (baseHue + (index % 2 === 0 ? 0 : 180) + (rng() - 0.5) * 30 + 360) % 360;
+            case 3: // Rainbow (evenly spaced)
+                return (index / total) * 360;
+            default:
+                return rng() * 360;
         }
     }
 
@@ -235,8 +290,39 @@ export class AbstractArchitecture extends Architecture {
         const ctx = system.ctx;
         const tick = system.tick;
         const qualityScale = system.qualityScale || 1;
+        const vm = this.visualMode;
 
-        // Draw floating particles (replaces splatters)
+        // Watercolor mode: draw onto trail canvas with persistence
+        if (vm === 4 && this.trailCtx) {
+            this.trailCtx.globalAlpha = 0.03;
+            this.trailCtx.fillStyle = '#000';
+            this.trailCtx.fillRect(0, 0, system.width, system.height);
+            this.trailCtx.globalAlpha = 1;
+        }
+
+        // Draw click bursts
+        for (let i = this.clickBursts.length - 1; i >= 0; i--) {
+            const burst = this.clickBursts[i];
+            burst.life -= 0.015;
+            burst.radius += 3;
+            if (burst.life <= 0) { this.clickBursts.splice(i, 1); continue; }
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `hsla(${burst.hue}, 80%, 70%, ${burst.life * 0.4})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            // Inner ring
+            ctx.strokeStyle = `hsla(${burst.hue + 30}, 60%, 80%, ${burst.life * 0.2})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(burst.x, burst.y, burst.radius * 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw floating particles
         this.floatingParticles.forEach(fp => {
             const flicker = 0.5 + Math.sin(tick * 0.03 + fp.phase) * 0.3;
             ctx.fillStyle = `hsla(${fp.hue}, 60%, 60%, ${fp.alpha * flicker})`;
@@ -247,33 +333,52 @@ export class AbstractArchitecture extends Architecture {
 
         // Draw morphing blobs
         this.blobs.forEach((b, bi) => {
-            const h = (b.hue + Math.sin(tick * 0.005) * 20 + 360) % 360;
-            const effectiveRadius = b.radius * b.shockScale;
+            b.pulsePhase += b.pulseSpeed;
+            const pulse = 1 + Math.sin(b.pulsePhase) * 0.05;
+            const h = (b.hue + (this.colorMode === 3 ? tick * 0.3 : Math.sin(tick * 0.005) * 20) + 360) % 360;
+            const effectiveRadius = b.radius * b.shockScale * pulse;
 
-            // -- Glow halo behind each blob (simplified: solid circle, no gradient) --
-            if (qualityScale > 0.4) {
-                ctx.save();
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = `hsla(${h}, 70%, 50%, 0.06)`;
+            if (vm === 0 || vm === 4) {
+                // Classic glow / watercolor mode
+                if (qualityScale > 0.4) {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = `hsla(${h}, 70%, 50%, 0.06)`;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, effectiveRadius * 1.4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+                ctx.fillStyle = `hsla(${h}, 60%, 50%, ${vm === 4 ? 0.04 : 0.08})`;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, effectiveRadius * 1.4, 0, Math.PI * 2);
+                ctx.arc(b.x, b.y, effectiveRadius, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.restore();
+                ctx.fillStyle = `hsla(${h}, 60%, 50%, ${vm === 4 ? 0.08 : 0.15})`;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, effectiveRadius * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (vm === 1) {
+                // Spiky/crystalline mode - no fill, jagged outline
+                ctx.strokeStyle = `hsla(${h}, 80%, 60%, 0.3)`;
+                ctx.lineWidth = 1.5;
+            } else if (vm === 2) {
+                // Translucent layers
+                for (let layer = 3; layer >= 0; layer--) {
+                    const lr = effectiveRadius * (0.3 + layer * 0.25);
+                    ctx.fillStyle = `hsla(${(h + layer * 15) % 360}, 50%, ${40 + layer * 10}%, ${0.05 + layer * 0.02})`;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, lr, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (vm === 3) {
+                // Neon outline - no fill, bright stroke with glow
+                ctx.save();
+                ctx.shadowColor = `hsla(${h}, 100%, 60%, 0.6)`;
+                ctx.shadowBlur = 20;
+                ctx.strokeStyle = `hsla(${h}, 100%, 70%, 0.5)`;
+                ctx.lineWidth = 2;
             }
 
-            // -- Main blob fill (simplified: concentric circles approximate gradient) --
-            ctx.fillStyle = `hsla(${h}, 60%, 50%, 0.08)`;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, effectiveRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = `hsla(${h}, 60%, 50%, 0.15)`;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, effectiveRadius * 0.6, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = `hsla(${h}, 60%, 50%, 0.2)`;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, effectiveRadius * 0.3, 0, Math.PI * 2);
-            ctx.fill();
             ctx.beginPath();
 
             const computedPoints = [];
@@ -336,25 +441,50 @@ export class AbstractArchitecture extends Architecture {
                 ctx.restore();
             }
 
-            // Subtle outline (alpha 0.2)
-            ctx.strokeStyle = `hsla(${h}, 60%, 70%, 0.2)`;
-            ctx.lineWidth = 2;
-            // Re-draw the path for stroke
-            ctx.beginPath();
-            for (let i = 0; i < computedPoints.length; i++) {
-                const pt = computedPoints[i];
-                if (i === 0) {
-                    ctx.moveTo(pt.x, pt.y);
-                } else {
-                    const prev = computedPoints[i - 1];
-                    const cpX = (prev.x + pt.x) / 2;
-                    const cpY = (prev.y + pt.y) / 2;
-                    ctx.quadraticCurveTo(prev.x, prev.y, cpX, cpY);
+            // Visual mode specific finishing
+            if (vm === 1) {
+                // Spiky mode: only stroke, no fill
+                ctx.stroke();
+            } else if (vm === 3) {
+                // Neon mode: stroke with glow
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                // Subtle outline (alpha 0.2)
+                ctx.strokeStyle = `hsla(${h}, 60%, 70%, 0.2)`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < computedPoints.length; i++) {
+                    const pt = computedPoints[i];
+                    if (i === 0) {
+                        ctx.moveTo(pt.x, pt.y);
+                    } else {
+                        const prev = computedPoints[i - 1];
+                        const cpX = (prev.x + pt.x) / 2;
+                        const cpY = (prev.y + pt.y) / 2;
+                        ctx.quadraticCurveTo(prev.x, prev.y, cpX, cpY);
+                    }
                 }
+                ctx.closePath();
+                ctx.stroke();
             }
-            ctx.closePath();
-            ctx.stroke();
         });
+
+        // Watercolor trail composite
+        if (vm === 4 && this.trailCanvas) {
+            // Draw current blobs onto trail canvas
+            for (const b of this.blobs) {
+                const h = (b.hue + 360) % 360;
+                const r = b.radius * b.shockScale;
+                this.trailCtx.fillStyle = `hsla(${h}, 50%, 50%, 0.02)`;
+                this.trailCtx.beginPath();
+                this.trailCtx.arc(b.x, b.y, r, 0, Math.PI * 2);
+                this.trailCtx.fill();
+            }
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(this.trailCanvas, 0, 0);
+            ctx.globalAlpha = 1;
+        }
 
         // -- Blob-to-blob tendril connections: curved lines when close --
         for (let i = 0; i < this.blobs.length; i++) {
@@ -392,6 +522,25 @@ export class AbstractArchitecture extends Architecture {
                     ctx.quadraticCurveTo(cpX, cpY, bB.x, bB.y);
                     ctx.stroke();
                 }
+            }
+        }
+    }
+
+    onShockwave(x, y) {
+        // Click creates expanding burst ring
+        if (this.clickBursts.length < 8) {
+            const hue = this.blobs.length > 0 ? this.blobs[0].hue : 0;
+            this.clickBursts.push({ x, y, radius: 10, life: 1, hue });
+        }
+        // Push nearby blobs outward
+        for (const b of this.blobs) {
+            const dx = b.x - x, dy = b.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            if (dist < 300) {
+                const force = (300 - dist) / 300 * 3;
+                b.vx += (dx / dist) * force;
+                b.vy += (dy / dist) * force;
+                b.shockScale = 1.3;
             }
         }
     }

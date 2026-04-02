@@ -70,6 +70,32 @@ export class GravityPoolArchitecture extends Architecture {
         this.whirlpool = null;
         this.lastMouse = { x: mouse.x, y: mouse.y };
 
+        // Foam/bubbles system
+        this.bubbles = [];
+        const bubbleCount = 20 + Math.floor(rng() * 30);
+        for (let i = 0; i < bubbleCount; i++) {
+            this.bubbles.push({
+                x: rng() * system.width,
+                y: rng() * system.height,
+                size: 1 + rng() * 5,
+                vx: (rng() - 0.5) * 0.2,
+                vy: -0.1 - rng() * 0.3,
+                wobble: rng() * Math.PI * 2,
+                wobbleSpeed: 0.02 + rng() * 0.04,
+                life: 0.5 + rng() * 0.5,
+                shimmer: rng() * Math.PI * 2
+            });
+        }
+
+        // Seed-driven surface distortion mode
+        this.surfaceMode = Math.floor(rng() * 3);
+        // 0=calm (default), 1=choppy (many auto-ripples), 2=deep (slow, large waves)
+        if (this.surfaceMode === 1) this.waveAmplitude *= 1.5;
+        if (this.surfaceMode === 2) this.waveAmplitude *= 0.7;
+
+        // Foam patches that form at ripple collision points
+        this.foamPatches = [];
+
         // Spirograph-based caustic pattern (50% chance per seed)
         this.useMathCaustics = false;
         this.causticCurve = null;
@@ -179,6 +205,71 @@ export class GravityPoolArchitecture extends Architecture {
 
                 this.causticGrid[gy * cw + gx] = val;
             }
+        }
+
+        // Choppy mode: extra auto-ripples
+        if (this.surfaceMode === 1 && system.rng() < 0.08) {
+            this._spawnRipple(system.rng() * system.width, system.rng() * system.height, 0.2 + system.rng() * 0.3);
+        }
+
+        // Update bubbles
+        for (const b of this.bubbles) {
+            b.wobble += b.wobbleSpeed;
+            b.shimmer += 0.03;
+            b.x += b.vx + Math.sin(b.wobble) * 0.3;
+            b.y += b.vy;
+
+            // Bubbles respond to waves
+            const gx = Math.floor(b.x / cs);
+            const gy = Math.floor(b.y / cs);
+            if (gx > 0 && gx < cw - 1 && gy > 0 && gy < this.causticH - 1) {
+                const wave = this.causticGrid[gy * cw + gx];
+                b.vy += wave * 0.05;
+                b.vx += (this.causticGrid[gy * cw + gx + 1] - this.causticGrid[gy * cw + gx - 1]) * 0.02;
+            }
+
+            // Whirlpool sucks in bubbles
+            if (this.whirlpool) {
+                const dx = this.whirlpool.x - b.x, dy = this.whirlpool.y - b.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                if (dist < 200) {
+                    b.vx += (dy / dist) * 0.2;
+                    b.vy += (-dx / dist) * 0.2;
+                    b.size *= 0.999; // shrink in whirlpool
+                }
+            }
+
+            b.vx *= 0.98;
+            b.vy *= 0.98;
+
+            // Respawn if off screen or too small
+            if (b.y < -20 || b.size < 0.3 || b.x < -20 || b.x > system.width + 20) {
+                b.x = system.rng() * system.width;
+                b.y = system.height + 10;
+                b.vy = -0.1 - system.rng() * 0.3;
+                b.size = 1 + system.rng() * 5;
+            }
+        }
+
+        // Foam patches: form where multiple ripples overlap
+        if (this.ripples.length > 3 && tick % 20 === 0 && this.foamPatches.length < 15) {
+            // Find areas of high wave activity
+            let maxVal = 0, maxX = 0, maxY = 0;
+            for (let gy = 2; gy < this.causticH - 2; gy += 3) {
+                for (let gx = 2; gx < cw - 2; gx += 3) {
+                    const val = Math.abs(this.causticGrid[gy * cw + gx]);
+                    if (val > maxVal) { maxVal = val; maxX = gx * cs; maxY = gy * cs; }
+                }
+            }
+            if (maxVal > 0.5) {
+                this.foamPatches.push({ x: maxX, y: maxY, radius: 5 + maxVal * 15, life: 1 });
+            }
+        }
+
+        // Decay foam patches
+        for (let i = this.foamPatches.length - 1; i >= 0; i--) {
+            this.foamPatches[i].life -= 0.01;
+            if (this.foamPatches[i].life <= 0) this.foamPatches.splice(i, 1);
         }
 
         // Update floaters
@@ -329,6 +420,38 @@ export class GravityPoolArchitecture extends Architecture {
             ctx.restore();
         }
 
+        // Draw foam patches
+        for (const foam of this.foamPatches) {
+            ctx.fillStyle = `hsla(${this.waterHue + 20}, 30%, 80%, ${foam.life * 0.1})`;
+            ctx.beginPath();
+            // Organic foam shape: multiple overlapping circles
+            for (let i = 0; i < 5; i++) {
+                const angle = (i / 5) * Math.PI * 2;
+                const fx = foam.x + Math.cos(angle) * foam.radius * 0.4;
+                const fy = foam.y + Math.sin(angle) * foam.radius * 0.4;
+                ctx.moveTo(fx + foam.radius * 0.4, fy);
+                ctx.arc(fx, fy, foam.radius * 0.4, 0, Math.PI * 2);
+            }
+            ctx.fill();
+        }
+
+        // Draw bubbles
+        for (const b of this.bubbles) {
+            const shimmer = (Math.sin(b.shimmer) + 1) * 0.5;
+            const ba = 0.15 + shimmer * 0.15;
+            // Bubble outline
+            ctx.strokeStyle = `hsla(${this.waterHue + 30}, 50%, 80%, ${ba})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+            ctx.stroke();
+            // Highlight (light reflection)
+            ctx.fillStyle = `hsla(${this.waterHue + 60}, 40%, 90%, ${ba * 0.6})`;
+            ctx.beginPath();
+            ctx.arc(b.x - b.size * 0.25, b.y - b.size * 0.25, b.size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         // Draw floaters
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -353,5 +476,30 @@ export class GravityPoolArchitecture extends Architecture {
         ctx.restore();
 
         ctx.restore();
+    }
+
+    onShockwave(x, y) {
+        // Big splash ripple
+        this._spawnRipple(x, y, 2.5);
+        // Secondary ripples
+        for (let i = 0; i < 3; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 30 + Math.random() * 50;
+            this._spawnRipple(x + Math.cos(angle) * dist, y + Math.sin(angle) * dist, 1);
+        }
+        // Spawn bubbles at impact
+        for (let i = 0; i < 5; i++) {
+            this.bubbles.push({
+                x: x + (Math.random() - 0.5) * 30,
+                y: y + (Math.random() - 0.5) * 30,
+                size: 2 + Math.random() * 4,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -0.5 - Math.random() * 1,
+                wobble: Math.random() * Math.PI * 2,
+                wobbleSpeed: 0.02 + Math.random() * 0.04,
+                life: 0.5 + Math.random() * 0.5,
+                shimmer: Math.random() * Math.PI * 2
+            });
+        }
     }
 }

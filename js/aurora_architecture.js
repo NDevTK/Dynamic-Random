@@ -88,9 +88,60 @@ export class AuroraArchitecture extends Architecture {
 
         this.disruptions = [];
 
+        // Aurora type: 0=curtain, 1=rays, 2=corona, 3=pulsating, 4=mixed
+        this.auroraType = Math.floor(rng() * 5);
+
+        // Vertical rays (for ray/mixed types)
+        this.rays = [];
+        if (this.auroraType === 1 || this.auroraType === 4) {
+            const rayCount = 15 + Math.floor(rng() * 20);
+            for (let i = 0; i < rayCount; i++) {
+                const color = this.palette[Math.floor(rng() * this.palette.length)];
+                this.rays.push({
+                    x: rng() * system.width,
+                    baseX: rng() * system.width,
+                    width: 3 + rng() * 8,
+                    height: system.height * (0.2 + rng() * 0.5),
+                    yTop: system.height * (0.05 + rng() * 0.15),
+                    alpha: 0.02 + rng() * 0.06,
+                    speed: (rng() - 0.5) * 0.5,
+                    phase: rng() * Math.PI * 2,
+                    phaseSpeed: 0.005 + rng() * 0.015,
+                    color,
+                    drift: rng() * 0.3,
+                });
+            }
+        }
+
+        // Corona particles (for corona/mixed types)
+        this.coronaParticles = [];
+        if (this.auroraType === 2 || this.auroraType === 4) {
+            const particleCount = 60 + Math.floor(rng() * 80);
+            for (let i = 0; i < particleCount; i++) {
+                const color = this.palette[Math.floor(rng() * this.palette.length)];
+                this.coronaParticles.push({
+                    angle: rng() * Math.PI * 2,
+                    radius: 50 + rng() * 200,
+                    speed: 0.002 + rng() * 0.008,
+                    size: 1.5 + rng() * 3,
+                    alpha: 0.1 + rng() * 0.3,
+                    color,
+                    cx: system.width * (0.3 + rng() * 0.4),
+                    cy: system.height * (0.15 + rng() * 0.2),
+                    trail: [],
+                });
+            }
+        }
+
+        // Pulsation state
+        this.pulsationPhase = 0;
+        this.pulsationSpeed = 0.01 + rng() * 0.02;
+        this.pulsationDepth = this.auroraType === 3 ? 0.5 : 0.15;
+
         // Background stars (dim, below the aurora)
         this.groundStars = [];
-        for (let i = 0; i < 200; i++) {
+        const starCount = 150 + Math.floor(rng() * 100);
+        for (let i = 0; i < starCount; i++) {
             this.groundStars.push({
                 x: rng() * system.width,
                 y: rng() * system.height,
@@ -104,6 +155,7 @@ export class AuroraArchitecture extends Architecture {
 
     update(system) {
         this.magneticPulse += this.windSpeed;
+        this.pulsationPhase += this.pulsationSpeed;
 
         const mx = mouse.x;
         const my = mouse.y;
@@ -161,6 +213,9 @@ export class AuroraArchitecture extends Architecture {
         }
         ctx.globalAlpha = 1;
         ctx.restore();
+
+        // Global pulsation effect
+        const pulsation = 1 - this.pulsationDepth + Math.sin(this.pulsationPhase) * this.pulsationDepth;
 
         // Draw each curtain using solid-color bands instead of per-strip gradients
         // This eliminates hundreds of createLinearGradient calls per frame
@@ -220,7 +275,7 @@ export class AuroraArchitecture extends Architecture {
 
                 // Shimmer: varying intensity along the curtain
                 const shimmer = (Math.sin(x * 0.02 + tick * curtain.shimmerSpeed) * 0.5 + 0.5);
-                const intensityHere = curtain.intensity * (0.5 + shimmer * 0.5);
+                const intensityHere = curtain.intensity * (0.5 + shimmer * 0.5) * pulsation;
                 const heightHere = curtain.height * (0.7 + shimmer * 0.3);
                 const bandH = heightHere / bands;
 
@@ -255,6 +310,56 @@ export class AuroraArchitecture extends Architecture {
                 else ctx.lineTo(x, y);
             }
             ctx.stroke();
+        }
+
+        // Draw vertical rays
+        if (this.rays.length > 0) {
+            for (const ray of this.rays) {
+                ray.phase += ray.phaseSpeed;
+                const shimmer = Math.sin(ray.phase) * 0.5 + 0.5;
+                ray.x = ray.baseX + Math.sin(tick * 0.003 + ray.phase) * 30;
+
+                const { h, s, l } = ray.color;
+                const rayAlpha = ray.alpha * shimmer * pulsation;
+                const rayGrad = ctx.createLinearGradient(ray.x, ray.yTop, ray.x, ray.yTop + ray.height);
+                rayGrad.addColorStop(0, `hsla(${h}, ${s}%, ${l + 20}%, ${rayAlpha * 1.5})`);
+                rayGrad.addColorStop(0.3, `hsla(${h}, ${s}%, ${l}%, ${rayAlpha})`);
+                rayGrad.addColorStop(0.7, `hsla(${h}, ${s}%, ${l - 10}%, ${rayAlpha * 0.5})`);
+                rayGrad.addColorStop(1, 'transparent');
+                ctx.fillStyle = rayGrad;
+                ctx.fillRect(ray.x - ray.width / 2, ray.yTop, ray.width, ray.height);
+            }
+        }
+
+        // Draw corona particles
+        if (this.coronaParticles.length > 0) {
+            for (const cp of this.coronaParticles) {
+                cp.angle += cp.speed;
+                const px = cp.cx + Math.cos(cp.angle) * cp.radius;
+                const py = cp.cy + Math.sin(cp.angle) * cp.radius * 0.4;
+                const { h, s, l } = cp.color;
+
+                cp.trail.push({ x: px, y: py });
+                if (cp.trail.length > 12) cp.trail.shift();
+
+                // Trail
+                if (cp.trail.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(cp.trail[0].x, cp.trail[0].y);
+                    for (let t = 1; t < cp.trail.length; t++) {
+                        ctx.lineTo(cp.trail[t].x, cp.trail[t].y);
+                    }
+                    ctx.strokeStyle = `hsla(${h}, ${s}%, ${l}%, ${cp.alpha * 0.3 * pulsation})`;
+                    ctx.lineWidth = cp.size * 0.5;
+                    ctx.stroke();
+                }
+
+                // Particle
+                ctx.fillStyle = `hsla(${h}, ${s}%, ${l + 15}%, ${cp.alpha * pulsation})`;
+                ctx.beginPath();
+                ctx.arc(px, py, cp.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         ctx.globalCompositeOperation = 'source-over';

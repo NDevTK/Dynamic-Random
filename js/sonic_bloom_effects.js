@@ -115,6 +115,10 @@ export class SonicBloom {
             this._clickRegistered = true;
             this._clickX = mx;
             this._clickY = my;
+            // Nova mode: sync pulse phase on click for dramatic beat
+            if (this.mode === 4) {
+                this.novaPulsePhase = 0;
+            }
         }
         this._isClicking = isClicking;
 
@@ -220,9 +224,11 @@ export class SonicBloom {
             ctx.strokeStyle = `hsla(${hueShift}, ${this.saturation}%, 70%, ${layerAlpha})`;
             ctx.lineWidth = 1;
 
-            // Petal pattern
+            // Petal pattern with per-petal color variation
             for (let p = 0; p < this.mandalaPetals; p++) {
                 const angle = (p / this.mandalaPetals) * Math.PI * 2;
+                const petalHue = (hueShift + p * 8) % 360; // Subtle hue shift per petal
+                ctx.strokeStyle = `hsla(${petalHue}, ${this.saturation}%, 70%, ${layerAlpha})`;
                 ctx.save();
                 ctx.rotate(angle);
 
@@ -456,6 +462,7 @@ export class SonicBloom {
                 const hueShift = (bloom.hue + dist * 0.5) % 360;
 
                 ctx.strokeStyle = `hsla(${hueShift}, ${this.saturation}%, 65%, ${cellAlpha})`;
+                ctx.fillStyle = `hsla(${hueShift}, ${this.saturation}%, 50%, ${cellAlpha * 0.25})`;
                 ctx.lineWidth = 0.5;
 
                 if (this.tessType === 0) {
@@ -489,6 +496,7 @@ export class SonicBloom {
             else ctx.lineTo(px, py);
         }
         ctx.closePath();
+        ctx.fill();
         ctx.stroke();
     }
 
@@ -503,6 +511,7 @@ export class SonicBloom {
             else ctx.lineTo(px, py);
         }
         ctx.closePath();
+        ctx.fill();
         ctx.stroke();
     }
 }

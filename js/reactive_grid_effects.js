@@ -128,6 +128,13 @@ export class ReactiveGrid {
         this.tick++;
         if (!this.grid) return;
 
+        // Track mouse speed for velocity-based effects
+        const dx = mx - (this._prevMx || mx);
+        const dy = my - (this._prevMy || my);
+        this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+        this._prevMx = mx;
+        this._prevMy = my;
+
         const cs = this.cellSize;
         const cx = Math.floor(mx / cs);
         const cy = Math.floor(my / cs);
@@ -135,7 +142,7 @@ export class ReactiveGrid {
         switch (this.mode) {
             case 0: this._updateWave(cx, cy, isClicking); break;
             case 1: this._updateCascade(cx, cy, isClicking); break;
-            case 2: this._updateMagnetic(mx, my); break;
+            case 2: this._updateMagnetic(mx, my, isClicking); break;
             case 3: this._updateAutomata(cx, cy, isClicking); break;
             case 4: this._updateHexPulse(mx, my, isClicking); break;
             case 5: this._updateGravityWarp(mx, my); break;
@@ -228,8 +235,10 @@ export class ReactiveGrid {
         }
     }
 
-    _updateMagnetic(mx, my) {
+    _updateMagnetic(mx, my, isClicking) {
         const cols = this.cols, rows = this.rows, cs = this.cellSize;
+        // Click intensifies the field dramatically
+        const fieldMult = isClicking ? 60000 : 20000;
 
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
@@ -239,7 +248,7 @@ export class ReactiveGrid {
                 const dy = py - my;
                 const distSq = dx * dx + dy * dy + 1;
                 // Dipole field: strength ~ 1/r^2, capped at 1
-                const field = Math.min(1, 20000 / distSq);
+                const field = Math.min(1, fieldMult / distSq);
                 // Direction angle for field lines
                 const angle = Math.atan2(dy, dx);
                 this.grid[y * cols + x] = field;
@@ -251,9 +260,10 @@ export class ReactiveGrid {
     _updateAutomata(cx, cy, isClicking) {
         const cols = this.cols, rows = this.rows;
 
-        // Seed cells at cursor
+        // Seed cells at cursor - radius scales with movement speed and clicking
         if (cx >= 0 && cx < cols && cy >= 0 && cy < rows) {
-            const radius = isClicking ? 3 : 1;
+            const speedBonus = Math.min(3, Math.floor((this._mouseSpeed || 0) / 8));
+            const radius = (isClicking ? 3 : 1) + speedBonus;
             for (let dy = -radius; dy <= radius; dy++) {
                 for (let dx = -radius; dx <= radius; dx++) {
                     const nx = cx + dx, ny = cy + dy;
@@ -422,20 +432,21 @@ export class ReactiveGrid {
     }
 
     _drawWave(ctx, cs, cols, rows) {
-        // Two-pass: batch positive waves then negative for fewer style changes
+        // Smooth gradient-based wave coloring instead of binary threshold
         const hue = this.hue;
         const sat = this.saturation;
-        for (let pass = 0; pass < 2; pass++) {
-            const hueShift = pass === 0 ? 0 : 120;
-            const baseHue = (hue + hueShift) % 360;
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    const val = this.grid[y * cols + x];
-                    if (pass === 0 ? val < 0.02 : val > -0.02) continue;
-                    const intensity = Math.abs(val);
-                    ctx.fillStyle = `hsla(${baseHue}, ${sat}%, ${40 + intensity * 40}%, ${intensity * 0.4})`;
-                    ctx.fillRect(x * cs, y * cs, cs, cs);
-                }
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                const val = this.grid[y * cols + x];
+                const absVal = Math.abs(val);
+                if (absVal < 0.01) continue;
+                // Positive waves get base hue, negative waves shift by 120
+                const waveHue = val > 0 ? hue : (hue + 120) % 360;
+                const intensity = Math.min(1, absVal * 1.5);
+                const lightness = 35 + intensity * 45;
+                const alpha = intensity * 0.35;
+                ctx.fillStyle = `hsla(${waveHue}, ${sat}%, ${lightness}%, ${alpha})`;
+                ctx.fillRect(x * cs, y * cs, cs, cs);
             }
         }
     }
@@ -486,12 +497,17 @@ export class ReactiveGrid {
     }
 
     _drawAutomata(ctx, cs, cols, rows) {
+        // Each ruleset gets distinct color mapping for visual variety
+        const ruleHueShifts = [0, 50, 180, 270]; // Life=base, Seeds=warm, Day&Night=cyan, Diamoeba=purple
+        const ruleSatBoost = [0, 10, -10, 20];
+        const baseHue = (this.hue + ruleHueShifts[this.ruleSet]) % 360;
+        const sat = Math.min(100, this.saturation + ruleSatBoost[this.ruleSet]);
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
                 const val = this.grid[y * cols + x];
                 if (val < 0.05) continue;
-                const hue = (this.hue + (1 - val) * 60) % 360;
-                ctx.fillStyle = `hsla(${hue}, ${this.saturation}%, ${40 + val * 30}%, ${val * 0.45})`;
+                const hue = (baseHue + (1 - val) * 60) % 360;
+                ctx.fillStyle = `hsla(${hue}, ${sat}%, ${40 + val * 30}%, ${val * 0.45})`;
                 ctx.fillRect(x * cs, y * cs, cs - 1, cs - 1);
             }
         }

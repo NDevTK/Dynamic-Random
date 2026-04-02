@@ -80,7 +80,7 @@ export class ParticleSwarm {
                     this.particles.push({
                         x: rng() * w, y: rng() * h,
                         vx: (rng() - 0.5) * 2, vy: (rng() - 0.5) * 2,
-                        hueOffset: rng() * 30 - 15,
+                        hueOffset: (i / this.maxParticles) * 120 - 60, // Spread across wider hue range
                     });
                 }
                 break;
@@ -177,7 +177,7 @@ export class ParticleSwarm {
 
         switch (this.mode) {
             case 0: this._updateMurmuration(mx, my); break;
-            case 1: this._updateFireflies(mx, my); break;
+            case 1: this._updateFireflies(mx, my, isClicking); break;
             case 2: this._updateMagneticChains(mx, my); break;
             case 3: this._updatePredatorPrey(mx, my); break;
             case 4: this._updateOrbitDance(mx, my); break;
@@ -236,7 +236,7 @@ export class ParticleSwarm {
         }
     }
 
-    _updateFireflies(mx, my) {
+    _updateFireflies(mx, my, isClicking) {
         const len = this.particles.length;
         const rng = this._rng;
 
@@ -252,15 +252,19 @@ export class ParticleSwarm {
             p.phase += (Math.PI * 2) / p.period;
             p.brightness = Math.pow(Math.max(0, Math.sin(p.phase)), 3);
 
+            // Click triggers synchronized flash burst
+            if (isClicking) {
+                p.phase += 0.2; // Rapidly sync toward same phase
+                p.brightness = Math.max(p.brightness, 0.7);
+            }
+
             // Sync with nearest neighbors (spatial proximity based)
-            // Use deterministic neighbor sampling based on index to avoid repeated random picks
             for (let k = 1; k <= 5; k++) {
-                const j = (i + k * 7) % len; // deterministic spread
+                const j = (i + k * 7) % len;
                 if (j === i) continue;
                 const o = this.particles[j];
                 const dx = o.x - p.x, dy = o.y - p.y;
-                if (dx * dx + dy * dy < 10000) { // within 100px
-                    // Kuramoto-style phase sync
+                if (dx * dx + dy * dy < 10000) {
                     p.phase += Math.sin(o.phase - p.phase) * this.syncStrength;
                 }
             }
@@ -401,7 +405,9 @@ export class ParticleSwarm {
 
         for (const p of this.particles) {
             const shell = this.shells[p.shell];
-            p.angle += shell.speed;
+            // Pulsating orbit speed creates breathing rhythm
+            const speedPulse = 1 + Math.sin(this.tick * 0.015 + p.shell * 1.2) * 0.3;
+            p.angle += shell.speed * speedPulse;
             p.wobble += p.wobbleSpeed;
 
             const radius = shell.radius + Math.sin(p.wobble) * p.wobbleAmp;
@@ -632,16 +638,18 @@ export class ParticleSwarm {
         const cx = this._orbitCenterX;
         const cy = this._orbitCenterY;
 
-        // Draw shell rings (faint dashed circles)
-        ctx.setLineDash([3, 6]);
+        // Draw shell rings as dotted arcs (manual dots avoid setLineDash overhead)
         ctx.lineWidth = 0.5;
         for (const shell of this.shells) {
-            ctx.strokeStyle = `hsla(${shell.hue}, 30%, 40%, 0.04)`;
-            ctx.beginPath();
-            ctx.arc(cx, cy, shell.radius, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.fillStyle = `hsla(${shell.hue}, 30%, 40%, 0.06)`;
+            const dotCount = Math.floor(shell.radius * 0.3);
+            for (let d = 0; d < dotCount; d++) {
+                const a = (d / dotCount) * Math.PI * 2;
+                const dx = cx + Math.cos(a) * shell.radius;
+                const dy = cy + Math.sin(a) * shell.radius;
+                ctx.fillRect(dx - 0.5, dy - 0.5, 1, 1);
+            }
         }
-        ctx.setLineDash([]);
 
         // Draw particles with motion trails
         for (const p of this.particles) {

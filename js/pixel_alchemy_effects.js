@@ -145,6 +145,14 @@ export class PixelAlchemy {
             e.y += e.vy;
             e.vy -= 0.02; // Slight acceleration upward
             e.vx *= 0.98;
+            // Clicking attracts embers toward cursor for dramatic swirl
+            if (this._isClicking) {
+                const adx = this._mouseX - e.x;
+                const ady = this._mouseY - e.y;
+                const adist = Math.sqrt(adx * adx + ady * ady) + 1;
+                e.vx += adx / adist * 0.15;
+                e.vy += ady / adist * 0.15;
+            }
             e.life -= e.decay;
             e.size *= 0.995;
             if (e.life <= 0) {
@@ -218,6 +226,30 @@ export class PixelAlchemy {
     }
 
     _updateGold(mx, my, isClicking) {
+        // Auto-spawn smaller veins from fast movement
+        if (!isClicking && this._mouseSpeed > 4 && this.tick % 12 === 0 && this.veins.length < this.maxVeins) {
+            const vein = this.veinPool.length > 0 ? this.veinPool.pop() : {};
+            vein.x = mx;
+            vein.y = my;
+            vein.angle = Math.atan2(my - this._prevMouseY, mx - this._prevMouseX) + (Math.random() - 0.5);
+            vein.length = 0;
+            vein.maxLength = 20 + Math.random() * 40;
+            vein.growSpeed = 2 + Math.random() * 2;
+            vein.life = 1;
+            vein.decay = 0.008 + Math.random() * 0.008;
+            vein.width = 0.5 + Math.random() * 1;
+            vein.segments = [];
+            let cx = vein.x, cy = vein.y, ca = vein.angle;
+            const segCount = 4 + Math.floor(Math.random() * 4);
+            for (let s = 0; s < segCount; s++) {
+                ca += (Math.random() - 0.5) * 0.6;
+                const segLen = vein.maxLength / segCount;
+                cx += Math.cos(ca) * segLen;
+                cy += Math.sin(ca) * segLen;
+                vein.segments.push({ x: cx, y: cy });
+            }
+            this.veins.push(vein);
+        }
         // Spawn veins on click
         if (isClicking && this.tick % 5 === 0 && this.veins.length < this.maxVeins) {
             const vein = this.veinPool.length > 0 ? this.veinPool.pop() : {};
@@ -378,6 +410,22 @@ export class PixelAlchemy {
             ctx.beginPath();
             ctx.arc(mx, my, this.frostRadius, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // Ice sparkles within frost aura
+        if (this.frostRadius > 15) {
+            const sparkCount = Math.min(8, Math.floor(this.frostRadius / 15));
+            for (let i = 0; i < sparkCount; i++) {
+                const sa = (i / sparkCount) * Math.PI * 2 + this.tick * 0.02;
+                const sr = this.frostRadius * (0.3 + Math.sin(this.tick * 0.05 + i * 2) * 0.3);
+                const sx = mx + Math.cos(sa) * sr;
+                const sy = my + Math.sin(sa) * sr;
+                const sparkle = Math.sin(this.tick * 0.15 + i * 1.7) * 0.5 + 0.5;
+                ctx.fillStyle = `hsla(200, 90%, 95%, ${sparkle * 0.15 * this.intensity})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         // Ice crystals

@@ -90,7 +90,7 @@ class InteractiveBackgroundEffects {
         this.ghosts = [];
         this.ghostPool = [];
         this.maxGhosts = 15;
-        this.ghostStyle = 0;
+        this.ghostStyle = 0; // Base style, individual ghosts get varied styles
 
         // Constellation links
         this.constellationPoints = [];
@@ -246,6 +246,13 @@ class InteractiveBackgroundEffects {
         const my = mouse.y;
         const isClicking = isLeftMouseDown || isRightMouseDown;
 
+        // Track mouse speed for velocity-responsive effects
+        const dx = mx - (this._prevMx || mx);
+        const dy = my - (this._prevMy || my);
+        this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+        this._prevMx = mx;
+        this._prevMy = my;
+
         // Handle clicks
         if (this._clickRegistered) {
             this._clickRegistered = false;
@@ -256,6 +263,7 @@ class InteractiveBackgroundEffects {
                 ripple.y = this._lastClickY;
                 ripple.radius = 0;
                 ripple.alpha = 0.6;
+                ripple.hue = (this.trailHue + Math.random() * 60 - 30 + 360) % 360;
                 this.ripples.push(ripple);
             }
 
@@ -286,9 +294,21 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Mouse trail
+        // Mouse trail with click burst
         if (this.hasMouseTrail) {
             this.trailPoints.push({ x: mx, y: my, tick: this.tick });
+            // Click spawns radial burst of trail points
+            if (this._clickRegistered) {
+                const burstCount = 6;
+                for (let i = 0; i < burstCount; i++) {
+                    const angle = (i / burstCount) * Math.PI * 2;
+                    this.trailPoints.push({
+                        x: mx + Math.cos(angle) * 20,
+                        y: my + Math.sin(angle) * 20,
+                        tick: this.tick,
+                    });
+                }
+            }
             // Trim excess with slice instead of repeated shift() to avoid O(n^2) churn
             if (this.trailPoints.length > this.maxTrailPoints + 10) {
                 this.trailPoints = this.trailPoints.slice(-this.maxTrailPoints);
@@ -331,13 +351,17 @@ class InteractiveBackgroundEffects {
         }
 
         // Echo ghosts
-        if (this.hasEchoGhosts && this.tick % 6 === 0 && this.ghosts.length < this.maxGhosts) {
+        // Echo ghosts - spawn rate scales with cursor speed
+        const ghostInterval = Math.max(2, 6 - Math.floor(this._mouseSpeed || 0));
+        if (this.hasEchoGhosts && this.tick % ghostInterval === 0 && this.ghosts.length < this.maxGhosts) {
             const ghost = this.ghostPool.length > 0 ? this.ghostPool.pop() : {};
             ghost.x = mx;
             ghost.y = my;
             ghost.life = 30;
             ghost.maxLife = 30;
             ghost.size = 8 + Math.random() * 12;
+            ghost.style = Math.floor(Math.random() * 3); // Per-ghost style variety
+            ghost.hueOffset = Math.random() * 40 - 20; // Per-ghost color
             this.ghosts.push(ghost);
         }
 
@@ -446,21 +470,23 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Echo ghosts
+        // Echo ghosts with per-ghost style variety
         if (this.hasEchoGhosts) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             for (const ghost of this.ghosts) {
                 const alpha = (ghost.life / ghost.maxLife) * 0.2;
                 const size = ghost.size * (1 - ghost.life / ghost.maxLife) + ghost.size * 0.5;
-                ctx.strokeStyle = `hsla(${this.trailHue}, 50%, 60%, ${alpha})`;
+                const ghostHue = (this.trailHue + (ghost.hueOffset || 0) + 360) % 360;
+                ctx.strokeStyle = `hsla(${ghostHue}, 50%, 60%, ${alpha})`;
                 ctx.lineWidth = 1;
 
-                if (this.ghostStyle === 0) {
+                const style = ghost.style !== undefined ? ghost.style : this.ghostStyle;
+                if (style === 0) {
                     ctx.beginPath();
                     ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
                     ctx.stroke();
-                } else if (this.ghostStyle === 1) {
+                } else if (style === 1) {
                     ctx.beginPath();
                     ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
                     ctx.stroke();
@@ -517,18 +543,19 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Click ripples
+        // Click ripples with per-ripple color variety
         if (this.hasRipples) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = 1.5;
             for (const r of this.ripples) {
-                ctx.strokeStyle = this.rippleColor + r.alpha + ')';
+                const rHue = r.hue !== undefined ? r.hue : this.trailHue;
+                ctx.strokeStyle = `hsla(${rHue}, 70%, 60%, ${r.alpha})`;
                 ctx.beginPath();
                 ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
                 ctx.stroke();
                 if (r.radius > 10) {
-                    ctx.strokeStyle = this.rippleColor + (r.alpha * 0.5) + ')';
+                    ctx.strokeStyle = `hsla(${rHue}, 70%, 60%, ${r.alpha * 0.5})`;
                     ctx.beginPath();
                     ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2);
                     ctx.stroke();
@@ -537,7 +564,7 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Constellation links
+        // Constellation links with glow on recent points
         if (this.hasConstellationLinks && this.constellationPoints.length > 1) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -550,7 +577,7 @@ class InteractiveBackgroundEffects {
                     const dx = p1.x - p2.x;
                     const dy = p1.y - p2.y;
                     const distSq = dx * dx + dy * dy;
-                    if (distSq < 90000) { // 300^2, avoid sqrt
+                    if (distSq < 90000) {
                         const dist = Math.sqrt(distSq);
                         const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist / 300) * 0.3;
                         ctx.strokeStyle = `hsla(${this.constellationHue}, 50%, 70%, ${alpha})`;
@@ -560,7 +587,17 @@ class InteractiveBackgroundEffects {
                         ctx.stroke();
                     }
                 }
-                ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${p1.alpha * 0.6})`;
+                // Star dot with glow for new points
+                const freshness = p1.life > 250 ? (p1.life - 250) / 50 : 0;
+                const dotAlpha = p1.alpha * 0.6;
+                if (freshness > 0) {
+                    // Fresh star glow
+                    ctx.fillStyle = `hsla(${this.constellationHue}, 80%, 85%, ${dotAlpha * freshness * 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(p1.x, p1.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${dotAlpha})`;
                 ctx.beginPath();
                 ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2);
                 ctx.fill();

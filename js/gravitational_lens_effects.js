@@ -271,7 +271,7 @@ export class GravitationalLens {
         this.glassPhase += 0.02;
         const amp = this.glassWobbleAmp * (1 + this._mouseSpeed * 0.03) * this.intensity;
         const freq = this.glassWobbleFreq;
-        const clickAmp = this._isClicking ? amp * 2 : amp;
+        const clickAmp = this._isClicking ? amp * 4 : amp;
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -288,10 +288,11 @@ export class GravitationalLens {
             ctx.beginPath();
 
             const segments = 32;
+            const ringDepth = 1 - i / rings; // Inner rings less wobble for depth
             for (let j = 0; j <= segments; j++) {
                 const a = (j / segments) * Math.PI * 2;
-                const wobble = Math.sin(a * 3 + this.glassPhase + i * 0.5) * clickAmp;
-                const wobble2 = Math.cos(a * 5 + this.glassPhase * 1.3) * clickAmp * 0.5;
+                const wobble = Math.sin(a * 3 + this.glassPhase + i * 0.5) * clickAmp * ringDepth;
+                const wobble2 = Math.cos(a * 5 + this.glassPhase * 1.3) * clickAmp * 0.5 * ringDepth;
                 const r = baseR + wobble + wobble2;
                 const px = mx + Math.cos(a) * r;
                 const py = my + Math.sin(a) * r;
@@ -383,7 +384,23 @@ export class GravitationalLens {
     }
 
     _drawTemporalSmear(ctx, mx, my, w, h) {
-        if (this.smearHistory.length < 2) return;
+        // Show subtle aura even when stationary
+        if (this.smearHistory.length < 2) {
+            if (this._mouseSpeed < 1) {
+                const idlePulse = Math.sin(this.tick * 0.04) * 0.5 + 0.5;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 20 + idlePulse * 15);
+                grad.addColorStop(0, `hsla(${this.hue}, 60%, 65%, ${0.04 * this.intensity})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(mx, my, 35, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+            return;
+        }
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';

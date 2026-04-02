@@ -79,6 +79,11 @@ import { CrystalCaveArchitecture } from './crystal_cave_architecture.js';
 import { GlitchCityArchitecture } from './glitch_city_architecture.js';
 import { BioluminescentOceanArchitecture } from './bioluminescent_ocean_architecture.js';
 import { PaperTheaterArchitecture } from './paper_theater_architecture.js';
+import { BubbleUniverseArchitecture } from './bubble_universe_architecture.js';
+import { LightningStormArchitecture } from './lightning_storm_architecture.js';
+import { StainedGlassArchitecture } from './stained_glass_architecture.js';
+import { SandDuneArchitecture } from './sand_dune_architecture.js';
+import { TetrisRainArchitecture } from './tetris_rain_architecture.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
@@ -153,7 +158,12 @@ export const ALL_ARCHITECTURES = [
     () => new CrystalCaveArchitecture(),
     () => new GlitchCityArchitecture(),
     () => new BioluminescentOceanArchitecture(),
-    () => new PaperTheaterArchitecture()
+    () => new PaperTheaterArchitecture(),
+    () => new BubbleUniverseArchitecture(),
+    () => new LightningStormArchitecture(),
+    () => new StainedGlassArchitecture(),
+    () => new SandDuneArchitecture(),
+    () => new TetrisRainArchitecture()
 ];
 
 // Extract constructor names from factory functions without instantiating them.
@@ -578,6 +588,17 @@ class BackgroundSystem {
         // Paper theater: classical/paper/haunted/painterly themes
         const paperTheaterBlueprints = ['Papercraft', 'Classical', 'HauntedRealm', 'Painterly', 'SilkWeaver', 'LivingInk'];
 
+        // Bubble universe: fluid/organic/glass/aetherial themes
+        const bubbleUniverseBlueprints = ['GlassySea', 'Aetherial', 'CoralReef', 'GooeyMess', 'GlacialDrift', 'Organic', 'AbyssalZone'];
+        // Lightning storm: electric/cosmic/forge/void themes
+        const lightningStormBlueprints = ['StarForged', 'CelestialForge', 'VolcanicForge', 'VoidTouched', 'NeonCyber', 'Eldritch', 'HauntedRealm'];
+        // Stained glass: crystalline/arcane/classical/paper themes
+        const stainedGlassBlueprints = ['Crystalline', 'ArcaneCodex', 'Classical', 'Papercraft', 'GlassySea', 'Eldritch', 'Painterly'];
+        // Sand dune: terrain/forge/glacial/classical themes
+        const sandDuneBlueprints = ['VolcanicForge', 'MoltenHeart', 'Classical', 'GlacialDrift', 'AbyssalZone', 'StarForged'];
+        // Tetris rain: digital/neon/techno/game themes
+        const tetrisRainBlueprints = ['Digital', 'NeonCyber', 'TechnoUtopia', 'Papercraft', 'ChromaticAberration', 'QuantumFoam'];
+
         // Wildcard: 20% chance to pick a completely random architecture for maximum diversity
         if (this.rng() < 0.20) {
             this.architecture = ALL_ARCHITECTURES[Math.floor(this.rng() * ALL_ARCHITECTURES.length)]();
@@ -725,6 +746,26 @@ class BackgroundSystem {
         // Bioluminescent ocean: aquatic/abyssal themes
         else if (bioluminescentOceanBlueprints.includes(blueprintName) && this.rng() > 0.5) {
             this.architecture = new BioluminescentOceanArchitecture();
+        }
+        // Bubble universe: fluid/glass themes
+        else if (bubbleUniverseBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new BubbleUniverseArchitecture();
+        }
+        // Lightning storm: electric/cosmic themes
+        else if (lightningStormBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new LightningStormArchitecture();
+        }
+        // Stained glass: crystalline/arcane themes
+        else if (stainedGlassBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new StainedGlassArchitecture();
+        }
+        // Sand dune: terrain/forge themes
+        else if (sandDuneBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new SandDuneArchitecture();
+        }
+        // Tetris rain: digital/neon themes
+        else if (tetrisRainBlueprints.includes(blueprintName) && this.rng() > 0.5) {
+            this.architecture = new TetrisRainArchitecture();
         }
         // Paper theater: classical/paper themes
         else if (paperTheaterBlueprints.includes(blueprintName) && this.rng() > 0.5) {

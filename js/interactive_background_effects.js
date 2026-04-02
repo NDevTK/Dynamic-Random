@@ -19,6 +19,9 @@ import { MoodAtmosphere } from './mood_atmosphere.js';
 import { GravitationalLens } from './gravitational_lens_effects.js';
 import { SonicBloom } from './sonic_bloom_effects.js';
 import { PixelAlchemy } from './pixel_alchemy_effects.js';
+import { PhantomCursor } from './phantom_cursor_effects.js';
+import { HarmonicResonance } from './harmonic_resonance_effects.js';
+import { LivingInk } from './living_ink_effects.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
@@ -33,6 +36,9 @@ class InteractiveBackgroundEffects {
         this.lens = new GravitationalLens();
         this.bloom = new SonicBloom();
         this.alchemy = new PixelAlchemy();
+        this.phantom = new PhantomCursor();
+        this.harmonics = new HarmonicResonance();
+        this.ink = new LivingInk();
 
         // Sub-system enable flags (set by seed)
         this.hasGrid = false;
@@ -42,6 +48,9 @@ class InteractiveBackgroundEffects {
         this.hasLens = false;
         this.hasBloom = false;
         this.hasAlchemy = false;
+        this.hasPhantom = false;
+        this.hasHarmonics = false;
+        this.hasInk = false;
 
         // Original effect toggles
         this.hasRipples = false;
@@ -151,14 +160,14 @@ class InteractiveBackgroundEffects {
         const hues = this._extractHues(palette);
 
         // --- Enable sub-systems based on seed ---
-        // Pick 3-5 sub-systems from 7 available using a shuffle to guarantee diversity
-        const subsystems = [0, 1, 2, 3, 4, 5, 6];
+        // Pick 4-6 sub-systems from 10 available using a shuffle to guarantee diversity
+        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         // Fisher-Yates shuffle with seeded rng
         for (let i = subsystems.length - 1; i > 0; i--) {
             const j = Math.floor(rng() * (i + 1));
             [subsystems[i], subsystems[j]] = [subsystems[j], subsystems[i]];
         }
-        const enableCount = 3 + Math.floor(rng() * 3); // 3, 4, or 5
+        const enableCount = 4 + Math.floor(rng() * 3); // 4, 5, or 6
         const enabledSet = new Set(subsystems.slice(0, enableCount));
         this.hasGrid = enabledSet.has(0);
         this.hasEchoes = enabledSet.has(1);
@@ -167,6 +176,9 @@ class InteractiveBackgroundEffects {
         this.hasLens = enabledSet.has(4);
         this.hasBloom = enabledSet.has(5);
         this.hasAlchemy = enabledSet.has(6);
+        this.hasPhantom = enabledSet.has(7);
+        this.hasHarmonics = enabledSet.has(8);
+        this.hasInk = enabledSet.has(9);
 
         // Configure enabled sub-systems with normalized hue array
         if (this.hasGrid) this.grid.configure(rng, hues);
@@ -176,6 +188,9 @@ class InteractiveBackgroundEffects {
         if (this.hasLens) this.lens.configure(rng, hues);
         if (this.hasBloom) this.bloom.configure(rng, hues);
         if (this.hasAlchemy) this.alchemy.configure(rng, hues);
+        if (this.hasPhantom) this.phantom.configure(rng, hues);
+        if (this.hasHarmonics) this.harmonics.configure(rng, hues);
+        if (this.hasInk) this.ink.configure(rng, hues);
 
         // --- Original effects (1-3 active) ---
         this.hasRipples = rng() > 0.35;
@@ -252,7 +267,9 @@ class InteractiveBackgroundEffects {
                     alpha: 0.5,
                 });
                 if (this.constellationPoints.length > this.maxConstellationPoints) {
-                    this.constellationPoints.shift();
+                    // Swap-and-pop first element (O(1) vs shift's O(n))
+                    this.constellationPoints[0] = this.constellationPoints[this.constellationPoints.length - 1];
+                    this.constellationPoints.pop();
                 }
             }
         }
@@ -272,8 +289,9 @@ class InteractiveBackgroundEffects {
         // Mouse trail
         if (this.hasMouseTrail) {
             this.trailPoints.push({ x: mx, y: my, tick: this.tick });
-            while (this.trailPoints.length > this.maxTrailPoints) {
-                this.trailPoints.shift();
+            // Trim excess with slice instead of repeated shift() to avoid O(n^2) churn
+            if (this.trailPoints.length > this.maxTrailPoints + 10) {
+                this.trailPoints = this.trailPoints.slice(-this.maxTrailPoints);
             }
         }
 
@@ -352,6 +370,9 @@ class InteractiveBackgroundEffects {
         if (this.hasLens && q > 0.25) this.lens.update(mx, my, isClicking);
         if (this.hasBloom && q > 0.3) this.bloom.update(mx, my, isClicking);
         if (this.hasAlchemy && q > 0.3) this.alchemy.update(mx, my, isClicking);
+        if (this.hasPhantom && q > 0.3) this.phantom.update(mx, my, isClicking);
+        if (this.hasHarmonics && q > 0.25) this.harmonics.update(mx, my, isClicking);
+        if (this.hasInk && q > 0.3) this.ink.update(mx, my, isClicking);
     }
 
     /**
@@ -366,12 +387,15 @@ class InteractiveBackgroundEffects {
 
         // Draw sub-systems (mood atmosphere first as it's usually a background-level effect)
         if (this.hasAtmosphere && q > 0.25) this.atmosphere.draw(ctx, system);
+        if (this.hasHarmonics && q > 0.25) this.harmonics.draw(ctx, system);
         if (this.hasAlchemy && q > 0.3) this.alchemy.draw(ctx, system);
+        if (this.hasInk && q > 0.3) this.ink.draw(ctx, system);
         if (this.hasGrid && q > 0.25) this.grid.draw(ctx, system);
         if (this.hasEchoes && q > 0.3) this.echoes.draw(ctx, system);
         if (this.hasLens && q > 0.25) this.lens.draw(ctx, system);
         if (this.hasSwarm && q > 0.3) this.swarm.draw(ctx, system);
         if (this.hasBloom && q > 0.3) this.bloom.draw(ctx, system);
+        if (this.hasPhantom && q > 0.3) this.phantom.draw(ctx, system);
 
         // --- Original effects below ---
 

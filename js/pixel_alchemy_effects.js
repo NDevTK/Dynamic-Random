@@ -445,10 +445,9 @@ export class PixelAlchemy {
             const growRatio = v.length / v.maxLength;
 
             // Draw vein segments up to current growth
-            ctx.strokeStyle = `hsla(45, 90%, 65%, ${alpha})`;
-            ctx.lineWidth = v.width;
-            ctx.shadowColor = `hsla(45, 100%, 70%, ${alpha * 0.5})`;
-            ctx.shadowBlur = 6;
+            // Glow pass (wider, dimmer) replaces expensive shadowBlur
+            ctx.strokeStyle = `hsla(45, 100%, 70%, ${alpha * 0.2})`;
+            ctx.lineWidth = v.width + 4;
 
             ctx.beginPath();
             ctx.moveTo(v.x, v.y);
@@ -469,6 +468,25 @@ export class PixelAlchemy {
             }
             ctx.stroke();
 
+            // Core pass (thinner, brighter)
+            ctx.strokeStyle = `hsla(45, 90%, 65%, ${alpha})`;
+            ctx.lineWidth = v.width;
+            ctx.beginPath();
+            ctx.moveTo(v.x, v.y);
+            for (let s = 0; s < segsToShow; s++) {
+                ctx.lineTo(v.segments[s].x, v.segments[s].y);
+            }
+            if (segsToShow < v.segments.length) {
+                const prev2 = segsToShow > 0 ? v.segments[segsToShow - 1] : { x: v.x, y: v.y };
+                const next2 = v.segments[segsToShow];
+                const segProgress2 = (growRatio * v.segments.length) - segsToShow;
+                ctx.lineTo(
+                    prev2.x + (next2.x - prev2.x) * segProgress2,
+                    prev2.y + (next2.y - prev2.y) * segProgress2
+                );
+            }
+            ctx.stroke();
+
             // Glowing nodes at segment joins
             for (let s = 0; s < segsToShow; s++) {
                 const nodeAlpha = alpha * 0.5;
@@ -479,7 +497,6 @@ export class PixelAlchemy {
             }
         }
 
-        ctx.shadowBlur = 0;
         ctx.restore();
     }
 

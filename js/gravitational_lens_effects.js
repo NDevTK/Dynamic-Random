@@ -143,8 +143,8 @@ export class GravitationalLens {
         if (this.mode === 4) {
             // Record smear history
             this.smearHistory.push({ x: mx, y: my });
-            while (this.smearHistory.length > this.smearHistoryMax) {
-                this.smearHistory.shift();
+            if (this.smearHistory.length > this.smearHistoryMax + 10) {
+                this.smearHistory = this.smearHistory.slice(-this.smearHistoryMax);
             }
         }
     }
@@ -325,21 +325,32 @@ export class GravitationalLens {
             const endX = f.x + Math.cos(f.angle) * f.length * f.life;
             const endY = f.y + Math.sin(f.angle) * f.length * f.life;
 
-            // Main fracture line with glow
-            ctx.shadowColor = `hsla(${this.hue}, ${this.saturation}%, 70%, ${alpha})`;
-            ctx.shadowBlur = 8 * f.life;
-            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 90%, ${alpha})`;
-            ctx.lineWidth = f.width * f.life;
+            // Main fracture line with manual glow (avoids expensive shadowBlur)
+            // Glow pass (wider, dimmer)
+            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 70%, ${alpha * 0.3})`;
+            ctx.lineWidth = f.width * f.life + 6 * f.life;
             ctx.beginPath();
             ctx.moveTo(f.x, f.y);
 
-            // Jagged line
+            // Jagged line - cache jag points for reuse in core pass
             const steps = 5;
+            const jagPts = [{ x: f.x, y: f.y }];
             for (let s = 1; s <= steps; s++) {
                 const t = s / steps;
                 const jx = f.x + (endX - f.x) * t + (Math.random() - 0.5) * 10 * f.life;
                 const jy = f.y + (endY - f.y) * t + (Math.random() - 0.5) * 10 * f.life;
                 ctx.lineTo(jx, jy);
+                jagPts.push({ x: jx, y: jy });
+            }
+            ctx.stroke();
+
+            // Core pass (thinner, brighter)
+            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 90%, ${alpha})`;
+            ctx.lineWidth = f.width * f.life;
+            ctx.beginPath();
+            ctx.moveTo(jagPts[0].x, jagPts[0].y);
+            for (let s = 1; s < jagPts.length; s++) {
+                ctx.lineTo(jagPts[s].x, jagPts[s].y);
             }
             ctx.stroke();
 
@@ -368,7 +379,6 @@ export class GravitationalLens {
             ctx.fill();
         }
 
-        ctx.shadowBlur = 0;
         ctx.restore();
     }
 

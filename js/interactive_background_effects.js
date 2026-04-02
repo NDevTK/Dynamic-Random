@@ -1,12 +1,13 @@
 /**
  * @file interactive_background_effects.js
  * @description Orchestrator for the interactive effects layer that runs on top of all
- * background architectures. Integrates four sub-systems (ReactiveGrid,
- * DimensionalEchoes, ParticleSwarm, MoodAtmosphere) plus the original
- * interactive effects (ripples, mouse trail, gravity field, heat map,
- * echo ghosts, constellation links).
+ * background architectures. Integrates 20 sub-systems including ReactiveGrid,
+ * DimensionalEchoes, ParticleSwarm, MoodAtmosphere, MagneticSand,
+ * DimensionalPortal, SoundWaveSculptor, EmotionWeather, GravitationalCalligraphy
+ * plus the original interactive effects (ripples, mouse trail, gravity field,
+ * heat map, echo ghosts, constellation links).
  *
- * Each universe seed selects a unique combination of sub-systems and their
+ * Each universe seed selects a unique combination of 6-10 sub-systems and their
  * internal modes, producing dramatically different interactive behaviors.
  * Performance is managed via quality scaling from the perf monitor.
  */
@@ -27,6 +28,11 @@ import { TimeCrystal } from './time_crystal_effects.js';
 import { BioluminescentTide } from './bioluminescent_tide_effects.js';
 import { FractalLightning } from './fractal_lightning_effects.js';
 import { GravityMarbles } from './gravity_marble_effects.js';
+import { MagneticSand } from './magnetic_sand_effects.js';
+import { DimensionalPortal } from './dimensional_portal_effects.js';
+import { SoundWaveSculptor } from './sound_wave_sculptor_effects.js';
+import { EmotionWeather } from './emotion_weather_effects.js';
+import { GravitationalCalligraphy } from './gravitational_calligraphy_effects.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
@@ -49,6 +55,11 @@ class InteractiveBackgroundEffects {
         this.biolume = new BioluminescentTide();
         this.lightning = new FractalLightning();
         this.marbles = new GravityMarbles();
+        this.magneticSand = new MagneticSand();
+        this.portals = new DimensionalPortal();
+        this.soundWaves = new SoundWaveSculptor();
+        this.weather = new EmotionWeather();
+        this.calligraphy = new GravitationalCalligraphy();
 
         // Sub-system enable flags (set by seed)
         this.hasGrid = false;
@@ -66,6 +77,11 @@ class InteractiveBackgroundEffects {
         this.hasBiolume = false;
         this.hasLightning = false;
         this.hasMarbles = false;
+        this.hasMagneticSand = false;
+        this.hasPortals = false;
+        this.hasSoundWaves = false;
+        this.hasWeather = false;
+        this.hasCalligraphy = false;
 
         // Original effect toggles
         this.hasRipples = false;
@@ -175,14 +191,14 @@ class InteractiveBackgroundEffects {
         const hues = this._extractHues(palette);
 
         // --- Enable sub-systems based on seed ---
-        // Pick 5-8 sub-systems from 15 available using a shuffle to guarantee diversity
-        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        // Pick 6-10 sub-systems from 20 available using a shuffle to guarantee diversity
+        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
         // Fisher-Yates shuffle with seeded rng
         for (let i = subsystems.length - 1; i > 0; i--) {
             const j = Math.floor(rng() * (i + 1));
             [subsystems[i], subsystems[j]] = [subsystems[j], subsystems[i]];
         }
-        const enableCount = 5 + Math.floor(rng() * 4); // 5, 6, 7, or 8
+        const enableCount = 6 + Math.floor(rng() * 5); // 6, 7, 8, 9, or 10
         const enabledSet = new Set(subsystems.slice(0, enableCount));
         this.hasGrid = enabledSet.has(0);
         this.hasEchoes = enabledSet.has(1);
@@ -199,6 +215,11 @@ class InteractiveBackgroundEffects {
         this.hasBiolume = enabledSet.has(12);
         this.hasLightning = enabledSet.has(13);
         this.hasMarbles = enabledSet.has(14);
+        this.hasMagneticSand = enabledSet.has(15);
+        this.hasPortals = enabledSet.has(16);
+        this.hasSoundWaves = enabledSet.has(17);
+        this.hasWeather = enabledSet.has(18);
+        this.hasCalligraphy = enabledSet.has(19);
 
         // Configure enabled sub-systems with normalized hue array
         if (this.hasGrid) this.grid.configure(rng, hues);
@@ -216,6 +237,11 @@ class InteractiveBackgroundEffects {
         if (this.hasBiolume) this.biolume.configure(rng, hues);
         if (this.hasLightning) this.lightning.configure(rng, hues);
         if (this.hasMarbles) this.marbles.configure(rng, hues);
+        if (this.hasMagneticSand) this.magneticSand.configure(rng, hues);
+        if (this.hasPortals) this.portals.configure(rng, hues);
+        if (this.hasSoundWaves) this.soundWaves.configure(rng, hues);
+        if (this.hasWeather) this.weather.configure(rng, hues);
+        if (this.hasCalligraphy) this.calligraphy.configure(rng, hues);
 
         // --- Original effects (1-3 active) ---
         this.hasRipples = rng() > 0.35;
@@ -427,6 +453,11 @@ class InteractiveBackgroundEffects {
         if (this.hasBiolume && q > 0.3) this.biolume.update(mx, my, isClicking);
         if (this.hasLightning && q > 0.3) this.lightning.update(mx, my, isClicking);
         if (this.hasMarbles && q > 0.25) this.marbles.update(mx, my, isClicking);
+        if (this.hasMagneticSand && q > 0.25) this.magneticSand.update(mx, my, isClicking);
+        if (this.hasPortals && q > 0.3) this.portals.update(mx, my, isClicking);
+        if (this.hasSoundWaves && q > 0.3) this.soundWaves.update(mx, my, isClicking);
+        if (this.hasWeather && q > 0.25) this.weather.update(mx, my, isClicking);
+        if (this.hasCalligraphy && q > 0.3) this.calligraphy.update(mx, my, isClicking);
     }
 
     /**
@@ -455,6 +486,11 @@ class InteractiveBackgroundEffects {
         if (this.hasLightning && q > 0.3) this.lightning.draw(ctx, system);
         if (this.hasMarbles && q > 0.25) this.marbles.draw(ctx, system);
         if (this.hasPhantom && q > 0.3) this.phantom.draw(ctx, system);
+        if (this.hasWeather && q > 0.25) this.weather.draw(ctx, system);
+        if (this.hasMagneticSand && q > 0.25) this.magneticSand.draw(ctx, system);
+        if (this.hasSoundWaves && q > 0.3) this.soundWaves.draw(ctx, system);
+        if (this.hasPortals && q > 0.3) this.portals.draw(ctx, system);
+        if (this.hasCalligraphy && q > 0.3) this.calligraphy.draw(ctx, system);
 
         // --- Original effects below ---
 

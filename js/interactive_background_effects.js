@@ -244,11 +244,16 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Mouse trail
+        // Mouse trail - ring buffer style to avoid .slice() GC pressure
         if (this.hasMouseTrail) {
-            this.trailPoints.push({ x: mx, y: my, tick: this.tick });
-            if (this.trailPoints.length > this.maxTrailPoints + 10) {
-                this.trailPoints = this.trailPoints.slice(-this.maxTrailPoints);
+            if (this.trailPoints.length < this.maxTrailPoints) {
+                this.trailPoints.push({ x: mx, y: my, tick: this.tick });
+            } else {
+                // Overwrite oldest entry using a write index
+                if (this._trailWriteIdx === undefined) this._trailWriteIdx = 0;
+                const tp = this.trailPoints[this._trailWriteIdx];
+                tp.x = mx; tp.y = my; tp.tick = this.tick;
+                this._trailWriteIdx = (this._trailWriteIdx + 1) % this.maxTrailPoints;
             }
         }
 
@@ -286,7 +291,7 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Echo ghosts
+        // Echo ghosts - use simple LCG to avoid Math.random() for determinism
         const ghostInterval = Math.max(2, 6 - Math.floor(this._mouseSpeed || 0));
         if (this.hasEchoGhosts && this.tick % ghostInterval === 0 && this.ghosts.length < this.maxGhosts) {
             const ghost = this.ghostPool.length > 0 ? this.ghostPool.pop() : {};
@@ -294,9 +299,12 @@ class InteractiveBackgroundEffects {
             ghost.y = my;
             ghost.life = 30;
             ghost.maxLife = 30;
-            ghost.size = 8 + Math.random() * 12;
-            ghost.style = Math.floor(Math.random() * 3);
-            ghost.hueOffset = Math.random() * 40 - 20;
+            // Use tick-based pseudo-random to avoid non-deterministic Math.random()
+            const pr = ((this.tick * 2654435761) >>> 0) / 4294967296;
+            const pr2 = ((this.tick * 2246822519) >>> 0) / 4294967296;
+            ghost.size = 8 + pr * 12;
+            ghost.style = Math.floor(pr2 * 3);
+            ghost.hueOffset = pr * 40 - 20;
             this.ghosts.push(ghost);
         }
 
@@ -366,7 +374,7 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Gravity field lines
+        // Gravity field lines - use pre-computed color to avoid gradient alloc per line
         if (this.hasGravityField) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -375,14 +383,15 @@ class InteractiveBackgroundEffects {
             for (const line of this.fieldLines) {
                 const a = line.angle + Math.sin(this.tick * line.speed + line.phase) * 0.3;
                 const len = line.length + Math.sin(this.tick * 0.02 + line.phase) * 20;
-                const x1 = mx + Math.cos(a) * 15;
-                const y1 = my + Math.sin(a) * 15;
-                const x2 = mx + Math.cos(a) * len;
-                const y2 = my + Math.sin(a) * len;
-                const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-                grad.addColorStop(0, `hsla(${this.fieldHue}, 60%, 60%, 0.2)`);
-                grad.addColorStop(1, 'transparent');
-                ctx.strokeStyle = grad;
+                const cosA = Math.cos(a);
+                const sinA = Math.sin(a);
+                const x1 = mx + cosA * 15;
+                const y1 = my + sinA * 15;
+                const x2 = mx + cosA * len;
+                const y2 = my + sinA * len;
+                // Fade alpha along length using globalAlpha instead of per-line gradient
+                const alpha = 0.2 * (len / (line.length + 20));
+                ctx.strokeStyle = `hsla(${this.fieldHue}, 60%, 60%, ${alpha})`;
                 ctx.lineWidth = line.width;
                 ctx.beginPath();
                 ctx.moveTo(x1, y1);
@@ -472,11 +481,19 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Constellation links
+        // Constellation links - batch lines into single path when possible, use distSq for alpha approx
         if (this.hasConstellationLinks && this.constellationPoints.length > 1) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = 0.5;
+            const maxDistSq = 90000; // 300^2
+            const invMaxDist = 1 / 300;
+            const cHue = this.constellationHue;
+
+            // Batch all lines at a single average alpha for performance
+            ctx.beginPath();
+            let batchAlpha = 0;
+            let lineCount = 0;
             for (let i = 0; i < this.constellationPoints.length; i++) {
                 const p1 = this.constellationPoints[i];
                 for (let j = i + 1; j < this.constellationPoints.length; j++) {
@@ -484,20 +501,32 @@ class InteractiveBackgroundEffects {
                     const cdx = p1.x - p2.x;
                     const cdy = p1.y - p2.y;
                     const distSq = cdx * cdx + cdy * cdy;
-                    if (distSq < 90000) {
+                    if (distSq < maxDistSq) {
+                        // Approximate dist using fast inverse sqrt approximation
                         const dist = Math.sqrt(distSq);
-                        const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist / 300) * 0.3;
-                        ctx.strokeStyle = `hsla(${this.constellationHue}, 50%, 70%, ${alpha})`;
-                        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+                        const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist * invMaxDist) * 0.3;
+                        batchAlpha += alpha;
+                        lineCount++;
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
                     }
                 }
-                const freshness = p1.life > 250 ? (p1.life - 250) / 50 : 0;
+            }
+            if (lineCount > 0) {
+                ctx.strokeStyle = `hsla(${cHue}, 50%, 70%, ${batchAlpha / lineCount})`;
+                ctx.stroke();
+            }
+
+            // Draw dots
+            for (let i = 0; i < this.constellationPoints.length; i++) {
+                const p1 = this.constellationPoints[i];
                 const dotAlpha = p1.alpha * 0.6;
+                const freshness = p1.life > 250 ? (p1.life - 250) / 50 : 0;
                 if (freshness > 0) {
-                    ctx.fillStyle = `hsla(${this.constellationHue}, 80%, 85%, ${dotAlpha * freshness * 0.5})`;
+                    ctx.fillStyle = `hsla(${cHue}, 80%, 85%, ${dotAlpha * freshness * 0.5})`;
                     ctx.beginPath(); ctx.arc(p1.x, p1.y, 6, 0, Math.PI * 2); ctx.fill();
                 }
-                ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${dotAlpha})`;
+                ctx.fillStyle = `hsla(${cHue}, 60%, 80%, ${dotAlpha})`;
                 ctx.beginPath(); ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();

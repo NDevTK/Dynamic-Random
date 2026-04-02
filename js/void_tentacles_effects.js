@@ -15,6 +15,7 @@
  */
 
 const TAU = Math.PI * 2;
+const EPSILON = 0.001;
 
 class TentacleSegment {
     constructor(x, y, len, angle) {
@@ -30,8 +31,6 @@ class Tentacle {
         this.segments = [];
         this.rootX = 0;
         this.rootY = 0;
-        this.targetX = 0;
-        this.targetY = 0;
         this.hue = 0;
         this.thickness = 3;
         this.length = 100;
@@ -48,7 +47,7 @@ class Tentacle {
         this.alive = true;
         this.life = 600;
         this.maxLife = 600;
-        this.branches = [];
+        this.recoil = 0; // Click-induced recoil
     }
 
     reset(rootX, rootY, hue, thickness, segCount, length) {
@@ -62,7 +61,7 @@ class Tentacle {
         this.alive = true;
         this.life = 400 + Math.floor(Math.random() * 400);
         this.maxLife = this.life;
-        this.branches = [];
+        this.recoil = 0;
 
         const segLen = length / segCount;
         this.segments = [];
@@ -78,12 +77,16 @@ export class VoidTentacles {
         this.tick = 0;
         this.hue = 270;
         this.saturation = 70;
+        this.intensity = 1;
         this.tentacles = [];
         this.tentaclePool = [];
         this.maxTentacles = 12;
         this.tears = [];
         this._mouseX = 0;
         this._mouseY = 0;
+        this._prevMX = 0;
+        this._prevMY = 0;
+        this._mouseSpeed = 0;
         this._isClicking = false;
         this._wasClicking = false;
         this._rng = Math.random;
@@ -94,6 +97,7 @@ export class VoidTentacles {
         this.mode = Math.floor(rng() * 6);
         this.hue = palette.length > 0 ? palette[0].h : 270;
         this.saturation = 50 + rng() * 40;
+        this.intensity = 0.7 + rng() * 0.6;
         this.tick = 0;
         this._rng = rng;
 
@@ -102,7 +106,6 @@ export class VoidTentacles {
         this.tears = [];
         this._trailPoints = [];
 
-        // Pre-spawn for edge modes
         if (this.mode === 0) {
             const count = 4 + Math.floor(rng() * 6);
             const W = window.innerWidth, H = window.innerHeight;
@@ -116,7 +119,6 @@ export class VoidTentacles {
                 this._spawnTentacle(rx, ry, rng);
             }
         } else if (this.mode === 3) {
-            // Kraken cluster at center
             const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
             const count = 6 + Math.floor(rng() * 4);
             for (let i = 0; i < count; i++) {
@@ -125,7 +127,6 @@ export class VoidTentacles {
                 this._spawnTentacle(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, rng);
             }
         } else if (this.mode === 5) {
-            // Puppet strings from top
             const count = 8 + Math.floor(rng() * 8);
             for (let i = 0; i < count; i++) {
                 const x = (i / count) * window.innerWidth + rng() * 50;
@@ -152,7 +153,6 @@ export class VoidTentacles {
         return t;
     }
 
-    // FABRIK inverse kinematics - reach toward target
     _solveIK(tentacle, targetX, targetY) {
         const segs = tentacle.segments;
         if (segs.length === 0) return;
@@ -160,28 +160,38 @@ export class VoidTentacles {
         const visibleCount = Math.ceil(segs.length * tentacle.growthProgress);
         if (visibleCount < 2) return;
 
-        // Forward pass: start from tip, reach toward target
+        // Forward pass
         segs[visibleCount - 1].x = targetX;
         segs[visibleCount - 1].y = targetY;
 
         for (let i = visibleCount - 2; i >= 0; i--) {
             const dx = segs[i].x - segs[i + 1].x;
             const dy = segs[i].y - segs[i + 1].y;
-            const d = Math.sqrt(dx * dx + dy * dy) || 1;
-            segs[i].x = segs[i + 1].x + (dx / d) * segs[i].len;
-            segs[i].y = segs[i + 1].y + (dy / d) * segs[i].len;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < EPSILON) {
+                segs[i].x = segs[i + 1].x + segs[i].len;
+                segs[i].y = segs[i + 1].y;
+            } else {
+                segs[i].x = segs[i + 1].x + (dx / d) * segs[i].len;
+                segs[i].y = segs[i + 1].y + (dy / d) * segs[i].len;
+            }
         }
 
-        // Backward pass: pin to root
+        // Backward pass
         segs[0].x = tentacle.rootX;
         segs[0].y = tentacle.rootY;
 
         for (let i = 1; i < visibleCount; i++) {
             const dx = segs[i].x - segs[i - 1].x;
             const dy = segs[i].y - segs[i - 1].y;
-            const d = Math.sqrt(dx * dx + dy * dy) || 1;
-            segs[i].x = segs[i - 1].x + (dx / d) * segs[i - 1].len;
-            segs[i].y = segs[i - 1].y + (dy / d) * segs[i - 1].len;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < EPSILON) {
+                segs[i].x = segs[i - 1].x + segs[i - 1].len;
+                segs[i].y = segs[i - 1].y;
+            } else {
+                segs[i].x = segs[i - 1].x + (dx / d) * segs[i - 1].len;
+                segs[i].y = segs[i - 1].y + (dy / d) * segs[i - 1].len;
+            }
         }
     }
 
@@ -190,28 +200,62 @@ export class VoidTentacles {
         this._mouseX = mx;
         this._mouseY = my;
 
-        // Click detection
+        // Track speed
+        const mdx = mx - this._prevMX;
+        const mdy = my - this._prevMY;
+        this._mouseSpeed = Math.sqrt(mdx * mdx + mdy * mdy);
+        this._prevMX = mx;
+        this._prevMY = my;
+
+        // Click - mode-specific
         if (isClicking && !this._wasClicking) {
-            if (this.mode === 1 || this.mode === 4) {
-                this._spawnTentacle(mx, my, this._rng);
-                this.tears.push({ x: mx, y: my, life: 120, maxLife: 120 });
+            switch (this.mode) {
+                case 0: // Abyss: click causes all tentacles to recoil then lunge
+                    for (const t of this.tentacles) {
+                        const dx = t.rootX - mx, dy = t.rootY - my;
+                        const d = Math.sqrt(dx * dx + dy * dy);
+                        if (d < 400) t.recoil = 1;
+                    }
+                    break;
+                case 1: case 4: // Tear/Mycelial: spawn at click
+                    this._spawnTentacle(mx, my, this._rng);
+                    this.tears.push({ x: mx, y: my, life: 120, maxLife: 120, scale: 0 });
+                    break;
+                case 2: // Parasitic: force-spawn at click
+                    this._spawnTentacle(mx, my, this._rng);
+                    break;
+                case 3: // Kraken: all tentacles lunge toward click
+                    for (const t of this.tentacles) t.recoil = -1; // negative = lunge
+                    break;
+                case 5: // Puppet: snap nearest strings toward click
+                    for (const t of this.tentacles) {
+                        const d = Math.abs(t.rootX - mx);
+                        if (d < 100) t.recoil = 0.8;
+                    }
+                    break;
             }
         }
         this._wasClicking = isClicking;
 
-        // Parasitic trail
-        if (this.mode === 2 && this.tick % 20 === 0) {
-            this._trailPoints.push({ x: mx, y: my });
-            if (this._trailPoints.length > 30) this._trailPoints.shift();
-            if (this.tick % 60 === 0 && this.tentacles.length < this.maxTentacles) {
+        // Speed-responsive parasitic spawning
+        if (this.mode === 2) {
+            const spawnRate = Math.max(8, 30 - Math.floor(this._mouseSpeed * 0.5));
+            if (this.tick % spawnRate === 0 && this._mouseSpeed > 2) {
+                this._trailPoints.push({ x: mx, y: my });
+                if (this._trailPoints.length > 30) this._trailPoints.shift();
+            }
+            if (this.tick % 40 === 0 && this._mouseSpeed > 3 && this.tentacles.length < this.maxTentacles) {
                 this._spawnTentacle(mx, my, this._rng);
             }
         }
 
-        // Update tears
+        // Update tears with scale animation
         for (let i = this.tears.length - 1; i >= 0; i--) {
-            this.tears[i].life--;
-            if (this.tears[i].life <= 0) {
+            const tear = this.tears[i];
+            tear.life--;
+            tear.scale = Math.min(1, tear.scale + 0.08); // Grow in
+            if (tear.life < 20) tear.scale *= 0.9; // Shrink out
+            if (tear.life <= 0) {
                 this.tears[i] = this.tears[this.tears.length - 1];
                 this.tears.pop();
             }
@@ -221,12 +265,14 @@ export class VoidTentacles {
         for (let i = this.tentacles.length - 1; i >= 0; i--) {
             const t = this.tentacles[i];
 
-            // Grow
             if (t.growthProgress < t.maxGrowth) {
                 t.growthProgress = Math.min(t.maxGrowth, t.growthProgress + t.growSpeed);
             }
 
-            // Age and die (except persistent modes)
+            // Decay recoil
+            if (t.recoil > 0) t.recoil *= 0.92;
+            else if (t.recoil < 0) t.recoil *= 0.92;
+
             if (this.mode === 1 || this.mode === 2 || this.mode === 4) {
                 t.life--;
                 if (t.life <= 0) {
@@ -237,21 +283,24 @@ export class VoidTentacles {
                 }
             }
 
-            // Tip glow pulse
-            t.tipGlow = (Math.sin(this.tick * t.tipGlowSpeed + t.idlePhase) + 1) * 0.5;
+            // Speed-responsive tip glow: faster cursor = brighter tips
+            const speedPulse = Math.min(1, this._mouseSpeed * 0.05);
+            t.tipGlow = (Math.sin(this.tick * t.tipGlowSpeed + t.idlePhase) + 1) * 0.5 + speedPulse * 0.3;
 
-            // Calculate target with idle motion
             const idleOffsetX = Math.sin(this.tick * t.idleSpeed + t.idlePhase) * t.idleAmplitude * 50;
             const idleOffsetY = Math.cos(this.tick * t.idleSpeed * 0.7 + t.idlePhase) * t.idleAmplitude * 40;
 
-            // Distance to cursor
             const dx = mx - t.rootX;
             const dy = my - t.rootY;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
             let tx, ty;
+
+            // Recoil modifies target
+            const recoilMag = Math.abs(t.recoil) * 80;
+            const recoilSign = t.recoil > 0 ? -1 : t.recoil < 0 ? 1 : 0;
+
             if (this.mode === 5) {
-                // Puppet strings: hang down, cursor pushes them aside
                 const hangY = t.rootY + t.length * t.growthProgress;
                 tx = t.rootX + idleOffsetX;
                 ty = hangY + idleOffsetY * 0.3;
@@ -261,13 +310,16 @@ export class VoidTentacles {
                     tx += Math.cos(angle + Math.PI) * push * 0.3;
                     ty = Math.min(ty, my - 30);
                 }
+                // Recoil yanks strings up
+                ty -= recoilMag * Math.abs(recoilSign);
             } else if (dist < t.length * 1.5) {
-                // Reach toward cursor
                 const reach = Math.min(1, t.length * t.growthProgress / dist);
                 tx = t.rootX + dx * reach + idleOffsetX * (1 - reach * 0.5);
                 ty = t.rootY + dy * reach + idleOffsetY * (1 - reach * 0.5);
+                // Recoil: pull back or lunge forward
+                tx += (dx / dist) * recoilMag * recoilSign;
+                ty += (dy / dist) * recoilMag * recoilSign;
             } else {
-                // Idle waving
                 const baseAngle = Math.atan2(dy, dx);
                 tx = t.rootX + Math.cos(baseAngle) * t.length * 0.6 * t.growthProgress + idleOffsetX;
                 ty = t.rootY + Math.sin(baseAngle) * t.length * 0.6 * t.growthProgress + idleOffsetY;
@@ -281,31 +333,45 @@ export class VoidTentacles {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        // Draw dimensional tears
+        // Dimensional tears with scale animation
         for (const tear of this.tears) {
             const alpha = (tear.life / tear.maxLife) * 0.6;
-            const size = (1 - tear.life / tear.maxLife) * 30 + 5;
+            const baseSize = (1 - tear.life / tear.maxLife) * 30 + 5;
+            const size = baseSize * tear.scale;
+            if (size < 1) continue;
+
             ctx.save();
             ctx.translate(tear.x, tear.y);
-            ctx.rotate(Math.PI / 4);
-            // Tear shape: elongated diamond
+            ctx.rotate(Math.PI / 4 + Math.sin(this.tick * 0.05) * 0.1);
+
+            // Outer glow
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2);
+            grad.addColorStop(0, `hsla(${this.hue + 180}, 90%, 70%, ${alpha * 0.2})`);
+            grad.addColorStop(1, `hsla(${this.hue + 180}, 90%, 70%, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 2, 0, TAU);
+            ctx.fill();
+
+            // Tear shape
             ctx.fillStyle = `hsla(${this.hue + 180}, 90%, 80%, ${alpha})`;
             ctx.beginPath();
             ctx.moveTo(0, -size);
             ctx.quadraticCurveTo(size * 0.3, 0, 0, size);
             ctx.quadraticCurveTo(-size * 0.3, 0, 0, -size);
             ctx.fill();
-            // Inner glow
-            ctx.fillStyle = `hsla(${this.hue + 180}, 100%, 95%, ${alpha * 0.5})`;
+
+            // Inner core
+            ctx.fillStyle = `hsla(${this.hue + 180}, 100%, 95%, ${alpha * 0.6})`;
             ctx.beginPath();
-            ctx.moveTo(0, -size * 0.5);
-            ctx.quadraticCurveTo(size * 0.15, 0, 0, size * 0.5);
-            ctx.quadraticCurveTo(-size * 0.15, 0, 0, -size * 0.5);
+            ctx.moveTo(0, -size * 0.4);
+            ctx.quadraticCurveTo(size * 0.12, 0, 0, size * 0.4);
+            ctx.quadraticCurveTo(-size * 0.12, 0, 0, -size * 0.4);
             ctx.fill();
             ctx.restore();
         }
 
-        // Draw tentacles
+        // Tentacles
         for (const t of this.tentacles) {
             const visibleCount = Math.ceil(t.segments.length * t.growthProgress);
             if (visibleCount < 2) continue;
@@ -313,7 +379,7 @@ export class VoidTentacles {
             const lifeAlpha = t.life !== undefined && t.maxLife ?
                 Math.min(1, t.life / (t.maxLife * 0.2)) : 1;
 
-            // Main tentacle body
+            // Pass 1: Outer bloom (wide, faint)
             ctx.beginPath();
             ctx.moveTo(t.segments[0].x, t.segments[0].y);
             for (let i = 1; i < visibleCount; i++) {
@@ -321,40 +387,53 @@ export class VoidTentacles {
                 const prev = t.segments[i - 1];
                 ctx.quadraticCurveTo(prev.x, prev.y, (prev.x + seg.x) / 2, (prev.y + seg.y) / 2);
             }
-
-            // Taper thickness
-            ctx.lineWidth = t.thickness;
+            ctx.lineWidth = t.thickness * 4;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            const alpha = 0.3 * lifeAlpha;
-            ctx.strokeStyle = `hsla(${t.hue}, ${this.saturation}%, 50%, ${alpha})`;
+            ctx.strokeStyle = `hsla(${t.hue}, ${this.saturation}%, 40%, ${0.06 * lifeAlpha * this.intensity})`;
             ctx.stroke();
 
-            // Inner glow line (thinner, brighter)
+            // Pass 2: Main body
+            ctx.lineWidth = t.thickness;
+            ctx.strokeStyle = `hsla(${t.hue}, ${this.saturation}%, 50%, ${0.35 * lifeAlpha * this.intensity})`;
+            ctx.stroke();
+
+            // Pass 3: Inner core
             ctx.lineWidth = t.thickness * 0.4;
-            ctx.strokeStyle = `hsla(${t.hue}, ${this.saturation}%, 75%, ${alpha * 0.8})`;
+            ctx.strokeStyle = `hsla(${t.hue}, ${this.saturation}%, 78%, ${0.25 * lifeAlpha * this.intensity})`;
             ctx.stroke();
 
-            // Suckers along the tentacle
+            // Suckers with glow
             for (let i = 1; i < visibleCount; i += t.suckerSpacing) {
                 const seg = t.segments[i];
                 const progress = i / t.segments.length;
-                const suckerSize = t.thickness * (1 - progress * 0.6) * 0.6;
-                const suckerAlpha = alpha * (1 - progress * 0.5) * 0.5;
+                const suckerSize = t.thickness * (1 - progress * 0.6) * 0.7;
+                const suckerAlpha = 0.15 * lifeAlpha * (1 - progress * 0.5) * this.intensity;
+
+                // Sucker glow
+                const sGrad = ctx.createRadialGradient(seg.x, seg.y, 0, seg.x, seg.y, suckerSize * 2.5);
+                sGrad.addColorStop(0, `hsla(${t.hue + 20}, ${this.saturation}%, 70%, ${suckerAlpha * 0.4})`);
+                sGrad.addColorStop(1, `hsla(${t.hue + 20}, ${this.saturation}%, 70%, 0)`);
+                ctx.fillStyle = sGrad;
+                ctx.beginPath();
+                ctx.arc(seg.x, seg.y, suckerSize * 2.5, 0, TAU);
+                ctx.fill();
+
+                // Sucker body
                 ctx.fillStyle = `hsla(${t.hue + 20}, ${this.saturation}%, 65%, ${suckerAlpha})`;
                 ctx.beginPath();
                 ctx.arc(seg.x, seg.y, suckerSize, 0, TAU);
                 ctx.fill();
             }
 
-            // Bioluminescent tip glow
+            // Bioluminescent tip glow (3-stop gradient)
             if (visibleCount > 1) {
                 const tip = t.segments[visibleCount - 1];
-                const glowSize = 8 + t.tipGlow * 12;
-                const glowAlpha = (0.15 + t.tipGlow * 0.2) * lifeAlpha;
+                const glowSize = 10 + t.tipGlow * 15;
+                const glowAlpha = (0.2 + t.tipGlow * 0.25) * lifeAlpha * this.intensity;
                 const grad = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, glowSize);
-                grad.addColorStop(0, `hsla(${(t.hue + 60) % 360}, 100%, 85%, ${glowAlpha})`);
-                grad.addColorStop(0.5, `hsla(${(t.hue + 30) % 360}, 90%, 65%, ${glowAlpha * 0.4})`);
+                grad.addColorStop(0, `hsla(${(t.hue + 60) % 360}, 100%, 90%, ${glowAlpha})`);
+                grad.addColorStop(0.4, `hsla(${(t.hue + 30) % 360}, 90%, 65%, ${glowAlpha * 0.5})`);
                 grad.addColorStop(1, `hsla(${t.hue}, 80%, 50%, 0)`);
                 ctx.fillStyle = grad;
                 ctx.beginPath();
@@ -363,28 +442,32 @@ export class VoidTentacles {
             }
         }
 
-        // Mycelial mode: draw branching connections
+        // Mycelial connections
         if (this.mode === 4) {
             ctx.lineWidth = 0.5;
             for (let i = 0; i < this.tentacles.length; i++) {
+                const a = this.tentacles[i];
+                const tipIdxA = Math.ceil(a.segments.length * a.growthProgress) - 1;
+                if (tipIdxA < 0) continue;
+                const tipA = a.segments[tipIdxA];
                 for (let j = i + 1; j < this.tentacles.length; j++) {
-                    const a = this.tentacles[i], b = this.tentacles[j];
-                    const tipA = a.segments[Math.ceil(a.segments.length * a.growthProgress) - 1];
-                    const tipB = b.segments[Math.ceil(b.segments.length * b.growthProgress) - 1];
-                    if (!tipA || !tipB) continue;
+                    const b = this.tentacles[j];
+                    const tipIdxB = Math.ceil(b.segments.length * b.growthProgress) - 1;
+                    if (tipIdxB < 0) continue;
+                    const tipB = b.segments[tipIdxB];
                     const dx = tipA.x - tipB.x, dy = tipA.y - tipB.y;
-                    const d = Math.sqrt(dx * dx + dy * dy);
-                    if (d < 150) {
-                        const alpha = (1 - d / 150) * 0.15;
-                        ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 60%, ${alpha})`;
-                        ctx.beginPath();
-                        ctx.moveTo(tipA.x, tipA.y);
-                        // Organic curve
-                        const midX = (tipA.x + tipB.x) / 2 + Math.sin(this.tick * 0.02) * 20;
-                        const midY = (tipA.y + tipB.y) / 2 + Math.cos(this.tick * 0.02) * 20;
-                        ctx.quadraticCurveTo(midX, midY, tipB.x, tipB.y);
-                        ctx.stroke();
-                    }
+                    if (Math.abs(dx) > 150 || Math.abs(dy) > 150) continue;
+                    const dSq = dx * dx + dy * dy;
+                    if (dSq >= 22500) continue; // 150^2
+                    const d = Math.sqrt(dSq);
+                    const alpha = (1 - d / 150) * 0.18 * this.intensity;
+                    ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 60%, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.moveTo(tipA.x, tipA.y);
+                    const midX = (tipA.x + tipB.x) / 2 + Math.sin(this.tick * 0.02) * 20;
+                    const midY = (tipA.y + tipB.y) / 2 + Math.cos(this.tick * 0.02) * 20;
+                    ctx.quadraticCurveTo(midX, midY, tipB.x, tipB.y);
+                    ctx.stroke();
                 }
             }
         }

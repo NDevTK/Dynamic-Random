@@ -19,7 +19,6 @@ const TAU = Math.PI * 2;
 class MemoryPath {
     constructor() {
         this.points = [];
-        this.maxPoints = 100;
         this.playhead = 0;
         this.playSpeed = 1;
         this.playDirection = 1;
@@ -33,6 +32,7 @@ class MemoryPath {
         this.life = 0;
         this.maxLife = 300;
         this.solidified = false;
+        this.width = 2; // Trail width varies by speed
     }
 
     reset() {
@@ -45,6 +45,7 @@ class MemoryPath {
         this.active = false;
         this.life = 0;
         this.solidified = false;
+        this.width = 2;
     }
 }
 
@@ -54,24 +55,23 @@ export class GlitchMemory {
         this.tick = 0;
         this.hue = 180;
         this.saturation = 70;
+        this.intensity = 1;
         this._rng = Math.random;
 
         // Recording
-        this._recording = true;
         this._currentPath = [];
-        this._recordInterval = 3; // Record every N frames
+        this._recordInterval = 3;
         this._maxPathLength = 120;
 
-        // Stored memories
+        // Stored memories with proper pooling
         this.memories = [];
         this.memoryPool = [];
         this.maxMemories = 8;
         this._recordTimer = 0;
         this._replayTimer = 0;
-        this._replayInterval = 90; // Frames between spawning replays
+        this._replayInterval = 90;
 
         // Glitch artifacts
-        this._scanlineOffset = 0;
         this._trackingError = 0;
         this._colorBleed = 0;
 
@@ -89,6 +89,7 @@ export class GlitchMemory {
         this.mode = Math.floor(rng() * 6);
         this.hue = palette.length > 0 ? palette[0].h : Math.floor(rng() * 360);
         this.saturation = 50 + rng() * 40;
+        this.intensity = 0.7 + rng() * 0.6;
         this.tick = 0;
         this._rng = rng;
 
@@ -100,23 +101,22 @@ export class GlitchMemory {
         this._recordInterval = 2 + Math.floor(rng() * 3);
         this._maxPathLength = 80 + Math.floor(rng() * 80);
 
-        // Mode-specific config
         switch (this.mode) {
-            case 0: // VHS
+            case 0:
                 this._trackingError = 0.3 + rng() * 0.7;
                 this._colorBleed = 2 + rng() * 6;
                 break;
-            case 1: // Buffer overflow
+            case 1:
                 this._replayInterval = 30 + Math.floor(rng() * 40);
                 this.maxMemories = 12;
                 break;
-            case 2: // Quantum echo
+            case 2:
                 this._replayInterval = 50 + Math.floor(rng() * 60);
                 break;
-            case 4: // Corruption cascade
+            case 4:
                 this._replayInterval = 80 + Math.floor(rng() * 80);
                 break;
-            case 5: // Ghost protocol
+            case 5:
                 this._replayInterval = 40 + Math.floor(rng() * 60);
                 break;
         }
@@ -150,6 +150,29 @@ export class GlitchMemory {
                         }
                     }
                 }
+            } else if (this.mode === 3) {
+                // Time splice: click jumps all memories to random positions
+                for (const m of this.memories) {
+                    if (m.active && m.points.length > 0) {
+                        m.playhead = Math.floor(Math.random() * m.points.length);
+                    }
+                }
+            } else if (this.mode === 4) {
+                // Corruption cascade: click accelerates corruption
+                for (const m of this.memories) {
+                    m.corruption = Math.min(1, m.corruption + 0.15);
+                }
+            } else if (this.mode === 0) {
+                // VHS: click causes tracking glitch burst
+                for (const m of this.memories) {
+                    m.offsetX += (Math.random() - 0.5) * 40;
+                    m.glitchPhase += Math.random() * 5;
+                }
+            } else {
+                // Default: force spawn a memory replay on click
+                if (this._currentPath.length > 5) {
+                    this._spawnMemory();
+                }
             }
         }
         this._wasClicking = isClicking;
@@ -180,7 +203,6 @@ export class GlitchMemory {
             m.life--;
             m.playhead += m.playSpeed * m.playDirection;
 
-            // Mode-specific updates
             switch (this.mode) {
                 case 0: // VHS - tracking errors
                     m.glitchPhase += 0.1;
@@ -193,7 +215,7 @@ export class GlitchMemory {
                     m.offsetY += (this._rng() - 0.5) * 2;
                     break;
                 case 3: // Time splice - jump to random positions
-                    if (this.tick % 15 === 0 && this._rng() > 0.7) {
+                    if (this.tick % 15 === 0 && this._rng() > 0.7 && m.points.length > 0) {
                         m.playhead = Math.floor(this._rng() * m.points.length);
                     }
                     break;
@@ -202,13 +224,14 @@ export class GlitchMemory {
                     break;
             }
 
-            // Loop or die
+            // Loop or rewind
             if (m.playhead >= m.points.length || m.playhead < 0) {
                 if (this.mode === 0) {
                     m.playDirection *= -1;
                     m.playhead = Math.max(0, Math.min(m.points.length - 1, m.playhead));
-                } else {
-                    m.playhead = 0;
+                } else if (m.points.length > 0) {
+                    m.playhead = m.playhead % m.points.length;
+                    if (m.playhead < 0) m.playhead += m.points.length;
                 }
             }
 
@@ -231,7 +254,11 @@ export class GlitchMemory {
 
         const m = this.memoryPool.length > 0 ? this.memoryPool.pop() : new MemoryPath();
         m.reset();
-        m.points = this._currentPath.slice(); // Clone current path
+        // Clone path data into the memory
+        m.points = [];
+        for (const p of this._currentPath) {
+            m.points.push({ x: p.x, y: p.y, speed: p.speed });
+        }
         m.active = true;
         m.life = 200 + Math.floor(this._rng() * 200);
         m.maxLife = m.life;
@@ -239,30 +266,34 @@ export class GlitchMemory {
         m.playSpeed = 0.5 + this._rng() * 1.5;
         m.glitchPhase = this._rng() * TAU;
 
+        // Speed-based trail width: fast recordings = wider trails
+        const avgSpeed = this._currentPath.reduce((s, p) => s + p.speed, 0) / (this._currentPath.length || 1);
+        m.width = Math.min(5, 1.5 + avgSpeed * 0.15);
+
         switch (this.mode) {
-            case 0: // VHS
+            case 0:
                 m.playDirection = -1;
                 m.playhead = m.points.length - 1;
-                m.alpha = 0.25;
+                m.alpha = 0.3;
                 break;
-            case 1: // Buffer overflow
+            case 1:
                 m.offsetX = (this._rng() - 0.5) * 30;
                 m.offsetY = (this._rng() - 0.5) * 30;
-                m.alpha = 0.15;
+                m.alpha = 0.18;
                 break;
-            case 2: // Quantum echo
-                m.alpha = 0.2;
-                break;
-            case 3: // Time splice
-                m.playSpeed = 1 + this._rng() * 2;
+            case 2:
                 m.alpha = 0.25;
                 break;
-            case 4: // Corruption
-                m.alpha = 0.3;
+            case 3:
+                m.playSpeed = 1 + this._rng() * 2;
+                m.alpha = 0.28;
+                break;
+            case 4:
+                m.alpha = 0.35;
                 m.corruption = this._rng() * 0.3;
                 break;
-            case 5: // Ghost protocol
-                m.alpha = 0.05 + this._rng() * 0.08;
+            case 5:
+                m.alpha = 0.06 + this._rng() * 0.08;
                 break;
         }
 
@@ -287,77 +318,76 @@ export class GlitchMemory {
                 ctx.fillRect(ox, scanY, system.width, 2);
             }
 
-            // Draw the replayed path
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            // Determine visible range
+            // Visible trail range
             const trailLen = Math.min(30, m.points.length);
             const start = Math.max(0, pi - trailLen);
             const end = Math.min(m.points.length - 1, pi);
 
             if (start >= end) continue;
 
-            // Corruption: skip/repeat segments
+            // Corruption: glitch scanline blocks (horizontal, not squares)
             if (this.mode === 4 && m.corruption > 0.3) {
-                // Draw corrupted blocks
                 for (let i = start; i < end; i += 2) {
+                    if (i >= m.points.length) break;
                     const p = m.points[i];
-                    if (!p) continue;
                     const corrupt = m.corruption * 20;
-                    const bx = p.x + ox + (this._rng() > 0.8 ? (this._rng() - 0.5) * corrupt * 3 : 0);
+                    const glitchX = (this._rng() > 0.8) ? (this._rng() - 0.5) * corrupt * 3 : 0;
+                    const bx = p.x + ox + glitchX;
                     const by = p.y + oy;
-                    const bw = 5 + this._rng() * corrupt;
-                    const bh = 2 + this._rng() * 4;
-                    ctx.fillStyle = `hsla(${m.hue + this._rng() * 60}, ${this.saturation}%, 60%, ${m.alpha * 0.5})`;
-                    ctx.fillRect(bx, by, bw, bh);
+                    // Horizontal scanline blocks (more glitch-like)
+                    const bw = 10 + this._rng() * corrupt * 2;
+                    const bh = 1 + Math.floor(this._rng() * 3);
+                    const blockHue = (m.hue + this._rng() * 80 - 40 + 360) % 360;
+                    ctx.fillStyle = `hsla(${blockHue}, ${this.saturation}%, 60%, ${m.alpha * 0.4 * this.intensity})`;
+                    ctx.fillRect(bx - bw / 2, by, bw, bh);
                 }
             }
 
-            // Main trail rendering
-            ctx.beginPath();
-            let px = m.points[start].x + ox;
-            let py = m.points[start].y + oy;
-            ctx.moveTo(px, py);
+            // Main trail rendering - speed-based width
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
 
-            for (let i = start + 1; i <= end; i++) {
+            // Pass 1: Wide glow trail
+            ctx.beginPath();
+            ctx.moveTo(m.points[start].x + ox, m.points[start].y + oy);
+            for (let i = start + 1; i <= end && i < m.points.length; i++) {
                 const p = m.points[i];
                 let x = p.x + ox;
                 let y = p.y + oy;
-
-                // Mode-specific distortion
                 if (this.mode === 0 && Math.sin(m.glitchPhase + i * 0.3) > 0.85) {
                     x += this._colorBleed * 3;
                 }
                 if (this.mode === 4) {
                     x += Math.sin(i * 0.5 + this.tick * 0.1) * m.corruption * 10;
                 }
-
                 ctx.lineTo(x, y);
             }
-
-            const fadeProgress = (end - start) > 0 ? 1 : 0;
-            ctx.strokeStyle = `hsla(${m.hue}, ${this.saturation}%, 60%, ${m.alpha * fadeProgress})`;
+            ctx.lineWidth = m.width * 3;
+            ctx.strokeStyle = `hsla(${m.hue}, ${this.saturation}%, 55%, ${m.alpha * 0.15 * this.intensity})`;
             ctx.stroke();
 
-            // Color bleed for VHS mode (offset red/blue channels)
+            // Pass 2: Core trail
+            ctx.lineWidth = m.width;
+            ctx.strokeStyle = `hsla(${m.hue}, ${this.saturation}%, 65%, ${m.alpha * this.intensity})`;
+            ctx.stroke();
+
+            // VHS color bleed (offset R/B channels)
             if (this.mode === 0 && this._colorBleed > 1) {
+                ctx.lineWidth = Math.max(1, m.width * 0.6);
                 ctx.beginPath();
                 ctx.moveTo(m.points[start].x + ox + this._colorBleed, m.points[start].y + oy);
-                for (let i = start + 1; i <= end; i++) {
+                for (let i = start + 1; i <= end && i < m.points.length; i++) {
                     ctx.lineTo(m.points[i].x + ox + this._colorBleed, m.points[i].y + oy);
                 }
-                ctx.strokeStyle = `hsla(0, 80%, 60%, ${m.alpha * 0.3})`;
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = `hsla(0, 80%, 60%, ${m.alpha * 0.3 * this.intensity})`;
                 ctx.stroke();
 
                 ctx.beginPath();
                 ctx.moveTo(m.points[start].x + ox - this._colorBleed, m.points[start].y + oy);
-                for (let i = start + 1; i <= end; i++) {
+                for (let i = start + 1; i <= end && i < m.points.length; i++) {
                     ctx.lineTo(m.points[i].x + ox - this._colorBleed, m.points[i].y + oy);
                 }
-                ctx.strokeStyle = `hsla(240, 80%, 60%, ${m.alpha * 0.3})`;
+                ctx.strokeStyle = `hsla(240, 80%, 60%, ${m.alpha * 0.3 * this.intensity})`;
                 ctx.stroke();
             }
 
@@ -367,40 +397,52 @@ export class GlitchMemory {
                 const hx = hp.x + ox;
                 const hy = hp.y + oy;
 
-                // Glitch cursor
-                const cursorAlpha = m.alpha * 0.8;
-                ctx.fillStyle = `hsla(${m.hue}, 90%, 80%, ${cursorAlpha})`;
+                const cursorAlpha = m.alpha * 0.8 * this.intensity;
+
                 if (this.mode === 4 && m.corruption > 0.5) {
-                    // Corrupted cursor - scattered pixels
+                    // Corrupted: scattered pixel fragments
                     for (let p = 0; p < 5; p++) {
                         const px2 = hx + (this._rng() - 0.5) * m.corruption * 40;
                         const py2 = hy + (this._rng() - 0.5) * m.corruption * 40;
-                        ctx.fillRect(px2, py2, 3, 3);
+                        ctx.fillStyle = `hsla(${m.hue + this._rng() * 60}, 90%, 80%, ${cursorAlpha})`;
+                        ctx.fillRect(px2, py2, 2 + this._rng() * 3, 1);
                     }
                 } else {
-                    ctx.beginPath();
-                    ctx.arc(hx, hy, 4, 0, TAU);
-                    ctx.fill();
-                }
-
-                // Ghost mode: solidified aura
-                if (m.solidified) {
-                    const grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 30);
-                    grad.addColorStop(0, `hsla(${m.hue}, 90%, 80%, 0.15)`);
+                    // Standard playhead with glow
+                    const grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 8);
+                    grad.addColorStop(0, `hsla(${m.hue}, 90%, 80%, ${cursorAlpha})`);
                     grad.addColorStop(1, `hsla(${m.hue}, 90%, 80%, 0)`);
                     ctx.fillStyle = grad;
                     ctx.beginPath();
-                    ctx.arc(hx, hy, 30, 0, TAU);
+                    ctx.arc(hx, hy, 8, 0, TAU);
+                    ctx.fill();
+
+                    ctx.fillStyle = `hsla(${m.hue}, 90%, 90%, ${cursorAlpha})`;
+                    ctx.beginPath();
+                    ctx.arc(hx, hy, 3, 0, TAU);
+                    ctx.fill();
+                }
+
+                // Ghost protocol: solidified aura
+                if (m.solidified) {
+                    const grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 35);
+                    grad.addColorStop(0, `hsla(${m.hue}, 90%, 80%, 0.18)`);
+                    grad.addColorStop(0.6, `hsla(${m.hue}, 80%, 65%, 0.06)`);
+                    grad.addColorStop(1, `hsla(${m.hue}, 90%, 80%, 0)`);
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(hx, hy, 35, 0, TAU);
                     ctx.fill();
                 }
             }
         }
 
-        // Buffer overflow mode: interference pattern overlay
+        // Buffer overflow interference scanlines
         if (this.mode === 1 && this.memories.length > 3) {
-            const intAlpha = 0.02;
-            ctx.fillStyle = `hsla(${this.hue}, 30%, 50%, ${intAlpha})`;
-            for (let y = 0; y < system.height; y += 4) {
+            ctx.fillStyle = `hsla(${this.hue}, 30%, 50%, 0.02)`;
+            // Only draw a few scanlines based on tick for flicker
+            const offset = this.tick % 8;
+            for (let y = offset; y < system.height; y += 8) {
                 if (Math.sin(y * 0.1 + this.tick * 0.05) > 0.5) {
                     ctx.fillRect(0, y, system.width, 1);
                 }

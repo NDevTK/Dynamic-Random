@@ -6,51 +6,6 @@
 import { mouse } from './state.js';
 import { deviceSensors } from './device_sensors.js';
 import { SpatialGrid } from './spatial_grid.js';
-import { CosmicArchitecture, DigitalArchitecture, GeometricArchitecture } from './background_architectures.js';
-import { OrganicArchitecture } from './organic_architecture.js';
-import { FlowArchitecture } from './flow_architecture.js';
-import { AbstractArchitecture } from './abstract_architecture.js';
-import { GlitchArchitecture } from './glitch_architecture.js';
-import { FabricArchitecture } from './fabric_architecture.js';
-import { VoxelArchitecture } from './voxel_architecture.js';
-import { FractalArchitecture } from './fractal_architecture.js';
-import { AuroraArchitecture } from './aurora_architecture.js';
-import { FireflyArchitecture } from './firefly_architecture.js';
-import { RaindropArchitecture } from './raindrop_architecture.js';
-import { KaleidoscopeArchitecture } from './kaleidoscope_architecture.js';
-import { TerrainArchitecture } from './terrain_architecture.js';
-import { LavaArchitecture } from './lava_architecture.js';
-import { LifeArchitecture } from './life_architecture.js';
-import { SynthwaveArchitecture } from './synthwave_architecture.js';
-import { PendulumArchitecture } from './pendulum_architecture.js';
-import { InkArchitecture } from './ink_architecture.js';
-import { CircuitGrowthArchitecture } from './circuit_growth_architecture.js';
-import { ReactionDiffusionArchitecture } from './reaction_diffusion_architecture.js';
-import { VoronoiArchitecture } from './voronoi_architecture.js';
-import { MagneticFieldArchitecture } from './magnetic_field_architecture.js';
-import { FluidArchitecture } from './fluid_architecture.js';
-import { ConstellationArchitecture } from './constellation_architecture.js';
-import { GravityPoolArchitecture } from './gravity_pool_architecture.js';
-import { DNAArchitecture } from './dna_architecture.js';
-import { TopographyArchitecture } from './topography_architecture.js';
-import { PixelSortArchitecture } from './pixel_sort_architecture.js';
-import { WeatherArchitecture } from './weather_architecture.js';
-import { ShatteredMirrorArchitecture } from './shattered_mirror_architecture.js';
-import { MyceliumArchitecture } from './mycelium_architecture.js';
-import { InterferenceArchitecture } from './interference_architecture.js';
-import { DimensionalRiftArchitecture } from './dimensional_rift_architecture.js';
-import { DeepSeaArchitecture } from './deep_sea_architecture.js';
-import { GlitchFabricArchitecture } from './glitch_fabric_architecture.js';
-import { TypographyArchitecture } from './typography_architecture.js';
-import { OrigamiArchitecture } from './origami_architecture.js';
-import { NeuralNetArchitecture } from './neural_net_architecture.js';
-import { TidalPoolArchitecture } from './tidal_pool_architecture.js';
-import { SpeechTypographyArchitecture } from './speech_typography_architecture.js';
-import { CameraTextureArchitecture } from './camera_texture_architecture.js';
-import { ClothArchitecture } from './cloth_architecture.js';
-import { SoftbodyArchitecture } from './softbody_architecture.js';
-import { WebGPUParticleArchitecture } from './webgpu_particle_architecture.js';
-import { WebGPUFluidArchitecture } from './webgpu_fluid_architecture.js';
 import { gamepadInput } from './gamepad_input.js';
 import { micReactive } from './mic_reactive.js';
 import { tabSync } from './tab_sync.js';
@@ -58,147 +13,21 @@ import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
 import { perfMonitor } from './perf_monitor.js';
 import { touchGestures } from './touch_gestures.js';
-import { AttractorArchitecture } from './attractor_architecture.js';
-import { SacredGeometryArchitecture } from './sacred_geometry_architecture.js';
-import { FractalExplorerArchitecture } from './fractal_explorer_architecture.js';
-import { SpirographArchitecture } from './spirograph_architecture.js';
-import { TruchetArchitecture } from './truchet_architecture.js';
-import { LSystemArchitecture } from './lsystem_architecture.js';
-import { FireworksArchitecture } from './fireworks_architecture.js';
-import { SwarmArchitecture } from './swarm_architecture.js';
-import { NeonGraffitiArchitecture } from './neon_graffiti_architecture.js';
-import { GravityMarblesArchitecture } from './gravity_marbles_architecture.js';
-import { PixelRainArchitecture } from './pixel_rain_architecture.js';
-import { PlasmaBallArchitecture } from './plasma_ball_architecture.js';
-import { MosaicArchitecture } from './mosaic_architecture.js';
-import { GravityPaintArchitecture } from './gravity_paint_architecture.js';
-import { WormholeArchitecture } from './wormhole_architecture.js';
-import { EcosystemArchitecture } from './ecosystem_architecture.js';
-import { FerrofluidArchitecture } from './ferrofluid_architecture.js';
-import { CrystalCaveArchitecture } from './crystal_cave_architecture.js';
-import { GlitchCityArchitecture } from './glitch_city_architecture.js';
-import { BioluminescentOceanArchitecture } from './bioluminescent_ocean_architecture.js';
-import { PaperTheaterArchitecture } from './paper_theater_architecture.js';
-import { BubbleUniverseArchitecture } from './bubble_universe_architecture.js';
-import { LightningStormArchitecture } from './lightning_storm_architecture.js';
-import { StainedGlassArchitecture } from './stained_glass_architecture.js';
-import { SandDuneArchitecture } from './sand_dune_architecture.js';
-import { TetrisRainArchitecture } from './tetris_rain_architecture.js';
-import { GravitySandboxArchitecture } from './gravity_sandbox_architecture.js';
-import { AntColonyArchitecture } from './ant_colony_architecture.js';
-import { RetroArcadeArchitecture } from './retro_arcade_architecture.js';
-import { KineticSculptureArchitecture } from './kinetic_sculpture_architecture.js';
-import { PortalArchitecture } from './portal_architecture.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
 import { multiMonitor } from './multi_monitor.js';
-import { TimeWarpArchitecture } from './time_warp_architecture.js';
-import { DreamWeaverArchitecture } from './dream_weaver_architecture.js';
-import { ChaosMosaicArchitecture } from './chaos_mosaic_architecture.js';
 import { interactiveEffects } from './interactive_background_effects.js';
-import { selectArchitecture } from './architecture_registry.js';
+import { selectArchitecture, ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES } from './architecture_registry.js';
 
-// All available architectures for wildcard selection
-export const ALL_ARCHITECTURES = [
-    () => new CosmicArchitecture(),
-    () => new DigitalArchitecture(),
-    () => new GeometricArchitecture(),
-    () => new OrganicArchitecture(),
-    () => new FlowArchitecture(),
-    () => new AbstractArchitecture(),
-    () => new GlitchArchitecture(),
-    () => new FabricArchitecture(),
-    () => new VoxelArchitecture(),
-    () => new FractalArchitecture(),
-    () => new AuroraArchitecture(),
-    () => new FireflyArchitecture(),
-    () => new RaindropArchitecture(),
-    () => new KaleidoscopeArchitecture(),
-    () => new TerrainArchitecture(),
-    () => new LavaArchitecture(),
-    () => new LifeArchitecture(),
-    () => new SynthwaveArchitecture(),
-    () => new PendulumArchitecture(),
-    () => new InkArchitecture(),
-    () => new CircuitGrowthArchitecture(),
-    () => new ReactionDiffusionArchitecture(),
-    () => new VoronoiArchitecture(),
-    () => new MagneticFieldArchitecture(),
-    () => new FluidArchitecture(),
-    () => new ConstellationArchitecture(),
-    () => new GravityPoolArchitecture(),
-    () => new DNAArchitecture(),
-    () => new TopographyArchitecture(),
-    () => new PixelSortArchitecture(),
-    () => new WeatherArchitecture(),
-    () => new ShatteredMirrorArchitecture(),
-    () => new MyceliumArchitecture(),
-    () => new InterferenceArchitecture(),
-    () => new DimensionalRiftArchitecture(),
-    () => new DeepSeaArchitecture(),
-    () => new GlitchFabricArchitecture(),
-    () => new TypographyArchitecture(),
-    () => new OrigamiArchitecture(),
-    () => new NeuralNetArchitecture(),
-    () => new TidalPoolArchitecture(),
-    () => new SpeechTypographyArchitecture(),
-    () => new CameraTextureArchitecture(),
-    () => new ClothArchitecture(),
-    () => new SoftbodyArchitecture(),
-    () => new WebGPUParticleArchitecture(),
-    () => new WebGPUFluidArchitecture(),
-    () => new AttractorArchitecture(),
-    () => new SacredGeometryArchitecture(),
-    () => new FractalExplorerArchitecture(),
-    () => new SpirographArchitecture(),
-    () => new TruchetArchitecture(),
-    () => new LSystemArchitecture(),
-    () => new FireworksArchitecture(),
-    () => new SwarmArchitecture(),
-    () => new NeonGraffitiArchitecture(),
-    () => new GravityMarblesArchitecture(),
-    () => new PixelRainArchitecture(),
-    () => new PlasmaBallArchitecture(),
-    () => new MosaicArchitecture(),
-    () => new GravityPaintArchitecture(),
-    () => new WormholeArchitecture(),
-    () => new EcosystemArchitecture(),
-    () => new FerrofluidArchitecture(),
-    () => new CrystalCaveArchitecture(),
-    () => new GlitchCityArchitecture(),
-    () => new BioluminescentOceanArchitecture(),
-    () => new PaperTheaterArchitecture(),
-    () => new BubbleUniverseArchitecture(),
-    () => new LightningStormArchitecture(),
-    () => new StainedGlassArchitecture(),
-    () => new SandDuneArchitecture(),
-    () => new TetrisRainArchitecture(),
-    () => new GravitySandboxArchitecture(),
-    () => new AntColonyArchitecture(),
-    () => new RetroArcadeArchitecture(),
-    () => new KineticSculptureArchitecture(),
-    () => new PortalArchitecture(),
-    () => new TimeWarpArchitecture(),
-    () => new DreamWeaverArchitecture(),
-    () => new ChaosMosaicArchitecture()
-];
-
-// Extract constructor names from factory functions without instantiating them.
-// Each factory is `() => new FooArchitecture()`, so we parse the class name from toString().
-const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
-    const match = fn.toString().match(/new\s+(\w+)/);
-    return match ? match[1] : 'Unknown';
-});
-
-// Display-friendly names for the architecture selector UI
-export const ARCH_DISPLAY_NAMES = ARCH_CONSTRUCTOR_NAMES.map(n => n.replace(/Architecture$/, ''));
+// Re-export for consumers that import from background.js
+export { ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES };
 
 class BackgroundSystem {
     constructor() {
         this.canvas = document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d', { alpha: false });
-        this.architecture = new CosmicArchitecture();
+        this.architecture = ALL_ARCHITECTURES[0]();
         this.trail = [];
         this.trailPool = [];
         this.shockwaves = [];
@@ -479,7 +308,7 @@ class BackgroundSystem {
         this.rng = seededRandom || Math.random;
 
         // Architecture selection via data-driven registry (see architecture_registry.js)
-        this.architecture = selectArchitecture(blueprintName, this.rng, ALL_ARCHITECTURES);
+        this.architecture = selectArchitecture(blueprintName, this.rng);
 
         // Randomize background mutators based on seed for more visual variety
         this.bgMutators = [];

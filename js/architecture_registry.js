@@ -186,18 +186,112 @@ for (const entry of ARCHITECTURE_REGISTRY) {
 }
 
 /**
+ * Master list of all architecture factories for wildcard selection, cycling, and blending.
+ * This is the single source of truth — background.js re-exports it.
+ */
+export const ALL_ARCHITECTURES = [
+    () => new CosmicArchitecture(),
+    () => new DigitalArchitecture(),
+    () => new GeometricArchitecture(),
+    () => new OrganicArchitecture(),
+    () => new FlowArchitecture(),
+    () => new AbstractArchitecture(),
+    () => new GlitchArchitecture(),
+    () => new FabricArchitecture(),
+    () => new VoxelArchitecture(),
+    () => new FractalArchitecture(),
+    () => new AuroraArchitecture(),
+    () => new FireflyArchitecture(),
+    () => new RaindropArchitecture(),
+    () => new KaleidoscopeArchitecture(),
+    () => new TerrainArchitecture(),
+    () => new LavaArchitecture(),
+    () => new LifeArchitecture(),
+    () => new SynthwaveArchitecture(),
+    () => new PendulumArchitecture(),
+    () => new InkArchitecture(),
+    () => new CircuitGrowthArchitecture(),
+    () => new ReactionDiffusionArchitecture(),
+    () => new VoronoiArchitecture(),
+    () => new MagneticFieldArchitecture(),
+    () => new FluidArchitecture(),
+    () => new ConstellationArchitecture(),
+    () => new GravityPoolArchitecture(),
+    () => new DNAArchitecture(),
+    () => new TopographyArchitecture(),
+    () => new PixelSortArchitecture(),
+    () => new WeatherArchitecture(),
+    () => new ShatteredMirrorArchitecture(),
+    () => new MyceliumArchitecture(),
+    () => new InterferenceArchitecture(),
+    () => new DimensionalRiftArchitecture(),
+    () => new DeepSeaArchitecture(),
+    () => new GlitchFabricArchitecture(),
+    () => new TypographyArchitecture(),
+    () => new OrigamiArchitecture(),
+    () => new NeuralNetArchitecture(),
+    () => new TidalPoolArchitecture(),
+    () => new SpeechTypographyArchitecture(),
+    () => new CameraTextureArchitecture(),
+    () => new ClothArchitecture(),
+    () => new SoftbodyArchitecture(),
+    () => new WebGPUParticleArchitecture(),
+    () => new WebGPUFluidArchitecture(),
+    () => new AttractorArchitecture(),
+    () => new SacredGeometryArchitecture(),
+    () => new FractalExplorerArchitecture(),
+    () => new SpirographArchitecture(),
+    () => new TruchetArchitecture(),
+    () => new LSystemArchitecture(),
+    () => new FireworksArchitecture(),
+    () => new SwarmArchitecture(),
+    () => new NeonGraffitiArchitecture(),
+    () => new GravityMarblesArchitecture(),
+    () => new PixelRainArchitecture(),
+    () => new PlasmaBallArchitecture(),
+    () => new MosaicArchitecture(),
+    () => new GravityPaintArchitecture(),
+    () => new WormholeArchitecture(),
+    () => new EcosystemArchitecture(),
+    () => new FerrofluidArchitecture(),
+    () => new CrystalCaveArchitecture(),
+    () => new GlitchCityArchitecture(),
+    () => new BioluminescentOceanArchitecture(),
+    () => new PaperTheaterArchitecture(),
+    () => new BubbleUniverseArchitecture(),
+    () => new LightningStormArchitecture(),
+    () => new StainedGlassArchitecture(),
+    () => new SandDuneArchitecture(),
+    () => new TetrisRainArchitecture(),
+    () => new GravitySandboxArchitecture(),
+    () => new AntColonyArchitecture(),
+    () => new RetroArcadeArchitecture(),
+    () => new KineticSculptureArchitecture(),
+    () => new PortalArchitecture(),
+    () => new TimeWarpArchitecture(),
+    () => new DreamWeaverArchitecture(),
+    () => new ChaosMosaicArchitecture()
+];
+
+// Display-friendly names derived from constructor names
+const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
+    const match = fn.toString().match(/new\s+(\w+)/);
+    return match ? match[1] : 'Unknown';
+});
+export const ARCH_DISPLAY_NAMES = ARCH_CONSTRUCTOR_NAMES.map(n => n.replace(/Architecture$/, ''));
+
+/**
  * Select an architecture based on blueprint name using weighted random selection.
- * 20% wildcard chance picks from ALL entries regardless of blueprint match.
+ * 20% wildcard chance picks from ALL_ARCHITECTURES regardless of blueprint match.
  *
  * @param {string} blueprintName - The active blueprint name
  * @param {function} rng - Seeded RNG function
- * @param {Array} allArchitectures - ALL_ARCHITECTURES array for wildcard fallback
  * @returns {object} Architecture instance
  */
-export function selectArchitecture(blueprintName, rng, allArchitectures) {
+export function selectArchitecture(blueprintName, rng) {
     // 20% wildcard: completely random architecture for maximum diversity
     if (rng() < 0.20) {
-        return allArchitectures[Math.floor(rng() * allArchitectures.length)]();
+        return ALL_ARCHITECTURES[Math.floor(rng() * ALL_ARCHITECTURES.length)]();
     }
 
     // Collect all matching entries with their weights
@@ -213,7 +307,7 @@ export function selectArchitecture(blueprintName, rng, allArchitectures) {
 
     // If no matches, fall back to random from all architectures
     if (candidates.length === 0) {
-        return allArchitectures[Math.floor(rng() * allArchitectures.length)]();
+        return ALL_ARCHITECTURES[Math.floor(rng() * ALL_ARCHITECTURES.length)]();
     }
 
     // Weighted random selection

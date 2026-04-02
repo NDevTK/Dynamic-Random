@@ -33,6 +33,11 @@ import { VoidTentacles } from './void_tentacles_effects.js';
 import { GlitchMemory } from './glitch_memory_effects.js';
 import { PrismRefraction } from './prism_refraction_effects.js';
 import { CosmicDust } from './cosmic_dust_effects.js';
+import { KaleidoscopeMirror } from './kaleidoscope_mirror_effects.js';
+import { NeonRain } from './neon_rain_effects.js';
+import { AuroraCurtain } from './aurora_curtain_effects.js';
+import { LiquidMetal } from './liquid_metal_effects.js';
+import { RealityFracture } from './reality_fracture_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -109,6 +114,11 @@ export const EFFECT_REGISTRY = [
     { instance: new VoidTentacles(),             tags: ['void', 'dark', 'organic'],             minQuality: 0.3,  drawOrder: 22 },
     { instance: new GlitchMemory(),              tags: ['glitch', 'temporal', 'digital'],       minQuality: 0.25, drawOrder: 23 },
     { instance: new PrismRefraction(),           tags: ['light', 'crystal', 'geometric'],       minQuality: 0.3,  drawOrder: 24 },
+    { instance: new KaleidoscopeMirror(),       tags: ['geometric', 'crystal', 'painterly'],   minQuality: 0.3,  drawOrder: 25 },
+    { instance: new NeonRain(),                 tags: ['digital', 'tech', 'dark'],             minQuality: 0.25, drawOrder: 26 },
+    { instance: new AuroraCurtain(),            tags: ['ethereal', 'light', 'cosmic'],         minQuality: 0.25, drawOrder: 27 },
+    { instance: new LiquidMetal(),              tags: ['fluid', 'fire', 'crystal'],            minQuality: 0.3,  drawOrder: 28 },
+    { instance: new RealityFracture(),          tags: ['glitch', 'void', 'temporal'],          minQuality: 0.25, drawOrder: 29 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

@@ -16,6 +16,8 @@ export class LightningStormArchitecture extends Architecture {
         this.flashAlpha = 0;
         this.rumble = { x: 0, y: 0, intensity: 0 };
         this.ambientGlow = [];
+        this.groundImpacts = [];
+        this.ballLightning = [];
         this.stormMode = 0;
         this.tick = 0;
     }
@@ -65,6 +67,8 @@ export class LightningStormArchitecture extends Architecture {
 
         this.bolts = [];
         this.ambientGlow = [];
+        this.groundImpacts = [];
+        this.ballLightning = [];
     }
 
     getBoltColor(alpha) {
@@ -136,6 +140,29 @@ export class LightningStormArchitecture extends Architecture {
 
         // Thunder rumble
         this.rumble.intensity = 3 + Math.random() * 5;
+
+        // Ground impact glow where bolt lands
+        if (this.groundImpacts.length < 10) {
+            this.groundImpacts.push({
+                x: targetX, y: targetY,
+                radius: 30 + Math.random() * 50,
+                life: 1,
+                decay: 0.015 + Math.random() * 0.02,
+            });
+        }
+
+        // Ball lightning mode: chance to spawn persistent orb
+        if (this.stormMode === 1 && Math.random() < 0.3 && this.ballLightning.length < 5) {
+            this.ballLightning.push({
+                x: targetX, y: targetY,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: (Math.random() - 0.5) * 0.8,
+                radius: 8 + Math.random() * 15,
+                life: 200 + Math.random() * 300,
+                pulsePhase: Math.random() * Math.PI * 2,
+                hueShift: Math.random() * 40,
+            });
+        }
     }
 
     update(system) {
@@ -229,6 +256,52 @@ export class LightningStormArchitecture extends Architecture {
             if (g.life <= 0) {
                 this.ambientGlow[i] = this.ambientGlow[this.ambientGlow.length - 1];
                 this.ambientGlow.pop();
+            }
+        }
+
+        // Decay ground impacts
+        for (let i = this.groundImpacts.length - 1; i >= 0; i--) {
+            this.groundImpacts[i].life -= this.groundImpacts[i].decay;
+            if (this.groundImpacts[i].life <= 0) {
+                this.groundImpacts[i] = this.groundImpacts[this.groundImpacts.length - 1];
+                this.groundImpacts.pop();
+            }
+        }
+
+        // Update ball lightning
+        for (let i = this.ballLightning.length - 1; i >= 0; i--) {
+            const bl = this.ballLightning[i];
+            bl.pulsePhase += 0.1;
+            bl.x += bl.vx + Math.sin(this.tick * 0.02 + i) * 0.3;
+            bl.y += bl.vy + Math.cos(this.tick * 0.015 + i) * 0.2;
+            bl.life--;
+
+            // Ball lightning attracted to mouse
+            const dx = mouse.x - bl.x, dy = mouse.y - bl.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 300 && dist > 1) {
+                bl.vx += (dx / dist) * 0.02;
+                bl.vy += (dy / dist) * 0.02;
+            }
+            bl.vx *= 0.99;
+            bl.vy *= 0.99;
+
+            // Occasional mini-arc from ball lightning
+            if (bl.life > 50 && Math.random() < 0.02 && this.bolts.length < 15) {
+                const angle = Math.random() * Math.PI * 2;
+                const len = 40 + Math.random() * 60;
+                const bolt = this.generateBolt(
+                    bl.x, bl.y,
+                    bl.x + Math.cos(angle) * len,
+                    bl.y + Math.sin(angle) * len, 2
+                );
+                bolt.decay = 0.08;
+                this.bolts.push(bolt);
+            }
+
+            if (bl.life <= 0 || bl.x < -50 || bl.x > system.width + 50) {
+                this.ballLightning[i] = this.ballLightning[this.ballLightning.length - 1];
+                this.ballLightning.pop();
             }
         }
     }
@@ -345,6 +418,55 @@ export class LightningStormArchitecture extends Architecture {
                 ctx.fill();
             }
             ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // Draw ground impacts
+        if (this.groundImpacts.length > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            for (const gi of this.groundImpacts) {
+                const grad = ctx.createRadialGradient(gi.x, gi.y, 0, gi.x, gi.y, gi.radius * (1 + (1 - gi.life) * 0.5));
+                grad.addColorStop(0, this.getBoltColor(gi.life * 0.6));
+                grad.addColorStop(0.4, this.getGlowColor(gi.life * 0.3));
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(gi.x, gi.y, gi.radius * (1 + (1 - gi.life) * 0.5), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // Draw ball lightning orbs
+        if (this.ballLightning.length > 0) {
+            for (const bl of this.ballLightning) {
+                const pulse = Math.sin(bl.pulsePhase) * 0.3 + 0.7;
+                const fadeIn = Math.min(1, (200 + 300 - bl.life) / 30);
+                const fadeOut = Math.min(1, bl.life / 30);
+                const alpha = pulse * fadeIn * fadeOut;
+
+                // Outer glow
+                ctx.globalCompositeOperation = 'lighter';
+                const glowR = bl.radius * 3;
+                const grad = ctx.createRadialGradient(bl.x, bl.y, 0, bl.x, bl.y, glowR);
+                grad.addColorStop(0, this.getBoltColor(alpha * 0.4));
+                grad.addColorStop(0.3, this.getGlowColor(alpha * 0.2));
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(bl.x, bl.y, glowR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core
+                const coreGrad = ctx.createRadialGradient(bl.x, bl.y, 0, bl.x, bl.y, bl.radius);
+                coreGrad.addColorStop(0, `rgba(255,255,255,${alpha * 0.9})`);
+                coreGrad.addColorStop(0.5, this.getBoltColor(alpha * 0.7));
+                coreGrad.addColorStop(1, this.getBoltColor(alpha * 0.1));
+                ctx.fillStyle = coreGrad;
+                ctx.beginPath();
+                ctx.arc(bl.x, bl.y, bl.radius * pulse, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
         }
 
         // Rain effect for classic/plasma storms

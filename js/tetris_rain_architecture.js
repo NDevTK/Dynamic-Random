@@ -91,6 +91,13 @@ export class TetrisRainArchitecture extends Architecture {
         this.fallingPieces = [];
         this.dissolveWaves = [];
         this.particles = [];
+        this.combo = 0;
+        this.comboDisplay = 0;
+        this.comboFade = 0;
+        this.comboX = 0;
+        this.comboY = 0;
+        this.cachedMixedPieces = null;
+        this.scoreFlashes = [];
     }
 
     generatePalette(rng) {
@@ -121,7 +128,10 @@ export class TetrisRainArchitecture extends Architecture {
     getAvailablePieces() {
         if (this.pieceSet === 0) return TETROMINOS;
         if (this.pieceSet === 1) return PENTOMINOS;
-        return [...TETROMINOS, ...PENTOMINOS];
+        if (!this.cachedMixedPieces) {
+            this.cachedMixedPieces = TETROMINOS.concat(PENTOMINOS);
+        }
+        return this.cachedMixedPieces;
     }
 
     spawnPiece(system) {
@@ -269,6 +279,28 @@ export class TetrisRainArchitecture extends Architecture {
         }
 
         this.dissolveWaves.push({ index, isRow, progress: 0, speed: 0.05 });
+
+        // Combo tracking
+        this.combo++;
+        this.comboDisplay = this.combo;
+        this.comboFade = 1;
+        if (isRow) {
+            this.comboX = system ? system.width / 2 : 400;
+            this.comboY = index * this.cellSize;
+        } else {
+            this.comboX = index * this.cellSize;
+            this.comboY = system ? system.height / 2 : 300;
+        }
+
+        // Score flash
+        if (this.scoreFlashes.length < 10) {
+            this.scoreFlashes.push({
+                text: this.combo > 1 ? `x${this.combo} COMBO!` : 'CLEAR!',
+                x: this.comboX, y: this.comboY,
+                life: 1, vy: -1.5,
+                scale: this.combo > 2 ? 1.5 : 1,
+            });
+        }
     }
 
     spawnDissolveParticle(x, y, colorIdx) {
@@ -332,8 +364,48 @@ export class TetrisRainArchitecture extends Architecture {
                     case 3: piece.x -= piece.speed * 0.1; break;
                 }
                 this.placePiece(piece);
-                this.fallingPieces.splice(i, 1);
+                this.fallingPieces[i] = this.fallingPieces[this.fallingPieces.length - 1];
+                this.fallingPieces.pop();
                 this.checkLines();
+            }
+        }
+
+        // Combo decay
+        if (this.comboFade > 0) {
+            this.comboFade -= 0.01;
+            if (this.comboFade <= 0) {
+                this.combo = 0;
+            }
+        }
+
+        // Score flash decay
+        for (let i = this.scoreFlashes.length - 1; i >= 0; i--) {
+            const sf = this.scoreFlashes[i];
+            sf.y += sf.vy;
+            sf.life -= 0.015;
+            if (sf.life <= 0) {
+                this.scoreFlashes[i] = this.scoreFlashes[this.scoreFlashes.length - 1];
+                this.scoreFlashes.pop();
+            }
+        }
+
+        // Right-click (gravity well): clear blocks near mouse
+        if (system.isGravityWell) {
+            const mgc = Math.floor(mouse.x / this.cellSize);
+            const mgr = Math.floor(mouse.y / this.cellSize);
+            const clearRadius = 3;
+            let cleared = false;
+            for (let dr = -clearRadius; dr <= clearRadius; dr++) {
+                for (let dc = -clearRadius; dc <= clearRadius; dc++) {
+                    const r = mgr + dr, c = mgc + dc;
+                    if (r >= 0 && r < this.rows && c >= 0 && c < this.cols && this.grid[r][c] > 0) {
+                        if (Math.sqrt(dr * dr + dc * dc) <= clearRadius) {
+                            this.spawnDissolveParticle(c * this.cellSize, r * this.cellSize, this.grid[r][c]);
+                            this.grid[r][c] = 0;
+                            cleared = true;
+                        }
+                    }
+                }
             }
         }
 
@@ -514,6 +586,24 @@ export class TetrisRainArchitecture extends Architecture {
             }
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // Score/combo flashes
+        if (this.scoreFlashes.length > 0) {
+            for (const sf of this.scoreFlashes) {
+                ctx.save();
+                ctx.globalAlpha = sf.life;
+                ctx.font = `bold ${Math.floor(18 * sf.scale)}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = this.gameStyle === 1 ? '#ffffff' :
+                    (this.gameStyle === 2 ? '#ff88aa' : '#ffff00');
+                if (this.gameStyle === 1) {
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 10;
+                }
+                ctx.fillText(sf.text, sf.x, sf.y);
+                ctx.restore();
+            }
         }
 
         // Subtle grid lines

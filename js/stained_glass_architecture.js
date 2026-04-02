@@ -48,6 +48,40 @@ export class StainedGlassArchitecture extends Architecture {
         this.lightAngle = rng() * Math.PI * 2;
         this.lightSourceX = system.width * 0.5;
         this.lightSourceY = -100;
+        this.lastCrackTick = 0;
+        this.mouseGlowRadius = 120 + rng() * 80;
+        this.mouseGlowIntensity = 0.1 + rng() * 0.2;
+    }
+
+    generateCrack(x, y) {
+        if (this.cracks.length >= 15) return;
+        const segments = [{ x, y }];
+        let cx = x, cy = y;
+        const steps = 5 + Math.floor(Math.random() * 10);
+        let angle = Math.random() * Math.PI * 2;
+        for (let i = 0; i < steps; i++) {
+            angle += (Math.random() - 0.5) * 1.2;
+            const len = 10 + Math.random() * 25;
+            cx += Math.cos(angle) * len;
+            cy += Math.sin(angle) * len;
+            segments.push({ x: cx, y: cy });
+            // Branch
+            if (Math.random() < 0.3 && this.cracks.length < 15) {
+                const branchSegs = [{ x: cx, y: cy }];
+                let bAngle = angle + (Math.random() - 0.5) * 2;
+                let bx = cx, by = cy;
+                const bSteps = 2 + Math.floor(Math.random() * 4);
+                for (let j = 0; j < bSteps; j++) {
+                    bAngle += (Math.random() - 0.5) * 0.8;
+                    const bLen = 8 + Math.random() * 15;
+                    bx += Math.cos(bAngle) * bLen;
+                    by += Math.sin(bAngle) * bLen;
+                    branchSegs.push({ x: bx, y: by });
+                }
+                this.cracks.push({ segments: branchSegs, life: 1 });
+            }
+        }
+        this.cracks.push({ segments, life: 1 });
     }
 
     getPaneColor(index, rng) {
@@ -340,6 +374,26 @@ export class StainedGlassArchitecture extends Architecture {
             }
         }
 
+        // Generate cracks on gravity well (right-click) interaction
+        if (system.isGravityWell && this.tick - this.lastCrackTick > 10) {
+            this.lastCrackTick = this.tick;
+            this.generateCrack(mouse.x, mouse.y);
+        }
+
+        // Left click (speed burst) shoots a light ray from mouse position
+        if (system.speedMultiplier > 5 && this.tick % 2 === 0 && this.lightRays.length < 30) {
+            const angle = Math.random() * Math.PI * 2;
+            this.lightRays.push({
+                x: mouse.x, y: mouse.y, angle,
+                length: 0,
+                maxLength: Math.max(system.width, system.height) * 0.6,
+                speed: 20 + Math.random() * 15,
+                width: 3 + Math.random() * 6,
+                life: 1, decay: 0.015 + Math.random() * 0.015,
+                hue: Math.random() * 360,
+            });
+        }
+
         // Cracks decay (swap-remove for perf)
         for (let i = this.cracks.length - 1; i >= 0; i--) {
             this.cracks[i].life -= 0.005;
@@ -387,6 +441,23 @@ export class StainedGlassArchitecture extends Architecture {
                 ctx.globalAlpha = glowPulse * 0.5;
                 ctx.fillStyle = '#ffffff';
                 ctx.fill();
+            }
+
+            // Mouse proximity glow: panes near cursor brighten
+            const paneCx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+            const paneCy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+            const mouseDist = Math.sqrt((paneCx - mouse.x) ** 2 + (paneCy - mouse.y) ** 2);
+            if (mouseDist < this.mouseGlowRadius) {
+                const proximity = 1 - mouseDist / this.mouseGlowRadius;
+                ctx.globalAlpha = proximity * this.mouseGlowIntensity;
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                // Colored halo
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = proximity * this.mouseGlowIntensity * 0.5;
+                ctx.fillStyle = pane.color;
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
             }
 
             ctx.restore();

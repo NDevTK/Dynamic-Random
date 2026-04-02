@@ -24,6 +24,9 @@ export class BubbleUniverseArchitecture extends Architecture {
         this.maxBubbles = 60;
         this.spawnRate = 0;
         this.tick = 0;
+        this.connectionStyle = 0;
+        this.reflectionPool = [];
+        this.lastClickSpawn = 0;
     }
 
     init(system) {
@@ -49,6 +52,12 @@ export class BubbleUniverseArchitecture extends Architecture {
         // Seed-driven size distribution
         this.minSize = 15 + rng() * 20;
         this.maxSize = 50 + rng() * 80;
+
+        // Seed-driven connection strings between nearby bubbles
+        this.connectionStyle = Math.floor(rng() * 4);
+        // 0=none, 1=thin strings, 2=elastic bands, 3=light bridges
+        this.connectionDist = 80 + rng() * 120;
+        this.splitThreshold = this.maxSize * (0.8 + rng() * 0.2);
 
         this.bubbles = [];
         this.popParticles = [];
@@ -263,6 +272,61 @@ export class BubbleUniverseArchitecture extends Architecture {
                 }
             }
         }
+
+        // Left click (speedMultiplier > 2) spawns a cluster of bubbles at mouse
+        if (system.speedMultiplier > 5 && this.tick - this.lastClickSpawn > 5) {
+            this.lastClickSpawn = this.tick;
+            const count = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < count; i++) {
+                if (this.bubbles.length >= this.maxBubbles) break;
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 10 + Math.random() * 30;
+                const r = this.minSize + Math.random() * (this.maxSize * 0.4 - this.minSize);
+                this.bubbles.push({
+                    x: mx + Math.cos(angle) * dist,
+                    y: my + Math.sin(angle) * dist,
+                    r,
+                    vx: Math.cos(angle) * 2,
+                    vy: Math.sin(angle) * 2,
+                    phase: Math.random() * Math.PI * 2,
+                    wobblePhaseX: Math.random() * Math.PI * 2,
+                    wobblePhaseY: Math.random() * Math.PI * 2,
+                    iriShift: Math.random() * 360,
+                    shimmerSpeed: 0.5 + Math.random() * 2,
+                    opacity: 0,
+                    targetOpacity: 0.3 + Math.random() * 0.4,
+                    age: 0,
+                    highlight: Math.random() * Math.PI * 2,
+                });
+            }
+        }
+
+        // Split oversized bubbles
+        for (let i = this.bubbles.length - 1; i >= 0; i--) {
+            const b = this.bubbles[i];
+            if (b.r > this.splitThreshold && this.bubbles.length < this.maxBubbles) {
+                const newR = b.r * 0.65;
+                b.r = newR;
+                const angle = Math.random() * Math.PI * 2;
+                this.bubbles.push({
+                    x: b.x + Math.cos(angle) * newR,
+                    y: b.y + Math.sin(angle) * newR,
+                    r: newR,
+                    vx: Math.cos(angle) * 1.5,
+                    vy: Math.sin(angle) * 1.5,
+                    phase: Math.random() * Math.PI * 2,
+                    wobblePhaseX: Math.random() * Math.PI * 2,
+                    wobblePhaseY: Math.random() * Math.PI * 2,
+                    iriShift: b.iriShift + 60,
+                    shimmerSpeed: b.shimmerSpeed,
+                    opacity: b.opacity * 0.8,
+                    targetOpacity: b.targetOpacity,
+                    age: 0,
+                    highlight: Math.random() * Math.PI * 2,
+                });
+                break; // one split per frame
+            }
+        }
     }
 
     draw(system) {
@@ -337,6 +401,52 @@ export class BubbleUniverseArchitecture extends Architecture {
             ctx.globalCompositeOperation = 'source-over';
 
             ctx.restore();
+        }
+
+        // Draw connections between nearby bubbles
+        if (this.connectionStyle > 0 && this.bubbles.length > 1) {
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < this.bubbles.length; i++) {
+                const a = this.bubbles[i];
+                for (let j = i + 1; j < this.bubbles.length; j++) {
+                    const b = this.bubbles[j];
+                    const dx = a.x - b.x, dy = a.y - b.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const maxDist = this.connectionDist + a.r + b.r;
+                    if (dist > maxDist || dist < a.r + b.r) continue;
+                    const alpha = (1 - (dist - a.r - b.r) / this.connectionDist) * 0.3 * Math.min(a.opacity, b.opacity);
+                    if (alpha < 0.01) continue;
+
+                    if (this.connectionStyle === 1) {
+                        // Thin string
+                        ctx.strokeStyle = this.getIridescentColor((a.iriShift + b.iriShift) / 2, alpha);
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(b.x, b.y);
+                        ctx.stroke();
+                    } else if (this.connectionStyle === 2) {
+                        // Elastic band (curved)
+                        const mx = (a.x + b.x) / 2;
+                        const my = (a.y + b.y) / 2 + Math.sin(this.tick * 0.03 + i) * 15;
+                        ctx.strokeStyle = this.getIridescentColor(a.iriShift, alpha);
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.quadraticCurveTo(mx, my, b.x, b.y);
+                        ctx.stroke();
+                    } else {
+                        // Light bridge (thick glow)
+                        ctx.strokeStyle = this.getIridescentColor((a.iriShift + b.iriShift) / 2, alpha * 0.5);
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.lineTo(b.x, b.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
         }
 
         // Draw pop particles

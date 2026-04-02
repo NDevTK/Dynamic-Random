@@ -20,6 +20,8 @@ export class SandDuneArchitecture extends Architecture {
         this.windBase = { angle: 0, speed: 0 };
         this.tick = 0;
         this.heatShimmer = 0;
+        this.sandblasts = [];
+        this.celestialBody = null;
     }
 
     init(system) {
@@ -59,6 +61,18 @@ export class SandDuneArchitecture extends Architecture {
         for (let i = 0; i < this.grainCount; i++) {
             this.grains.push(this.createGrain(system, rng, false));
         }
+
+        // Celestial body (sun/moon depending on sand type)
+        this.celestialBody = {
+            x: system.width * (0.2 + rng() * 0.6),
+            y: system.height * (0.08 + rng() * 0.15),
+            radius: 25 + rng() * 35,
+            type: (this.sandType === 3 || this.sandType === 4) ? 'moon' : (this.sandType === 1 ? 'mars_sun' : 'sun'),
+            phase: rng() * Math.PI * 2,
+            haloRadius: 60 + rng() * 40,
+        };
+
+        this.sandblasts = [];
 
         // Stars for mars
         this.stars = [];
@@ -275,6 +289,39 @@ export class SandDuneArchitecture extends Architecture {
         if (this.heatShimmerEnabled) {
             this.heatShimmer = Math.sin(this.tick * 0.03) * 0.5 + 0.5;
         }
+
+        // Left click sandblast: eject grains near mouse
+        if (system.speedMultiplier > 5) {
+            for (const g of this.grains) {
+                const dx = g.x - mouse.x, dy = g.y - mouse.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 120 && dist > 1) {
+                    g.settled = false;
+                    const force = (120 - dist) * 0.03;
+                    g.vx += (dx / dist) * force;
+                    g.vy += (dy / dist) * force - force * 0.5;
+                }
+            }
+            // Visual sandblast burst
+            if (this.tick % 4 === 0 && this.sandblasts.length < 8) {
+                this.sandblasts.push({
+                    x: mouse.x, y: mouse.y,
+                    radius: 0, maxRadius: 100 + Math.random() * 60,
+                    life: 1, decay: 0.03,
+                });
+            }
+        }
+
+        // Update sandblasts
+        for (let i = this.sandblasts.length - 1; i >= 0; i--) {
+            const sb = this.sandblasts[i];
+            sb.radius += (sb.maxRadius - sb.radius) * 0.15;
+            sb.life -= sb.decay;
+            if (sb.life <= 0) {
+                this.sandblasts[i] = this.sandblasts[this.sandblasts.length - 1];
+                this.sandblasts.pop();
+            }
+        }
     }
 
     draw(system) {
@@ -289,6 +336,49 @@ export class SandDuneArchitecture extends Architecture {
                 ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
                 ctx.fill();
             }
+        }
+
+        // Draw celestial body (sun/moon)
+        if (this.celestialBody) {
+            const cb = this.celestialBody;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Halo
+            const haloGrad = ctx.createRadialGradient(cb.x, cb.y, cb.radius, cb.x, cb.y, cb.haloRadius);
+            if (cb.type === 'sun') {
+                haloGrad.addColorStop(0, 'rgba(255, 200, 100, 0.3)');
+                haloGrad.addColorStop(0.5, 'rgba(255, 150, 50, 0.1)');
+                haloGrad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            } else if (cb.type === 'mars_sun') {
+                haloGrad.addColorStop(0, 'rgba(200, 160, 120, 0.2)');
+                haloGrad.addColorStop(1, 'rgba(180, 130, 80, 0)');
+            } else {
+                haloGrad.addColorStop(0, 'rgba(200, 210, 230, 0.15)');
+                haloGrad.addColorStop(1, 'rgba(180, 190, 210, 0)');
+            }
+            ctx.fillStyle = haloGrad;
+            ctx.beginPath();
+            ctx.arc(cb.x, cb.y, cb.haloRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body
+            const bodyGrad = ctx.createRadialGradient(cb.x - cb.radius * 0.2, cb.y - cb.radius * 0.2, 0, cb.x, cb.y, cb.radius);
+            if (cb.type === 'sun') {
+                bodyGrad.addColorStop(0, 'rgba(255, 240, 200, 0.9)');
+                bodyGrad.addColorStop(1, 'rgba(255, 180, 80, 0.7)');
+            } else if (cb.type === 'mars_sun') {
+                bodyGrad.addColorStop(0, 'rgba(220, 200, 170, 0.6)');
+                bodyGrad.addColorStop(1, 'rgba(200, 160, 120, 0.4)');
+            } else {
+                bodyGrad.addColorStop(0, 'rgba(230, 235, 245, 0.7)');
+                bodyGrad.addColorStop(1, 'rgba(180, 190, 210, 0.5)');
+            }
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.arc(cb.x, cb.y, cb.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
 
         // Sky gradient for some types
@@ -367,21 +457,53 @@ export class SandDuneArchitecture extends Architecture {
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Draw dust devils
+        // Draw dust devils with swirling particles
         for (const dd of this.dustDevils) {
-            const lifeRatio = dd.life / 400;
+            const lifeRatio = Math.min(1, dd.life / 100);
             ctx.save();
-            ctx.globalAlpha = lifeRatio * 0.3;
-            for (let ring = 0; ring < 5; ring++) {
-                const r = dd.radius * (ring / 5);
-                const grad = ctx.createRadialGradient(dd.x, dd.y, r * 0.8, dd.x, dd.y, r);
-                grad.addColorStop(0, 'rgba(0,0,0,0)');
-                grad.addColorStop(1, this.getGrainColor(0.5, 0.1));
+            ctx.globalAlpha = lifeRatio * 0.4;
+
+            // Funnel shape (layered rings ascending)
+            for (let ring = 0; ring < 6; ring++) {
+                const r = dd.radius * (1 - ring * 0.12);
+                const yOff = -ring * 20;
+                const grad = ctx.createRadialGradient(dd.x, dd.y + yOff, r * 0.5, dd.x, dd.y + yOff, r);
+                grad.addColorStop(0, this.getGrainColor(0.5, 0.05));
+                grad.addColorStop(1, this.getGrainColor(0.5, 0));
                 ctx.fillStyle = grad;
                 ctx.beginPath();
-                ctx.arc(dd.x, dd.y - ring * 15, r, 0, Math.PI * 2);
+                ctx.arc(dd.x, dd.y + yOff, r, 0, Math.PI * 2);
                 ctx.fill();
             }
+
+            // Swirling grain particles around the vortex
+            ctx.globalAlpha = lifeRatio * 0.6;
+            const particleCount = 15;
+            for (let p = 0; p < particleCount; p++) {
+                const angle = dd.rotation + (p / particleCount) * Math.PI * 2;
+                const heightFrac = (p % 5) / 5;
+                const orbitR = dd.radius * (0.3 + heightFrac * 0.6);
+                const px = dd.x + Math.cos(angle) * orbitR;
+                const py = dd.y - heightFrac * 80 + Math.sin(angle * 2) * 5;
+                const size = 1 + Math.random() * 2;
+                ctx.fillStyle = this.getGrainColor(0.3 + Math.random() * 0.4, 0.6);
+                ctx.fillRect(px, py, size, size);
+            }
+            ctx.restore();
+        }
+
+        // Draw sandblast effects
+        for (const sb of this.sandblasts) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const grad = ctx.createRadialGradient(sb.x, sb.y, 0, sb.x, sb.y, sb.radius);
+            grad.addColorStop(0, this.getGrainColor(0.6, sb.life * 0.2));
+            grad.addColorStop(0.6, this.getGrainColor(0.4, sb.life * 0.1));
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(sb.x, sb.y, sb.radius, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
         }
 

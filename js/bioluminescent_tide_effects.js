@@ -179,6 +179,7 @@ export class BioluminescentTide {
         if (this.mode === 0) this._updatePlankton();
         else if (this.mode === 1) this._updateJellyfish();
         else if (this.mode === 2) this._updateVents();
+        else if (this.mode === 3) this._updateWaves();
         else if (this.mode === 4) this._updateCoral();
         else if (this.mode === 5) this._updateCreatures();
     }
@@ -234,11 +235,21 @@ export class BioluminescentTide {
                 j.vy += (dy / dist) * 0.05;
             }
 
+            // Click: jellyfish pulse-jet away quickly
+            if (this._isClicking && dist < 250) {
+                j.pulsePhase += 0.5; // Force a pulse
+                j.vx += (dx / (dist || 1)) * 2;
+                j.vy += (dy / (dist || 1)) * 2;
+            }
+
             j.x += j.vx; j.y += j.vy;
             j.vy -= 0.002; // Slight upward drift
 
-            // Wrap vertically
-            if (j.y < -j.size * 2) { j.y = h + j.size; j.x = Math.random() * w; }
+            // Wrap vertically - use sin-based position instead of Math.random
+            if (j.y < -j.size * 2) {
+                j.y = h + j.size;
+                j.x = Math.abs(Math.sin(this.tick * 0.1 + j.pulsePhase)) * w;
+            }
             if (j.x < -j.size) j.x = w + j.size;
             if (j.x > w + j.size) j.x = -j.size;
 
@@ -247,25 +258,25 @@ export class BioluminescentTide {
     }
 
     _updateVents() {
-        // Spawn vent particles
+        // Click: eruption burst from nearest vent
+        const erupting = this._isClicking;
+
+        // Spawn vent particles (check cap before spawning)
         for (const v of this.vents) {
-            for (let i = 0; i < v.rate; i++) {
+            if (this.ventParticles.length >= 400) break;
+            const spawnRate = erupting ? v.rate * 4 : v.rate;
+            for (let i = 0; i < spawnRate && this.ventParticles.length < 400; i++) {
                 const p = this.ventParticlePool.length > 0 ? this.ventParticlePool.pop() : {};
                 p.x = v.x + (Math.random() - 0.5) * v.width;
                 p.y = v.y;
-                p.vx = (Math.random() - 0.5) * v.turbulence;
-                p.vy = -(1 + Math.random() * 2);
+                p.vx = (Math.random() - 0.5) * v.turbulence * (erupting ? 3 : 1);
+                p.vy = -(1 + Math.random() * 2) * (erupting ? 2.5 : 1);
                 p.life = 80 + Math.floor(Math.random() * 60);
                 p.maxLife = p.life;
-                p.size = 1 + Math.random() * 3;
+                p.size = 1 + Math.random() * 3 + (erupting ? 2 : 0);
                 p.hueShift = v.hueShift + Math.random() * 10;
                 this.ventParticles.push(p);
             }
-        }
-
-        // Cap particles
-        while (this.ventParticles.length > 400) {
-            this.ventParticlePool.push(this.ventParticles.shift());
         }
 
         // Mouse turbulence
@@ -292,9 +303,27 @@ export class BioluminescentTide {
         }
     }
 
+    _updateWaves() {
+        // Click: temporarily boost wave amplitude and brightness
+        if (this._isClicking) {
+            for (const band of this.waveBands) {
+                band.amplitude = Math.min(80, band.amplitude + 0.5);
+                band.brightness = Math.min(0.12, band.brightness + 0.002);
+            }
+        } else {
+            for (const band of this.waveBands) {
+                band.amplitude *= 0.998; // Slowly decay back
+                band.amplitude = Math.max(20, band.amplitude);
+                band.brightness *= 0.999;
+                band.brightness = Math.max(0.03, band.brightness);
+            }
+        }
+    }
+
     _updateCoral() {
-        // Grow toward cursor light (slow growth)
-        if (this.tick % 8 === 0 && this.growthPoints.length > 0 && this.branches.length < 800) {
+        // Click accelerates growth rate dramatically
+        const growthInterval = this._isClicking ? 2 : 8;
+        if (this.tick % growthInterval === 0 && this.growthPoints.length > 0 && this.branches.length < 800) {
             const newPoints = [];
             for (let i = this.growthPoints.length - 1; i >= 0; i--) {
                 const gp = this.growthPoints[i];
@@ -346,8 +375,16 @@ export class BioluminescentTide {
             const dx = this._mouseX - c.x, dy = this._mouseY - c.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > 50) {
-                c.vx += (dx / dist) * 0.01;
-                c.vy += (dy / dist) * 0.01;
+                // Click: creatures rush toward cursor (feeding frenzy)
+                const attraction = this._isClicking ? 0.05 : 0.01;
+                c.vx += (dx / dist) * attraction;
+                c.vy += (dy / dist) * attraction;
+            }
+            // Click also brightens lure pulse
+            if (this._isClicking) {
+                c.lurePulseSpeed = 0.12; // Rapid pulsing
+            } else {
+                c.lurePulseSpeed = Math.max(0.04, c.lurePulseSpeed * 0.99);
             }
             // Slow wandering
             c.vx += Math.sin(this.tick * 0.005 + c.lurePulse) * 0.005;
@@ -423,17 +460,17 @@ export class BioluminescentTide {
             ctx.arc(j.x, j.y, bellW * 1.5, 0, TAU);
             ctx.fill();
 
-            // Bell body
+            // Bell body (top half dome)
             ctx.fillStyle = `hsla(${hue}, ${this.saturation}%, 75%, ${0.12 * this.intensity})`;
             ctx.beginPath();
-            ctx.ellipse(j.x, j.y, bellW, bellH, 0, Math.PI, 0);
+            ctx.ellipse(j.x, j.y, bellW, bellH, 0, Math.PI, TAU);
             ctx.fill();
 
-            // Bell rim
+            // Bell rim - a wide arc across the bottom of the bell
             ctx.strokeStyle = `hsla(${hue}, ${this.saturation + 10}%, 85%, ${0.2 * this.intensity})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.ellipse(j.x, j.y, bellW, bellH * 0.3, 0, Math.PI * 0.8, Math.PI * 0.2, true);
+            ctx.ellipse(j.x, j.y + bellH * 0.1, bellW * 0.9, bellH * 0.15, 0, 0, Math.PI);
             ctx.stroke();
 
             // Tentacles

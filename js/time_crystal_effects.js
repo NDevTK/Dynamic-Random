@@ -199,10 +199,21 @@ export class TimeCrystal {
                 c.vy += (cdy / dist) * 0.05 * c.resonance;
                 // Speed up rotation near cursor
                 c.rotation += c.rotSpeed * (1 + c.resonance * 3);
+
+                // Click: supercharge resonance and push crystals outward
+                if (isClicking) {
+                    c.resonance = Math.min(1, c.resonance + 0.15);
+                    c.vx -= (cdx / dist) * 1.5;
+                    c.vy -= (cdy / dist) * 1.5;
+                    c.rotSpeed *= 1.01; // Spin faster
+                }
             } else {
                 c.resonance *= 0.95;
                 c.rotation += c.rotSpeed;
             }
+
+            // Gradually slow excessive rotation
+            c.rotSpeed *= 0.9999;
 
             // Refraction beam follows cursor angle
             c.beamAngle = Math.atan2(my - c.y, mx - c.x) + Math.PI;
@@ -237,6 +248,19 @@ export class TimeCrystal {
         const period = 300;
         const phase = this.latticeTimer % period;
 
+        // Click during locked phase forces immediate release with burst
+        if (this._isClicking && phase >= 150 && phase < 250) {
+            this.latticeTimer = Math.floor(this.latticeTimer / period) * period + 250;
+            for (const c of this.crystals) {
+                const dx = c.x - this._mouseX, dy = c.y - this._mouseY;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                c.vx += (dx / dist) * 3;
+                c.vy += (dy / dist) * 3;
+                c.resonance = 1;
+            }
+            return;
+        }
+
         if (phase < 100) {
             // Floating
             this._updateFreeFloat(w, h);
@@ -255,11 +279,14 @@ export class TimeCrystal {
                 c.y = c.targetY + Math.cos(this.tick * 0.025 + c.phase) * 2;
             }
         } else {
-            // Releasing
+            // Releasing - use sin-based pseudo-random instead of Math.random()
             const t = (phase - 250) / 50;
-            for (const c of this.crystals) {
-                c.vx += (Math.random() - 0.5) * t * 0.3;
-                c.vy += (Math.random() - 0.5) * t * 0.3;
+            for (let i = 0; i < this.crystals.length; i++) {
+                const c = this.crystals[i];
+                const pseudoRandX = Math.sin(i * 7.13 + this.tick * 0.1) * 0.5;
+                const pseudoRandY = Math.cos(i * 11.37 + this.tick * 0.1) * 0.5;
+                c.vx += pseudoRandX * t * 0.3;
+                c.vy += pseudoRandY * t * 0.3;
                 c.x += c.vx; c.y += c.vy;
             }
         }
@@ -267,9 +294,23 @@ export class TimeCrystal {
 
     _updateTemporalEcho(w, h) {
         this._updateFreeFloat(w, h);
+        // Click: reverse time - play echoes backward briefly
+        if (this._isClicking && this.echoHistory.length > 2) {
+            // Pop last echo and apply positions (rewinding)
+            const old = this.echoHistory.pop();
+            if (old) {
+                for (let i = 0; i < Math.min(old.length, this.crystals.length); i++) {
+                    this.crystals[i].x += (old[i].x - this.crystals[i].x) * 0.15;
+                    this.crystals[i].y += (old[i].y - this.crystals[i].y) * 0.15;
+                }
+            }
+        }
         // Save snapshot every 4 frames
         if (this.tick % 4 === 0) {
-            const snapshot = this.crystals.map(c => ({ x: c.x, y: c.y, rotation: c.rotation, size: c.size, facets: c.facets, hueOffset: c.hueOffset }));
+            const snapshot = this.crystals.map(c => ({
+                x: c.x, y: c.y, rotation: c.rotation,
+                size: c.size, facets: c.facets, hueOffset: c.hueOffset, phase: c.phase
+            }));
             this.echoHistory.push(snapshot);
             if (this.echoHistory.length > this.echoMaxFrames) {
                 this.echoHistory.shift();
@@ -279,40 +320,59 @@ export class TimeCrystal {
 
     _updateShatter(w, h) {
         this.shatterTimer--;
+
+        // Click forces immediate shatter from cursor position
+        if (this._isClicking && !this.isShattered) {
+            this.shatterTimer = 0;
+        }
+
         if (this.shatterTimer <= 0 && !this.isShattered) {
-            // Shatter!
             this.isShattered = true;
             this.shatterTimer = 120;
             this.fragments = [];
-            for (const c of this.crystals) {
-                const fragCount = 3 + Math.floor(Math.random() * 4);
+            for (let ci = 0; ci < this.crystals.length; ci++) {
+                const c = this.crystals[ci];
+                const fragCount = 3 + (ci * 7 % 4); // Deterministic count per crystal
                 for (let i = 0; i < fragCount; i++) {
                     const frag = this.fragmentPool.length > 0 ? this.fragmentPool.pop() : {};
                     frag.x = c.x; frag.y = c.y;
-                    const angle = Math.random() * TAU;
-                    const speed = 1 + Math.random() * 4;
+                    // Use pseudo-random based on crystal + fragment index
+                    const seed = ci * 13.7 + i * 3.1 + this.tick * 0.01;
+                    const angle = (Math.sin(seed) * 0.5 + 0.5) * TAU;
+                    const speed = 1 + (Math.sin(seed * 2.3) * 0.5 + 0.5) * 4;
                     frag.vx = Math.cos(angle) * speed;
                     frag.vy = Math.sin(angle) * speed;
-                    frag.size = c.size * (0.2 + Math.random() * 0.4);
-                    frag.rotation = Math.random() * TAU;
-                    frag.rotSpeed = (Math.random() - 0.5) * 0.1;
-                    frag.hueOffset = c.hueOffset + Math.random() * 20;
-                    frag.life = 80 + Math.floor(Math.random() * 40);
+                    frag.size = c.size * (0.2 + (Math.sin(seed * 3.7) * 0.5 + 0.5) * 0.4);
+                    frag.rotation = (Math.sin(seed * 5.1) * 0.5 + 0.5) * TAU;
+                    frag.rotSpeed = Math.sin(seed * 7.3) * 0.1;
+                    frag.hueOffset = c.hueOffset + Math.sin(seed * 11.1) * 20;
+                    frag.life = 80 + Math.floor(Math.abs(Math.sin(seed * 13.7)) * 40);
                     frag.maxLife = frag.life;
-                    frag.parentIdx = this.crystals.indexOf(c);
+                    frag.parentIdx = ci;
                     this.fragments.push(frag);
                 }
             }
         }
 
         if (this.isShattered) {
-            // Update fragments
+            // Click during shatter: attract fragments toward cursor
+            const attracting = this._isClicking;
+
             for (let i = this.fragments.length - 1; i >= 0; i--) {
                 const f = this.fragments[i];
                 f.x += f.vx; f.y += f.vy;
                 f.vx *= 0.97; f.vy *= 0.97;
                 f.rotation += f.rotSpeed;
                 f.life--;
+
+                // Click attraction
+                if (attracting) {
+                    const dx = this._mouseX - f.x, dy = this._mouseY - f.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    f.vx += (dx / dist) * 0.3;
+                    f.vy += (dy / dist) * 0.3;
+                }
+
                 // Converge back to parent in last 30 frames
                 if (f.life < 30 && f.parentIdx >= 0) {
                     const parent = this.crystals[f.parentIdx];
@@ -327,7 +387,7 @@ export class TimeCrystal {
             }
             if (this.fragments.length === 0) {
                 this.isShattered = false;
-                this.shatterTimer = 200 + Math.floor(Math.random() * 200);
+                this.shatterTimer = 200 + Math.abs(Math.floor(Math.sin(this.tick) * 200));
             }
         } else {
             this._updateFreeFloat(w, h);

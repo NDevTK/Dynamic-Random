@@ -142,6 +142,27 @@ export class GravityMarbles {
                 m.vx += cdx * pull;
                 m.vy += cdy * pull;
                 m.glow = Math.min(1, m.glow + 0.05);
+
+                // Mode-specific click effects
+                if (isClicking && cDist < 100) {
+                    if (this.mode === 1) {
+                        // Zero-G: flick marble away with force
+                        m.vx += (m.x - mx) * 0.15;
+                        m.vy += (m.y - my) * 0.15;
+                    } else if (this.mode === 2) {
+                        // Magnetic: flip polarity on click
+                        m.polarity *= -1;
+                        m.glow = 1;
+                    } else if (this.mode === 3) {
+                        // Lava lamp: heat up marble
+                        m.temperature = Math.min(1, m.temperature + 0.1);
+                    } else if (this.mode === 4) {
+                        // Pinball: super-launch
+                        m.vx += (m.x - mx) * 0.3;
+                        m.vy += (m.y - my) * 0.3;
+                        this._spawnSparks(m.x, m.y, 8);
+                    }
+                }
             } else {
                 m.glow *= 0.95;
             }
@@ -326,20 +347,27 @@ export class GravityMarbles {
             const trail = this.trails[i];
             const len = Math.min(m.trailIdx, this.trailLength);
 
-            if (len > 2) {
-                ctx.lineWidth = m.radius * 0.4;
+            // Only draw trails after buffer has filled enough
+            if (len > 2 && m.trailIdx > 2) {
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
 
-                for (let t = 1; t < len; t++) {
+                // Batch trail into a single path with gradient-like alpha steps
+                const startT = m.trailIdx <= this.trailLength ? 1 : 0;
+                for (let t = Math.max(startT, 1); t < len; t++) {
                     const idx1 = ((m.trailIdx - len + t - 1 + this.trailLength) % this.trailLength);
                     const idx2 = ((m.trailIdx - len + t + this.trailLength) % this.trailLength);
                     const x1 = trail[idx1 * 2], y1 = trail[idx1 * 2 + 1];
                     const x2 = trail[idx2 * 2], y2 = trail[idx2 * 2 + 1];
-                    if (x1 === 0 && y1 === 0) continue;
+                    // Skip uninitialized entries (ring buffer not yet full)
+                    if (m.trailIdx < this.trailLength && (idx1 >= m.trailIdx || idx2 >= m.trailIdx)) continue;
 
-                    const alpha = (t / len) * 0.1 * this.intensity;
-                    ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 60%, ${alpha})`;
+                    const progress = t / len;
+                    const alpha = progress * 0.12 * this.intensity;
+                    // Hue shift along trail for visual interest
+                    const trailHue = (hue + (1 - progress) * 20 + 360) % 360;
+                    ctx.strokeStyle = `hsla(${trailHue}, ${this.saturation}%, 60%, ${alpha})`;
+                    ctx.lineWidth = m.radius * 0.4 * progress;
                     ctx.beginPath();
                     ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
                     ctx.stroke();
@@ -360,7 +388,7 @@ export class GravityMarbles {
                 ctx.arc(bumper.x, bumper.y, bumper.radius, 0, TAU);
                 ctx.stroke();
 
-                // Flash glow
+                // Flash glow and expanding force ring
                 if (bumper.flash > 0.1) {
                     const g = ctx.createRadialGradient(bumper.x, bumper.y, 0, bumper.x, bumper.y, bumper.radius * 2);
                     g.addColorStop(0, `hsla(${hue}, 90%, 90%, ${bumper.flash * 0.2 * this.intensity})`);
@@ -369,6 +397,14 @@ export class GravityMarbles {
                     ctx.beginPath();
                     ctx.arc(bumper.x, bumper.y, bumper.radius * 2, 0, TAU);
                     ctx.fill();
+
+                    // Expanding shock ring
+                    const ringR = bumper.radius * (1 + (1 - bumper.flash) * 2);
+                    ctx.strokeStyle = `hsla(${hue}, 90%, 85%, ${bumper.flash * 0.15 * this.intensity})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(bumper.x, bumper.y, ringR, 0, TAU);
+                    ctx.stroke();
                 }
             }
         }
@@ -407,25 +443,45 @@ export class GravityMarbles {
             ctx.arc(m.x - m.radius * 0.25, m.y - m.radius * 0.25, m.radius * 0.3, 0, TAU);
             ctx.fill();
 
-            // Polarity indicator (magnetic mode)
+            // Polarity indicator (magnetic mode) - color ring instead of text
             if (this.mode === 2) {
-                ctx.fillStyle = m.polarity > 0
-                    ? `hsla(0, 80%, 70%, 0.2)`
-                    : `hsla(220, 80%, 70%, 0.2)`;
-                ctx.font = `${m.radius}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(m.polarity > 0 ? '+' : '-', m.x, m.y);
+                const polHue = m.polarity > 0 ? 0 : 220;
+                // Polarity glow ring
+                ctx.strokeStyle = `hsla(${polHue}, 80%, 70%, ${0.2 * this.intensity})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, m.radius + 3, 0, TAU);
+                ctx.stroke();
+                // Polarity symbol using line art (+ or -)
+                ctx.strokeStyle = `hsla(${polHue}, 90%, 85%, ${0.3 * this.intensity})`;
+                ctx.lineWidth = 1.5;
+                const s = m.radius * 0.4;
+                ctx.beginPath();
+                ctx.moveTo(m.x - s, m.y); ctx.lineTo(m.x + s, m.y);
+                if (m.polarity > 0) {
+                    ctx.moveTo(m.x, m.y - s); ctx.lineTo(m.x, m.y + s);
+                }
+                ctx.stroke();
             }
 
-            // Temperature indicator (lava lamp mode)
+            // Temperature indicator (lava lamp mode) - warm glow
             if (this.mode === 3) {
                 const tempHue = 60 - m.temperature * 60; // Yellow(cool) to Red(hot)
                 ctx.strokeStyle = `hsla(${tempHue}, 90%, 70%, ${m.temperature * 0.3 * this.intensity})`;
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.arc(m.x, m.y, m.radius + 2, 0, TAU * m.temperature);
                 ctx.stroke();
+                // Heat shimmer glow
+                if (m.temperature > 0.5) {
+                    const g = ctx.createRadialGradient(m.x, m.y, m.radius, m.x, m.y, m.radius * 2.5);
+                    g.addColorStop(0, `hsla(${tempHue}, 90%, 70%, ${(m.temperature - 0.5) * 0.15 * this.intensity})`);
+                    g.addColorStop(1, 'transparent');
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(m.x, m.y, m.radius * 2.5, 0, TAU);
+                    ctx.fill();
+                }
             }
         }
 

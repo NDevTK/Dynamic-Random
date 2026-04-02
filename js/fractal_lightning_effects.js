@@ -246,11 +246,17 @@ export class FractalLightning {
 
     _updateStorm() {
         this.stormTimer++;
-        if (this.stormTimer >= this.stormInterval) {
+        // Click: trigger rapid multi-strike storm
+        const interval = this._isClicking ? Math.max(3, this.stormInterval / 5) : this.stormInterval;
+        if (this.stormTimer >= interval) {
             this.stormTimer = 0;
-            // Strike from top toward cursor
             const startX = this._mouseX + (Math.random() - 0.5) * 200;
             this._spawnBolt(startX, -10, this._mouseX, this._mouseY, 3, 12, 2.5);
+            // Click spawns additional side strikes
+            if (this._isClicking) {
+                const offset = 100 + Math.random() * 200;
+                this._spawnBolt(startX - offset, -10, this._mouseX - offset * 0.3, this._mouseY, 2, 8, 1.5);
+            }
         }
     }
 
@@ -278,8 +284,19 @@ export class FractalLightning {
     _updateNeural() {
         const mx = this._mouseX, my = this._mouseY;
 
+        // Click: force-fire all neurons near cursor (chain reaction)
+        if (this._isClicking) {
+            for (const n of this.neurons) {
+                const dx = mx - n.x, dy = my - n.y;
+                if (dx * dx + dy * dy < 40000 && n.recovery === 0) { // 200px radius
+                    n.charge = n.threshold; // Force fire
+                }
+            }
+        }
+
         // Cursor stimulates nearby neurons
-        for (const n of this.neurons) {
+        for (let ni = 0; ni < this.neurons.length; ni++) {
+            const n = this.neurons[ni];
             if (n.recovery > 0) { n.recovery--; continue; }
             const dx = mx - n.x, dy = my - n.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -291,9 +308,9 @@ export class FractalLightning {
             if (n.charge >= n.threshold) {
                 n.charge = 0;
                 n.recovery = 20;
-                // Propagate through synapses
+                // Propagate through synapses (use ni index directly)
                 for (const syn of this.synapses) {
-                    if (syn.from === this.neurons.indexOf(n)) {
+                    if (syn.from === ni) {
                         const target = this.neurons[syn.to];
                         if (target && target.recovery === 0) {
                             target.charge = Math.min(1, target.charge + syn.weight);
@@ -322,6 +339,22 @@ export class FractalLightning {
     }
 
     _updateChainLightning() {
+        // Click: supercharge all nodes for cascade discharge
+        if (this._isClicking && this.tick % 8 === 0) {
+            for (const node of this.chargeNodes) {
+                node.charge = 1;
+            }
+            // Also bolt from cursor to nearest node
+            let nearest = null, nearDist = Infinity;
+            for (const node of this.chargeNodes) {
+                const d = Math.hypot(node.x - this._mouseX, node.y - this._mouseY);
+                if (d < nearDist) { nearDist = d; nearest = node; }
+            }
+            if (nearest) {
+                this._spawnBolt(this._mouseX, this._mouseY, nearest.x, nearest.y, 2, 10, 2);
+            }
+        }
+
         for (const node of this.chargeNodes) {
             node.charge = Math.min(1, node.charge + node.chargeRate);
 
@@ -353,12 +386,15 @@ export class FractalLightning {
     }
 
     _updatePlasmaGlobe() {
+        // Click: arcs all converge on cursor position (touching the globe)
+        const touching = this._isClicking;
+
         // Center follows cursor slowly
         this.globeCenter.x += (this._mouseX - this.globeCenter.x) * 0.02;
         this.globeCenter.y += (this._mouseY - this.globeCenter.y) * 0.02;
 
         for (const arc of this.arcTargets) {
-            arc.angle += arc.angularSpeed;
+            arc.angle += arc.angularSpeed * (touching ? 2 : 1);
             arc.wobble += arc.wobbleSpeed;
         }
 
@@ -367,9 +403,17 @@ export class FractalLightning {
             this.bolts = []; // Clear old arcs for fresh ones
             for (const arc of this.arcTargets) {
                 const r = this.globeRadius * (0.7 + Math.sin(arc.wobble) * 0.3);
-                const tx = this.globeCenter.x + Math.cos(arc.angle) * r;
-                const ty = this.globeCenter.y + Math.sin(arc.angle) * r;
-                this._spawnBolt(this.globeCenter.x, this.globeCenter.y, tx, ty, 1, 5, 1.2);
+                let tx, ty;
+                if (touching) {
+                    // Arcs reach toward the cursor when clicking
+                    tx = this._mouseX + (Math.random() - 0.5) * 20;
+                    ty = this._mouseY + (Math.random() - 0.5) * 20;
+                } else {
+                    tx = this.globeCenter.x + Math.cos(arc.angle) * r;
+                    ty = this.globeCenter.y + Math.sin(arc.angle) * r;
+                }
+                this._spawnBolt(this.globeCenter.x, this.globeCenter.y, tx, ty,
+                    touching ? 2 : 1, touching ? 7 : 5, touching ? 2 : 1.2);
             }
         }
     }
@@ -380,12 +424,15 @@ export class FractalLightning {
 
         // Draw bolts (shared across modes)
         for (const bolt of this.bolts) {
-            const alpha = (bolt.life / bolt.maxLife) * 0.5 * this.intensity;
+            const lifeRatio = bolt.life / bolt.maxLife;
+            const alpha = lifeRatio * 0.5 * this.intensity;
             const hue = (this.hue + bolt.hueOffset + 360) % 360;
+            // Pulsing glow - bright at spawn, fades
+            const glowPulse = 1 + Math.sin(bolt.life * 0.8) * 0.3;
 
-            // Glow pass
+            // Wide glow pass
             ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 70%, ${alpha * 0.3})`;
-            ctx.lineWidth = bolt.width * 4;
+            ctx.lineWidth = bolt.width * 4 * glowPulse;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.beginPath();
@@ -397,13 +444,22 @@ export class FractalLightning {
 
             // Core pass
             ctx.strokeStyle = `hsla(${hue}, ${this.saturation - 20}%, 90%, ${alpha})`;
-            ctx.lineWidth = bolt.width;
+            ctx.lineWidth = bolt.width * glowPulse;
             ctx.beginPath();
             ctx.moveTo(bolt.points[0].x, bolt.points[0].y);
             for (let i = 1; i < bolt.points.length; i++) {
                 ctx.lineTo(bolt.points[i].x, bolt.points[i].y);
             }
             ctx.stroke();
+
+            // Impact point glow at bolt tip
+            if (lifeRatio > 0.5) {
+                const tip = bolt.points[bolt.points.length - 1];
+                ctx.fillStyle = `hsla(${hue}, 90%, 90%, ${(lifeRatio - 0.5) * 0.4 * this.intensity})`;
+                ctx.beginPath();
+                ctx.arc(tip.x, tip.y, bolt.width * 2, 0, TAU);
+                ctx.fill();
+            }
         }
 
         // Mode-specific overlays
@@ -453,17 +509,29 @@ export class FractalLightning {
 
         // Draw synapse flashes as mini-bolts
         for (const flash of this.synapseFlashes) {
-            const alpha = (flash.life / flash.maxLife) * 0.3 * this.intensity;
+            const lifeRatio = flash.life / flash.maxLife;
+            const alpha = lifeRatio * 0.4 * this.intensity;
             ctx.strokeStyle = `hsla(${this.hue + 40}, 90%, 80%, ${alpha})`;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1 + lifeRatio;
             ctx.beginPath();
-            // Simple jittered line
+            // Deterministic jitter based on life phase (not random per frame)
+            const jitter = Math.sin(flash.life * 2.7 + flash.x1 * 0.1) * 8;
+            const jitterY = Math.cos(flash.life * 3.1 + flash.y1 * 0.1) * 8;
             ctx.moveTo(flash.x1, flash.y1);
-            const midX = (flash.x1 + flash.x2) / 2 + (Math.random() - 0.5) * 10;
-            const midY = (flash.y1 + flash.y2) / 2 + (Math.random() - 0.5) * 10;
+            const midX = (flash.x1 + flash.x2) / 2 + jitter;
+            const midY = (flash.y1 + flash.y2) / 2 + jitterY;
             ctx.lineTo(midX, midY);
             ctx.lineTo(flash.x2, flash.y2);
             ctx.stroke();
+
+            // Bright flash at synapse endpoints during initial fire
+            if (lifeRatio > 0.7) {
+                const endAlpha = (lifeRatio - 0.7) * 1.5 * this.intensity;
+                ctx.fillStyle = `hsla(${this.hue + 40}, 95%, 95%, ${endAlpha})`;
+                ctx.beginPath();
+                ctx.arc(flash.x2, flash.y2, 3, 0, TAU);
+                ctx.fill();
+            }
         }
 
         // Draw synaptic connections (dim)

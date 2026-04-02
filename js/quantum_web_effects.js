@@ -206,6 +206,7 @@ export class QuantumWeb {
         if (this.mode === 0) this._updatePairs();
         else if (this.mode === 1) this._updateCloud();
         else if (this.mode === 2) this._updateTunneling();
+        else if (this.mode === 3) this._updateWaveFunction();
         else if (this.mode === 4) this._updateSpinNetwork();
         else if (this.mode === 5) this._updateDecoherence();
     }
@@ -222,6 +223,16 @@ export class QuantumWeb {
                 p.avy += (day / distA) * force;
                 p.energy = Math.min(1, p.energy + 0.05);
             }
+
+            // Click: "measurement" - swap entanglement and burst energy
+            if (this._isClicking && distA < 150) {
+                p.energy = 1;
+                p.spin *= -1; // Spin flip on measurement
+                // Teleport partner to opposite position
+                p.bvx += (mx - p.bx) * 0.05 * p.spin;
+                p.bvy += (my - p.by) * 0.05 * p.spin;
+            }
+
             // Entangled partner mirrors reaction (spooky action)
             p.bvx += -p.avx * 0.3 * p.spin;
             p.bvy += -p.avy * 0.3 * p.spin;
@@ -268,6 +279,14 @@ export class QuantumWeb {
 
     _updateTunneling() {
         const w = window.innerWidth, h = window.innerHeight;
+        // Click makes barriers flicker and boosts tunnel probability
+        const clickBoost = this._isClicking ? 0.3 : 0;
+        for (const b of this.barriers) {
+            b.opacity = this._isClicking
+                ? 0.05 + Math.random() * 0.1  // Flicker when clicking
+                : Math.min(0.25, (b.opacity || 0.15) + 0.002); // Recover
+        }
+
         for (const t of this.tunnelers) {
             // Cursor attraction
             const dx = this._mouseX - t.x, dy = this._mouseY - t.y;
@@ -276,13 +295,18 @@ export class QuantumWeb {
                 t.vx += (dx / dist) * 0.1;
                 t.vy += (dy / dist) * 0.1;
             }
+            // Click gives tunnelers a speed burst
+            if (this._isClicking && dist < 150) {
+                t.vx += (dx / dist) * 0.5;
+                t.vy += (dy / dist) * 0.5;
+            }
             t.x += t.vx; t.y += t.vy;
             t.vx *= 0.99; t.vy *= 0.99;
 
             // Check barrier collision / tunneling
             for (const b of this.barriers) {
                 if (t.x > b.x - b.width && t.x < b.x + b.width) {
-                    if (Math.random() < t.tunnelProb) {
+                    if (Math.random() < t.tunnelProb + clickBoost) {
                         // Tunnel through - spawn afterimage
                         const ai = this.afterimagePool.length > 0 ? this.afterimagePool.pop() : {};
                         ai.x = t.x; ai.y = t.y; ai.life = 20; ai.maxLife = 20; ai.size = t.size;
@@ -308,6 +332,30 @@ export class QuantumWeb {
         }
     }
 
+    _updateWaveFunction() {
+        // Wave nodes drift slowly and respond to cursor
+        const mx = this._mouseX, my = this._mouseY;
+        for (const node of this.waveNodes) {
+            node.phase += node.speed;
+            // Nodes gently attracted toward cursor
+            const dx = mx - node.x, dy = my - node.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0 && dist < 300) {
+                node.x += (dx / dist) * 0.2;
+                node.y += (dy / dist) * 0.2;
+            }
+            // Click: amp spike and phase reset for dramatic interference shift
+            if (this._isClicking && dist < 200) {
+                node.amp = Math.min(1.5, node.amp + 0.1);
+                node.phase += 0.5; // Phase jolt creates visible pattern change
+            } else {
+                // Decay amp back to base
+                node.amp *= 0.998;
+                node.amp = Math.max(0.3, node.amp);
+            }
+        }
+    }
+
     _updateSpinNetwork() {
         const w = window.innerWidth, h = window.innerHeight;
         for (const n of this.spinNodes) {
@@ -315,10 +363,22 @@ export class QuantumWeb {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < 150 && dist > 0) {
                 n.angularVel += (dist < 80 ? 0.01 : -0.005) * n.spin;
+                // Cursor gently repels nodes
+                n.vx -= (dx / dist) * 0.02;
+                n.vy -= (dy / dist) * 0.02;
+            }
+            // Click: flip spin and send angular impulse
+            if (this._isClicking && dist < 120) {
+                n.spin *= -1;
+                n.angularVel += 0.15 * n.spin;
+                // Push away from cursor
+                n.vx += (n.x - this._mouseX) / dist * 1.5;
+                n.vy += (n.y - this._mouseY) / dist * 1.5;
             }
             n.angle += n.angularVel;
             n.angularVel *= 0.98;
             n.x += n.vx; n.y += n.vy;
+            n.vx *= 0.98; n.vy *= 0.98;
             if (n.x < 0 || n.x > w) n.vx *= -1;
             if (n.y < 0 || n.y > h) n.vy *= -1;
         }
@@ -326,16 +386,24 @@ export class QuantumWeb {
 
     _updateDecoherence() {
         const mx = this._mouseX, my = this._mouseY;
-        // Mouse proximity re-coheres particles
+        // Click: force all particles into coherent state briefly
+        const clickCohere = this._isClicking ? 0.15 : 0;
+
         for (const p of this.noiseParticles) {
             const dx = mx - p.coherentX, dy = my - p.coherentY;
             const distToCoherent = Math.sqrt(dx * dx + dy * dy);
-            const localCoherence = distToCoherent < 300 ? 1 - distToCoherent / 300 : 0;
+            const localCoherence = Math.min(1, (distToCoherent < 300 ? 1 - distToCoherent / 300 : 0) + clickCohere);
 
             const targetX = localCoherence > 0.3 ? p.coherentX : p.targetX;
             const targetY = localCoherence > 0.3 ? p.coherentY : p.targetY;
-            p.x += (targetX - p.x) * (0.01 + localCoherence * 0.04);
-            p.y += (targetY - p.y) * (0.01 + localCoherence * 0.04);
+            p.x += (targetX - p.x) * (0.01 + localCoherence * 0.06);
+            p.y += (targetY - p.y) * (0.01 + localCoherence * 0.06);
+
+            // Click: snap coherent positions toward cursor
+            if (this._isClicking) {
+                p.coherentX += (mx - p.coherentX) * 0.005;
+                p.coherentY += (my - p.coherentY) * 0.005;
+            }
 
             // Occasionally re-scatter decoherent particles
             if (localCoherence < 0.1 && Math.random() < 0.005) {
@@ -389,17 +457,38 @@ export class QuantumWeb {
                 ctx.fill();
             }
 
-            // Particle A - solid state
+            // Particle A - solid state with energy glow halo
+            const sizeA = p.size + p.energy * 4;
+            if (p.energy > 0.2) {
+                const g = ctx.createRadialGradient(p.ax, p.ay, 0, p.ax, p.ay, sizeA * 3);
+                g.addColorStop(0, `hsla(${hue}, 90%, 85%, ${p.energy * 0.25})`);
+                g.addColorStop(1, 'transparent');
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(p.ax, p.ay, sizeA * 3, 0, TAU);
+                ctx.fill();
+            }
             ctx.fillStyle = `hsla(${hue}, ${this.saturation}%, 70%, ${0.3 + energyGlow})`;
             ctx.beginPath();
-            ctx.arc(p.ax, p.ay, p.size + p.energy * 4, 0, TAU);
+            ctx.arc(p.ax, p.ay, sizeA, 0, TAU);
             ctx.fill();
 
-            // Particle B - entangled partner (hollow, inverted spin indicator)
-            ctx.strokeStyle = `hsla(${(hue + 180) % 360}, ${this.saturation}%, 70%, ${0.3 + energyGlow})`;
+            // Particle B - entangled partner with complementary glow
+            const sizeB = p.size + p.energy * 4;
+            const partnerHue = (hue + 180) % 360;
+            if (p.energy > 0.2) {
+                const g2 = ctx.createRadialGradient(p.bx, p.by, 0, p.bx, p.by, sizeB * 3);
+                g2.addColorStop(0, `hsla(${partnerHue}, 90%, 85%, ${p.energy * 0.25})`);
+                g2.addColorStop(1, 'transparent');
+                ctx.fillStyle = g2;
+                ctx.beginPath();
+                ctx.arc(p.bx, p.by, sizeB * 3, 0, TAU);
+                ctx.fill();
+            }
+            ctx.strokeStyle = `hsla(${partnerHue}, ${this.saturation}%, 70%, ${0.3 + energyGlow})`;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.arc(p.bx, p.by, p.size + p.energy * 4, 0, TAU);
+            ctx.arc(p.bx, p.by, sizeB, 0, TAU);
             ctx.stroke();
 
             // Spin indicators

@@ -81,7 +81,7 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     ambientFX.configure(seededRandom, fxPalette);
     warpField.configure(seededRandom, fxPalette);
     ambientSound.configure(seededRandom, fxPalette);
-    interactiveEffects.configure(seededRandom, fxPalette);
+    interactiveEffects.configure(seededRandom, fxPalette, blueprintName);
 
     setUniverseProfile(profile);
     setUniverseState({ energy: 0, state: 'Stable', maxEnergy: 4000 + seededRandom() * 2000 });

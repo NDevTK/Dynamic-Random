@@ -19,6 +19,9 @@ export class MoodAtmosphere {
         this.tick = 0;
         this.hue = 0;
         this.saturation = 70;
+        this._rng = Math.random;
+        this._w = window.innerWidth;
+        this._h = window.innerHeight;
 
         // God rays
         this.rayCount = 0;
@@ -58,6 +61,9 @@ export class MoodAtmosphere {
         this.hue = palette.length > 0 ? (palette[0].h || Math.floor(rng() * 360)) : Math.floor(rng() * 360);
         this.saturation = 50 + rng() * 40;
         this.tick = 0;
+        this._rng = rng;
+        this._w = window.innerWidth;
+        this._h = window.innerHeight;
 
         switch (this.mode) {
             case 0: // God rays
@@ -157,30 +163,31 @@ export class MoodAtmosphere {
     }
 
     _updateGodRays(mx, my) {
-        const targetX = mx / window.innerWidth;
-        const targetY = my / window.innerHeight * 0.3;
+        const targetX = mx / this._w;
+        const targetY = my / this._h * 0.3;
         this.raySourceX += (targetX - this.raySourceX) * 0.01;
         this.raySourceY += (targetY - this.raySourceY) * 0.01;
     }
 
     _updateElectricStorm(mx, my, isClicking) {
+        const rng = this._rng;
         this.ambientCharge += isClicking ? 0.05 : 0.002;
         if (this.ambientCharge > 1) this.ambientCharge = 1;
 
-        if ((isClicking || (this.ambientCharge > 0.7 && Math.random() < 0.02)) && this.bolts.length < this.maxBolts) {
+        if ((isClicking || (this.ambientCharge > 0.7 && rng() < 0.02)) && this.bolts.length < this.maxBolts) {
             const bolt = this.boltPool.length > 0 ? this.boltPool.pop() : {};
             if (isClicking) {
-                bolt.x1 = mx + (Math.random() - 0.5) * 200;
+                bolt.x1 = mx + (rng() - 0.5) * 200;
                 bolt.y1 = 0;
-                bolt.x2 = mx + (Math.random() - 0.5) * 100;
+                bolt.x2 = mx + (rng() - 0.5) * 100;
                 bolt.y2 = my;
             } else {
-                bolt.x1 = Math.random() * window.innerWidth;
+                bolt.x1 = rng() * this._w;
                 bolt.y1 = 0;
-                bolt.x2 = Math.random() * window.innerWidth;
-                bolt.y2 = window.innerHeight * (0.3 + Math.random() * 0.7);
+                bolt.x2 = rng() * this._w;
+                bolt.y2 = this._h * (0.3 + rng() * 0.7);
             }
-            bolt.life = 8 + Math.floor(Math.random() * 8);
+            bolt.life = 8 + Math.floor(rng() * 8);
             bolt.maxLife = bolt.life;
             bolt.segments = this._generateBoltSegments(bolt.x1, bolt.y1, bolt.x2, bolt.y2);
             this.bolts.push(bolt);
@@ -198,13 +205,12 @@ export class MoodAtmosphere {
 
         for (const p of this.chargeParticles) {
             p.x += p.vx; p.y += p.vy;
-            p.vx += (Math.random() - 0.5) * 0.1;
-            p.vy += (Math.random() - 0.5) * 0.1;
+            p.vx += (rng() - 0.5) * 0.1;
+            p.vy += (rng() - 0.5) * 0.1;
             p.vx *= 0.95; p.vy *= 0.95;
-            p.brightness = this.ambientCharge * (0.5 + Math.random() * 0.5);
-            const w = window.innerWidth, h = window.innerHeight;
-            if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
-            if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+            p.brightness = this.ambientCharge * (0.5 + rng() * 0.5);
+            if (p.x < 0) p.x = this._w; if (p.x > this._w) p.x = 0;
+            if (p.y < 0) p.y = this._h; if (p.y > this._h) p.y = 0;
         }
     }
 
@@ -212,6 +218,7 @@ export class MoodAtmosphere {
      * Iterative bolt generation - avoids recursive allocation and spread operator GC pressure.
      */
     _generateBoltSegments(x1, y1, x2, y2) {
+        const rng = this._rng;
         const segments = [{ x: x1, y: y1 }];
         const queue = [{ x1, y1, x2, y2, depth: 6 }];
 
@@ -223,20 +230,20 @@ export class MoodAtmosphere {
                 continue;
             }
 
-            const midX = (sx + ex) / 2 + (Math.random() - 0.5) * Math.abs(ex - sx) * 0.4;
-            const midY = (sy + ey) / 2 + (Math.random() - 0.5) * Math.abs(ey - sy) * 0.15;
+            const midX = (sx + ex) / 2 + (rng() - 0.5) * Math.abs(ex - sx) * 0.4;
+            const midY = (sy + ey) / 2 + (rng() - 0.5) * Math.abs(ey - sy) * 0.15;
 
             queue.push({ x1: midX, y1: midY, x2: ex, y2: ey, depth: depth - 1 });
             queue.push({ x1: sx, y1: sy, x2: midX, y2: midY, depth: depth - 1 });
 
             // Branch
-            if (depth > 2 && Math.random() < 0.4) {
+            if (depth > 2 && rng() < 0.4) {
                 segments.push({
                     x: midX, y: midY, branch: true,
                 });
                 segments.push({
-                    x: midX + (Math.random() - 0.5) * 100,
-                    y: midY + 30 + Math.random() * 80,
+                    x: midX + (rng() - 0.5) * 100,
+                    y: midY + 30 + rng() * 80,
                 });
             }
         }
@@ -246,7 +253,7 @@ export class MoodAtmosphere {
     }
 
     _updateFog(mx, my) {
-        const w = window.innerWidth;
+        const w = this._w;
         for (const bank of this.fogBanks) {
             bank.offset += bank.speed * bank.direction;
             if (bank.offset > w * 2) bank.offset -= w * 3;
@@ -262,21 +269,21 @@ export class MoodAtmosphere {
     _updateEmbers(mx, my) {
         // Track peak ember count for smooth heat shimmer
         this._peakEmberCount = Math.max(this._peakEmberCount * 0.995, this.embers.length);
+        const rng = this._rng;
 
         // Spawn embers from bottom
         if (this.tick % 4 === 0 && this.embers.length < this.maxEmbers) {
             const ember = this.emberPool.length > 0 ? this.emberPool.pop() : {};
-            const w = window.innerWidth, h = window.innerHeight;
-            ember.x = Math.random() * w;
-            ember.y = h + 10;
-            ember.vx = (Math.random() - 0.5) * 0.5;
-            ember.vy = -(0.5 + Math.random() * 1.5);
+            ember.x = rng() * this._w;
+            ember.y = this._h + 10;
+            ember.vx = (rng() - 0.5) * 0.5;
+            ember.vy = -(0.5 + rng() * 1.5);
             ember.life = 1.0;
-            ember.decay = 0.002 + Math.random() * 0.003;
-            ember.size = 1 + Math.random() * 3;
-            ember.wobble = Math.random() * Math.PI * 2;
-            ember.wobbleSpeed = 0.02 + Math.random() * 0.04;
-            ember.hueOffset = Math.random() * 30 - 15;
+            ember.decay = 0.002 + rng() * 0.003;
+            ember.size = 1 + rng() * 3;
+            ember.wobble = rng() * Math.PI * 2;
+            ember.wobbleSpeed = 0.02 + rng() * 0.04;
+            ember.hueOffset = rng() * 30 - 15;
             this.embers.push(ember);
         }
 

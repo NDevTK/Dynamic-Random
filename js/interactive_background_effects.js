@@ -1,87 +1,29 @@
 /**
  * @file interactive_background_effects.js
  * @description Orchestrator for the interactive effects layer that runs on top of all
- * background architectures. Integrates 20 sub-systems including ReactiveGrid,
- * DimensionalEchoes, ParticleSwarm, MoodAtmosphere, MagneticSand,
- * DimensionalPortal, SoundWaveSculptor, EmotionWeather, GravitationalCalligraphy
- * plus the original interactive effects (ripples, mouse trail, gravity field,
- * heat map, echo ghosts, constellation links).
+ * background architectures. Uses a data-driven registry (effect_registry.js) to manage
+ * 25 sub-systems with tag-based blueprint affinity selection.
  *
- * Each universe seed selects a unique combination of 6-10 sub-systems and their
- * internal modes, producing dramatically different interactive behaviors.
- * Performance is managed via quality scaling from the perf monitor.
+ * Each universe seed selects 6-10 sub-systems weighted by thematic affinity with the
+ * active blueprint, producing coherent interactive behaviors. Sub-systems are iterated
+ * via arrays instead of individual flags for maintainability.
+ *
+ * Also manages 6 lightweight original effects (ripples, mouse trail, gravity field,
+ * heat map, echo ghosts, constellation links) inline.
  */
 
 import { mouse, isLeftMouseDown, isRightMouseDown } from './state.js';
-import { ReactiveGrid } from './reactive_grid_effects.js';
-import { DimensionalEchoes } from './dimensional_echoes.js';
-import { ParticleSwarm } from './particle_swarm_effects.js';
-import { MoodAtmosphere } from './mood_atmosphere.js';
-import { GravitationalLens } from './gravitational_lens_effects.js';
-import { SonicBloom } from './sonic_bloom_effects.js';
-import { PixelAlchemy } from './pixel_alchemy_effects.js';
-import { PhantomCursor } from './phantom_cursor_effects.js';
-import { HarmonicResonance } from './harmonic_resonance_effects.js';
-import { LivingInk } from './living_ink_effects.js';
-import { QuantumWeb } from './quantum_web_effects.js';
-import { TimeCrystal } from './time_crystal_effects.js';
-import { BioluminescentTide } from './bioluminescent_tide_effects.js';
-import { FractalLightning } from './fractal_lightning_effects.js';
-import { GravityMarbles } from './gravity_marble_effects.js';
-import { MagneticSand } from './magnetic_sand_effects.js';
-import { DimensionalPortal } from './dimensional_portal_effects.js';
-import { SoundWaveSculptor } from './sound_wave_sculptor_effects.js';
-import { EmotionWeather } from './emotion_weather_effects.js';
-import { GravitationalCalligraphy } from './gravitational_calligraphy_effects.js';
+import { EFFECT_REGISTRY, selectEffects } from './effect_registry.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
         this.initialized = false;
         this.tick = 0;
 
-        // Sub-systems
-        this.grid = new ReactiveGrid();
-        this.echoes = new DimensionalEchoes();
-        this.swarm = new ParticleSwarm();
-        this.atmosphere = new MoodAtmosphere();
-        this.lens = new GravitationalLens();
-        this.bloom = new SonicBloom();
-        this.alchemy = new PixelAlchemy();
-        this.phantom = new PhantomCursor();
-        this.harmonics = new HarmonicResonance();
-        this.ink = new LivingInk();
-        this.quantum = new QuantumWeb();
-        this.crystal = new TimeCrystal();
-        this.biolume = new BioluminescentTide();
-        this.lightning = new FractalLightning();
-        this.marbles = new GravityMarbles();
-        this.magneticSand = new MagneticSand();
-        this.portals = new DimensionalPortal();
-        this.soundWaves = new SoundWaveSculptor();
-        this.weather = new EmotionWeather();
-        this.calligraphy = new GravitationalCalligraphy();
-
-        // Sub-system enable flags (set by seed)
-        this.hasGrid = false;
-        this.hasEchoes = false;
-        this.hasSwarm = false;
-        this.hasAtmosphere = false;
-        this.hasLens = false;
-        this.hasBloom = false;
-        this.hasAlchemy = false;
-        this.hasPhantom = false;
-        this.hasHarmonics = false;
-        this.hasInk = false;
-        this.hasQuantum = false;
-        this.hasCrystal = false;
-        this.hasBiolume = false;
-        this.hasLightning = false;
-        this.hasMarbles = false;
-        this.hasMagneticSand = false;
-        this.hasPortals = false;
-        this.hasSoundWaves = false;
-        this.hasWeather = false;
-        this.hasCalligraphy = false;
+        // Active sub-system indices (from EFFECT_REGISTRY), set per seed
+        this._activeIndices = [];
+        // Sorted draw order for active effects
+        this._drawOrder = [];
 
         // Original effect toggles
         this.hasRipples = false;
@@ -121,7 +63,7 @@ class InteractiveBackgroundEffects {
         this.ghosts = [];
         this.ghostPool = [];
         this.maxGhosts = 15;
-        this.ghostStyle = 0; // Base style, individual ghosts get varied styles
+        this.ghostStyle = 0;
 
         // Constellation links
         this.constellationPoints = [];
@@ -150,8 +92,6 @@ class InteractiveBackgroundEffects {
 
     /**
      * Extract hue values from palette for sub-system configuration.
-     * Palette is { primary: string[], accent: string[], glow: string[], bg: string }.
-     * Colors are hsla() strings.
      */
     _extractHues(palette) {
         const hues = [];
@@ -176,10 +116,10 @@ class InteractiveBackgroundEffects {
     }
 
     /**
-     * Configure effects based on seeded RNG and palette.
-     * Each seed enables 2-4 sub-systems plus 1-3 original effects.
+     * Configure effects based on seeded RNG, palette, and blueprint name.
+     * Uses tag-based affinity to select thematically coherent sub-systems.
      */
-    configure(rng, palette) {
+    configure(rng, palette, blueprintName) {
         this.tick = 0;
         this.ripples = [];
         this.trailPoints = [];
@@ -187,61 +127,22 @@ class InteractiveBackgroundEffects {
         this.constellationPoints = [];
         this._heatDirtyCells.clear();
 
-        // Normalize palette into array of {h} objects for sub-systems
         const hues = this._extractHues(palette);
 
-        // --- Enable sub-systems based on seed ---
-        // Pick 6-10 sub-systems from 20 available using a shuffle to guarantee diversity
-        const subsystems = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
-        // Fisher-Yates shuffle with seeded rng
-        for (let i = subsystems.length - 1; i > 0; i--) {
-            const j = Math.floor(rng() * (i + 1));
-            [subsystems[i], subsystems[j]] = [subsystems[j], subsystems[i]];
-        }
-        const enableCount = 6 + Math.floor(rng() * 5); // 6, 7, 8, 9, or 10
-        const enabledSet = new Set(subsystems.slice(0, enableCount));
-        this.hasGrid = enabledSet.has(0);
-        this.hasEchoes = enabledSet.has(1);
-        this.hasSwarm = enabledSet.has(2);
-        this.hasAtmosphere = enabledSet.has(3);
-        this.hasLens = enabledSet.has(4);
-        this.hasBloom = enabledSet.has(5);
-        this.hasAlchemy = enabledSet.has(6);
-        this.hasPhantom = enabledSet.has(7);
-        this.hasHarmonics = enabledSet.has(8);
-        this.hasInk = enabledSet.has(9);
-        this.hasQuantum = enabledSet.has(10);
-        this.hasCrystal = enabledSet.has(11);
-        this.hasBiolume = enabledSet.has(12);
-        this.hasLightning = enabledSet.has(13);
-        this.hasMarbles = enabledSet.has(14);
-        this.hasMagneticSand = enabledSet.has(15);
-        this.hasPortals = enabledSet.has(16);
-        this.hasSoundWaves = enabledSet.has(17);
-        this.hasWeather = enabledSet.has(18);
-        this.hasCalligraphy = enabledSet.has(19);
+        // --- Select sub-systems via tag-weighted selection ---
+        const enableCount = 6 + Math.floor(rng() * 5); // 6-10
+        const enabledSet = selectEffects(rng, blueprintName || '', enableCount);
 
-        // Configure enabled sub-systems with normalized hue array
-        if (this.hasGrid) this.grid.configure(rng, hues);
-        if (this.hasEchoes) this.echoes.configure(rng, hues);
-        if (this.hasSwarm) this.swarm.configure(rng, hues);
-        if (this.hasAtmosphere) this.atmosphere.configure(rng, hues);
-        if (this.hasLens) this.lens.configure(rng, hues);
-        if (this.hasBloom) this.bloom.configure(rng, hues);
-        if (this.hasAlchemy) this.alchemy.configure(rng, hues);
-        if (this.hasPhantom) this.phantom.configure(rng, hues);
-        if (this.hasHarmonics) this.harmonics.configure(rng, hues);
-        if (this.hasInk) this.ink.configure(rng, hues);
-        if (this.hasQuantum) this.quantum.configure(rng, hues);
-        if (this.hasCrystal) this.crystal.configure(rng, hues);
-        if (this.hasBiolume) this.biolume.configure(rng, hues);
-        if (this.hasLightning) this.lightning.configure(rng, hues);
-        if (this.hasMarbles) this.marbles.configure(rng, hues);
-        if (this.hasMagneticSand) this.magneticSand.configure(rng, hues);
-        if (this.hasPortals) this.portals.configure(rng, hues);
-        if (this.hasSoundWaves) this.soundWaves.configure(rng, hues);
-        if (this.hasWeather) this.weather.configure(rng, hues);
-        if (this.hasCalligraphy) this.calligraphy.configure(rng, hues);
+        this._activeIndices = [...enabledSet];
+        // Sort by drawOrder for consistent rendering
+        this._drawOrder = [...this._activeIndices].sort(
+            (a, b) => EFFECT_REGISTRY[a].drawOrder - EFFECT_REGISTRY[b].drawOrder
+        );
+
+        // Configure each enabled sub-system
+        for (const idx of this._activeIndices) {
+            EFFECT_REGISTRY[idx].instance.configure(rng, hues);
+        }
 
         // --- Original effects (1-3 active) ---
         this.hasRipples = rng() > 0.35;
@@ -288,7 +189,7 @@ class InteractiveBackgroundEffects {
     }
 
     /**
-     * Update all active interactive effects. Called each frame from background.animate().
+     * Update all active interactive effects.
      */
     update(system) {
         this.tick++;
@@ -297,14 +198,13 @@ class InteractiveBackgroundEffects {
         const my = mouse.y;
         const isClicking = isLeftMouseDown || isRightMouseDown;
 
-        // Track mouse speed for velocity-responsive effects
         const dx = mx - (this._prevMx || mx);
         const dy = my - (this._prevMy || my);
         this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
         this._prevMx = mx;
         this._prevMy = my;
 
-        // Handle clicks
+        // Handle clicks for original effects
         if (this._clickRegistered) {
             this._clickRegistered = false;
 
@@ -326,7 +226,6 @@ class InteractiveBackgroundEffects {
                     alpha: 0.5,
                 });
                 if (this.constellationPoints.length > this.maxConstellationPoints) {
-                    // Swap-and-pop first element (O(1) vs shift's O(n))
                     this.constellationPoints[0] = this.constellationPoints[this.constellationPoints.length - 1];
                     this.constellationPoints.pop();
                 }
@@ -345,39 +244,26 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Mouse trail with click burst
+        // Mouse trail
         if (this.hasMouseTrail) {
             this.trailPoints.push({ x: mx, y: my, tick: this.tick });
-            // Click spawns radial burst of trail points
-            if (this._clickRegistered) {
-                const burstCount = 6;
-                for (let i = 0; i < burstCount; i++) {
-                    const angle = (i / burstCount) * Math.PI * 2;
-                    this.trailPoints.push({
-                        x: mx + Math.cos(angle) * 20,
-                        y: my + Math.sin(angle) * 20,
-                        tick: this.tick,
-                    });
-                }
-            }
-            // Trim excess with slice instead of repeated shift() to avoid O(n^2) churn
             if (this.trailPoints.length > this.maxTrailPoints + 10) {
                 this.trailPoints = this.trailPoints.slice(-this.maxTrailPoints);
             }
         }
 
-        // Heat map - optimized: only update dirty cells, batch decay
+        // Heat map
         if (this.hasHeatMap && this.heatGrid) {
             const hx = Math.floor(mx / this.heatCellSize);
             const hy = Math.floor(my / this.heatCellSize);
             if (hx >= 0 && hx < this.heatCols && hy >= 0 && hy < this.heatRows) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    for (let dx = -1; dx <= 1; dx++) {
-                        const nx = hx + dx;
-                        const ny = hy + dy;
+                for (let dy2 = -1; dy2 <= 1; dy2++) {
+                    for (let dx2 = -1; dx2 <= 1; dx2++) {
+                        const nx = hx + dx2;
+                        const ny = hy + dy2;
                         if (nx >= 0 && nx < this.heatCols && ny >= 0 && ny < this.heatRows) {
                             const idx = ny * this.heatCols + nx;
-                            const dist = Math.abs(dx) + Math.abs(dy);
+                            const dist = Math.abs(dx2) + Math.abs(dy2);
                             this.heatGrid[idx] = Math.min(1,
                                 this.heatGrid[idx] + (dist === 0 ? 0.05 : 0.02));
                             this._heatDirtyCells.add(idx);
@@ -385,7 +271,6 @@ class InteractiveBackgroundEffects {
                     }
                 }
             }
-            // Decay only dirty cells instead of entire grid
             if (this.tick % 2 === 0) {
                 const toRemove = [];
                 for (const idx of this._heatDirtyCells) {
@@ -402,7 +287,6 @@ class InteractiveBackgroundEffects {
         }
 
         // Echo ghosts
-        // Echo ghosts - spawn rate scales with cursor speed
         const ghostInterval = Math.max(2, 6 - Math.floor(this._mouseSpeed || 0));
         if (this.hasEchoGhosts && this.tick % ghostInterval === 0 && this.ghosts.length < this.maxGhosts) {
             const ghost = this.ghostPool.length > 0 ? this.ghostPool.pop() : {};
@@ -411,8 +295,8 @@ class InteractiveBackgroundEffects {
             ghost.life = 30;
             ghost.maxLife = 30;
             ghost.size = 8 + Math.random() * 12;
-            ghost.style = Math.floor(Math.random() * 3); // Per-ghost style variety
-            ghost.hueOffset = Math.random() * 40 - 20; // Per-ghost color
+            ghost.style = Math.floor(Math.random() * 3);
+            ghost.hueOffset = Math.random() * 40 - 20;
             this.ghosts.push(ghost);
         }
 
@@ -425,7 +309,7 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Constellation lifetimes (swap-and-pop instead of splice for O(1) removal)
+        // Constellation lifetimes
         for (let i = this.constellationPoints.length - 1; i >= 0; i--) {
             const cp = this.constellationPoints[i];
             cp.life--;
@@ -436,28 +320,14 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Update sub-systems (skip at very low quality, use same thresholds as draw)
+        // Update active sub-systems via registry
         const q = this._qualityScale;
-        if (this.hasAtmosphere && q > 0.25) this.atmosphere.update(mx, my, isClicking);
-        if (this.hasGrid && q > 0.25) this.grid.update(mx, my, isClicking, q);
-        if (this.hasEchoes && q > 0.3) this.echoes.update(mx, my, isClicking);
-        if (this.hasSwarm && q > 0.3) this.swarm.update(mx, my, isClicking);
-        if (this.hasLens && q > 0.25) this.lens.update(mx, my, isClicking);
-        if (this.hasBloom && q > 0.3) this.bloom.update(mx, my, isClicking);
-        if (this.hasAlchemy && q > 0.3) this.alchemy.update(mx, my, isClicking);
-        if (this.hasPhantom && q > 0.3) this.phantom.update(mx, my, isClicking);
-        if (this.hasHarmonics && q > 0.25) this.harmonics.update(mx, my, isClicking);
-        if (this.hasInk && q > 0.3) this.ink.update(mx, my, isClicking);
-        if (this.hasQuantum && q > 0.25) this.quantum.update(mx, my, isClicking);
-        if (this.hasCrystal && q > 0.3) this.crystal.update(mx, my, isClicking);
-        if (this.hasBiolume && q > 0.3) this.biolume.update(mx, my, isClicking);
-        if (this.hasLightning && q > 0.3) this.lightning.update(mx, my, isClicking);
-        if (this.hasMarbles && q > 0.25) this.marbles.update(mx, my, isClicking);
-        if (this.hasMagneticSand && q > 0.25) this.magneticSand.update(mx, my, isClicking);
-        if (this.hasPortals && q > 0.3) this.portals.update(mx, my, isClicking);
-        if (this.hasSoundWaves && q > 0.3) this.soundWaves.update(mx, my, isClicking);
-        if (this.hasWeather && q > 0.25) this.weather.update(mx, my, isClicking);
-        if (this.hasCalligraphy && q > 0.3) this.calligraphy.update(mx, my, isClicking);
+        for (const idx of this._activeIndices) {
+            const entry = EFFECT_REGISTRY[idx];
+            if (q > entry.minQuality) {
+                entry.instance.update(mx, my, isClicking);
+            }
+        }
     }
 
     /**
@@ -466,31 +336,15 @@ class InteractiveBackgroundEffects {
     draw(ctx, system) {
         if (!this.initialized) return;
 
-        const w = system.width;
-        const h = system.height;
         const q = this._qualityScale;
 
-        // Draw sub-systems (mood atmosphere first as it's usually a background-level effect)
-        if (this.hasAtmosphere && q > 0.25) this.atmosphere.draw(ctx, system);
-        if (this.hasHarmonics && q > 0.25) this.harmonics.draw(ctx, system);
-        if (this.hasBiolume && q > 0.3) this.biolume.draw(ctx, system);
-        if (this.hasAlchemy && q > 0.3) this.alchemy.draw(ctx, system);
-        if (this.hasInk && q > 0.3) this.ink.draw(ctx, system);
-        if (this.hasQuantum && q > 0.25) this.quantum.draw(ctx, system);
-        if (this.hasGrid && q > 0.25) this.grid.draw(ctx, system);
-        if (this.hasEchoes && q > 0.3) this.echoes.draw(ctx, system);
-        if (this.hasCrystal && q > 0.3) this.crystal.draw(ctx, system);
-        if (this.hasLens && q > 0.25) this.lens.draw(ctx, system);
-        if (this.hasSwarm && q > 0.3) this.swarm.draw(ctx, system);
-        if (this.hasBloom && q > 0.3) this.bloom.draw(ctx, system);
-        if (this.hasLightning && q > 0.3) this.lightning.draw(ctx, system);
-        if (this.hasMarbles && q > 0.25) this.marbles.draw(ctx, system);
-        if (this.hasPhantom && q > 0.3) this.phantom.draw(ctx, system);
-        if (this.hasWeather && q > 0.25) this.weather.draw(ctx, system);
-        if (this.hasMagneticSand && q > 0.25) this.magneticSand.draw(ctx, system);
-        if (this.hasSoundWaves && q > 0.3) this.soundWaves.draw(ctx, system);
-        if (this.hasPortals && q > 0.3) this.portals.draw(ctx, system);
-        if (this.hasCalligraphy && q > 0.3) this.calligraphy.draw(ctx, system);
+        // Draw sub-systems in draw-order (sorted during configure)
+        for (const idx of this._drawOrder) {
+            const entry = EFFECT_REGISTRY[idx];
+            if (q > entry.minQuality) {
+                entry.instance.draw(ctx, system);
+            }
+        }
 
         // --- Original effects below ---
 
@@ -498,7 +352,6 @@ class InteractiveBackgroundEffects {
         if (this.hasHeatMap && this.heatGrid && this._heatDirtyCells.size > 0) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            // Only draw dirty cells instead of scanning entire grid
             for (const idx of this._heatDirtyCells) {
                 const heat = this.heatGrid[idx];
                 if (heat < 0.01) continue;
@@ -522,12 +375,10 @@ class InteractiveBackgroundEffects {
             for (const line of this.fieldLines) {
                 const a = line.angle + Math.sin(this.tick * line.speed + line.phase) * 0.3;
                 const len = line.length + Math.sin(this.tick * 0.02 + line.phase) * 20;
-
                 const x1 = mx + Math.cos(a) * 15;
                 const y1 = my + Math.sin(a) * 15;
                 const x2 = mx + Math.cos(a) * len;
                 const y2 = my + Math.sin(a) * len;
-
                 const grad = ctx.createLinearGradient(x1, y1, x2, y2);
                 grad.addColorStop(0, `hsla(${this.fieldHue}, 60%, 60%, 0.2)`);
                 grad.addColorStop(1, 'transparent');
@@ -541,7 +392,7 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Echo ghosts with per-ghost style variety
+        // Echo ghosts
         if (this.hasEchoGhosts) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -551,25 +402,16 @@ class InteractiveBackgroundEffects {
                 const ghostHue = (this.trailHue + (ghost.hueOffset || 0) + 360) % 360;
                 ctx.strokeStyle = `hsla(${ghostHue}, 50%, 60%, ${alpha})`;
                 ctx.lineWidth = 1;
-
                 const style = ghost.style !== undefined ? ghost.style : this.ghostStyle;
                 if (style === 0) {
-                    ctx.beginPath();
-                    ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2); ctx.stroke();
                 } else if (style === 1) {
-                    ctx.beginPath();
-                    ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.arc(ghost.x, ghost.y, size * 0.5, 0, Math.PI * 2);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(ghost.x, ghost.y, size, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(ghost.x, ghost.y, size * 0.5, 0, Math.PI * 2); ctx.stroke();
                 } else {
                     ctx.beginPath();
-                    ctx.moveTo(ghost.x - size, ghost.y);
-                    ctx.lineTo(ghost.x + size, ghost.y);
-                    ctx.moveTo(ghost.x, ghost.y - size);
-                    ctx.lineTo(ghost.x, ghost.y + size);
+                    ctx.moveTo(ghost.x - size, ghost.y); ctx.lineTo(ghost.x + size, ghost.y);
+                    ctx.moveTo(ghost.x, ghost.y - size); ctx.lineTo(ghost.x, ghost.y + size);
                     ctx.stroke();
                 }
             }
@@ -583,7 +425,6 @@ class InteractiveBackgroundEffects {
             ctx.lineWidth = this.trailWidth;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-
             if (this.trailStyle === 3) {
                 for (let i = 1; i < this.trailPoints.length; i++) {
                     const alpha = i / this.trailPoints.length;
@@ -614,7 +455,7 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Click ripples with per-ripple color variety
+        // Click ripples
         if (this.hasRipples) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
@@ -622,56 +463,42 @@ class InteractiveBackgroundEffects {
             for (const r of this.ripples) {
                 const rHue = r.hue !== undefined ? r.hue : this.trailHue;
                 ctx.strokeStyle = `hsla(${rHue}, 70%, 60%, ${r.alpha})`;
-                ctx.beginPath();
-                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2); ctx.stroke();
                 if (r.radius > 10) {
                     ctx.strokeStyle = `hsla(${rHue}, 70%, 60%, ${r.alpha * 0.5})`;
-                    ctx.beginPath();
-                    ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2); ctx.stroke();
                 }
             }
             ctx.restore();
         }
 
-        // Constellation links with glow on recent points
+        // Constellation links
         if (this.hasConstellationLinks && this.constellationPoints.length > 1) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = 0.5;
-
             for (let i = 0; i < this.constellationPoints.length; i++) {
                 const p1 = this.constellationPoints[i];
                 for (let j = i + 1; j < this.constellationPoints.length; j++) {
                     const p2 = this.constellationPoints[j];
-                    const dx = p1.x - p2.x;
-                    const dy = p1.y - p2.y;
-                    const distSq = dx * dx + dy * dy;
+                    const cdx = p1.x - p2.x;
+                    const cdy = p1.y - p2.y;
+                    const distSq = cdx * cdx + cdy * cdy;
                     if (distSq < 90000) {
                         const dist = Math.sqrt(distSq);
                         const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist / 300) * 0.3;
                         ctx.strokeStyle = `hsla(${this.constellationHue}, 50%, 70%, ${alpha})`;
-                        ctx.beginPath();
-                        ctx.moveTo(p1.x, p1.y);
-                        ctx.lineTo(p2.x, p2.y);
-                        ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
                     }
                 }
-                // Star dot with glow for new points
                 const freshness = p1.life > 250 ? (p1.life - 250) / 50 : 0;
                 const dotAlpha = p1.alpha * 0.6;
                 if (freshness > 0) {
-                    // Fresh star glow
                     ctx.fillStyle = `hsla(${this.constellationHue}, 80%, 85%, ${dotAlpha * freshness * 0.5})`;
-                    ctx.beginPath();
-                    ctx.arc(p1.x, p1.y, 6, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.beginPath(); ctx.arc(p1.x, p1.y, 6, 0, Math.PI * 2); ctx.fill();
                 }
                 ctx.fillStyle = `hsla(${this.constellationHue}, 60%, 80%, ${dotAlpha})`;
-                ctx.beginPath();
-                ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2); ctx.fill();
             }
             ctx.restore();
         }

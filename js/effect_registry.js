@@ -78,6 +78,11 @@ import { MirrorDimension } from './mirror_dimension_effects.js';
 import { LightningGarden } from './lightning_garden_effects.js';
 import { DepthField } from './depth_field_effects.js';
 import { WaveInterference } from './wave_interference_effects.js';
+import { GravityCloth } from './gravity_cloth_effects.js';
+import { FireworkOrchestra } from './firework_orchestra_effects.js';
+import { PixelSortGlitch } from './pixel_sort_glitch_effects.js';
+import { PortalVortex } from './portal_vortex_effects.js';
+import { AsciiRain } from './ascii_rain_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -199,6 +204,11 @@ export const EFFECT_REGISTRY = [
     { instance: new LightningGarden(),   tags: ['organic', 'bio', 'cosmic'],                minQuality: 0.3,  drawOrder: 67 },
     { instance: new DepthField(),        tags: ['cosmic', 'ethereal', 'dark'],              minQuality: 0.25, drawOrder: 68 },
     { instance: new WaveInterference(),  tags: ['physics', 'harmonic', 'quantum'],          minQuality: 0.25, drawOrder: 69 },
+    { instance: new GravityCloth(),      tags: ['physics', 'geometric', 'ethereal'],        minQuality: 0.3,  drawOrder: 70 },
+    { instance: new FireworkOrchestra(), tags: ['fire', 'stellar', 'light'],                minQuality: 0.25, drawOrder: 71 },
+    { instance: new PixelSortGlitch(),   tags: ['glitch', 'digital', 'tech'],               minQuality: 0.25, drawOrder: 72 },
+    { instance: new PortalVortex(),      tags: ['void', 'cosmic', 'dark'],                  minQuality: 0.3,  drawOrder: 73 },
+    { instance: new AsciiRain(),         tags: ['digital', 'tech', 'dark'],                 minQuality: 0.25, drawOrder: 74 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

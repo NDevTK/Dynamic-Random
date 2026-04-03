@@ -43,26 +43,28 @@ function drawOrbital(sys) {
         ctx.ellipse(mx, my, r, r * (1 - ring.eccentricity), sys.tick * 0.003, 0, TAU);
         ctx.stroke();
 
+        ctx.globalCompositeOperation = 'lighter';
+        const tilt = sys.tick * 0.003;
+        const cosTilt = Math.cos(tilt);
+        const sinTilt = Math.sin(tilt);
         for (const p of ring.particles) {
             p.angle += ring.speed * boost;
-            const tilt = sys.tick * 0.003;
             const x = mx + Math.cos(p.angle) * r;
             const y = my + Math.sin(p.angle) * r * (1 - ring.eccentricity);
-            const rx = (x - mx) * Math.cos(tilt) - (y - my) * Math.sin(tilt) + mx;
-            const ry = (x - mx) * Math.sin(tilt) + (y - my) * Math.cos(tilt) + my;
+            const rx = (x - mx) * cosTilt - (y - my) * sinTilt + mx;
+            const ry = (x - mx) * sinTilt + (y - my) * cosTilt + my;
             const pulse = 1 + 0.35 * Math.sin(sys.tick * 0.06 + p.phase);
             const sz = p.size * pulse;
 
-            ctx.globalCompositeOperation = 'lighter';
-            const g = ctx.createRadialGradient(rx, ry, 0, rx, ry, sz * 4);
-            g.addColorStop(0, ring.color);
-            g.addColorStop(1, 'transparent');
-            ctx.fillStyle = g;
-            ctx.beginPath(); ctx.arc(rx, ry, sz * 4, 0, TAU); ctx.fill();
+            // Use simple colored circle instead of per-particle gradient (major perf win)
+            ctx.fillStyle = withAlpha(ring.color, 0.15);
+            ctx.beginPath(); ctx.arc(rx, ry, sz * 3, 0, TAU); ctx.fill();
+            ctx.fillStyle = withAlpha(ring.color, 0.4);
+            ctx.beginPath(); ctx.arc(rx, ry, sz * 1.2, 0, TAU); ctx.fill();
             ctx.fillStyle = '#fff';
             ctx.beginPath(); ctx.arc(rx, ry, sz * 0.4, 0, TAU); ctx.fill();
-            ctx.globalCompositeOperation = 'source-over';
         }
+        ctx.globalCompositeOperation = 'source-over';
     }
     // Center core
     const cg = ctx.createRadialGradient(mx, my, 0, mx, my, 8);

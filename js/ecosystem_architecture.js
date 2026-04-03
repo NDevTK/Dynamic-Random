@@ -277,7 +277,7 @@ export class EcosystemArchitecture extends Architecture {
 
             // Hunt prey (predators)
             if (sp.preySpecies.length > 0) {
-                let nearestPrey = null, nearestDist = sp.senseRadius;
+                let nearestPrey = null, nearestPreyIdx = -1, nearestDist = sp.senseRadius;
                 for (let j = 0; j < creatureCount; j++) {
                     if (j === i) continue;
                     const other = this.creatures[j];
@@ -288,6 +288,7 @@ export class EcosystemArchitecture extends Architecture {
                     if (dist < nearestDist) {
                         nearestDist = dist;
                         nearestPrey = other;
+                        nearestPreyIdx = j;
                     }
                 }
                 if (nearestPrey) {
@@ -301,12 +302,12 @@ export class EcosystemArchitecture extends Architecture {
                         c.energy = Math.min(100, c.energy + 30);
                         this._spawnDeathEffect(nearestPrey.x, nearestPrey.y,
                             this.speciesConfig[nearestPrey.species]?.hue || 0);
-                        // Remove prey
-                        const preyIdx = this.creatures.indexOf(nearestPrey);
-                        if (preyIdx >= 0) {
-                            this.creatures[preyIdx] = this.creatures[this.creatures.length - 1];
+                        // Remove prey (swap-remove, no indexOf needed)
+                        if (nearestPreyIdx >= 0) {
+                            this.creatures[nearestPreyIdx] = this.creatures[this.creatures.length - 1];
                             this.creatures.pop();
-                            if (preyIdx < i) i--;
+                            creatureCount--;
+                            if (nearestPreyIdx < i) i--;
                         }
                     }
                 }

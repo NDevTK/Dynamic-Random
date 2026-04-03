@@ -156,14 +156,14 @@ export class DimensionalEchoes {
             case 0: // Kaleidoscope
                 this.kaleidoTrail.push({ x: mx, y: my });
                 if (this.kaleidoTrail.length > this.maxKaleidoTrail + 10) {
-                    this.kaleidoTrail = this.kaleidoTrail.slice(-this.maxKaleidoTrail);
+                    this.kaleidoTrail.splice(0, this.kaleidoTrail.length - this.maxKaleidoTrail);
                 }
                 break;
 
             case 1: // Time echoes
                 this.echoHistory.push({ x: mx, y: my });
                 if (this.echoHistory.length > this.echoHistoryMax + 20) {
-                    this.echoHistory = this.echoHistory.slice(-this.echoHistoryMax);
+                    this.echoHistory.splice(0, this.echoHistory.length - this.echoHistoryMax);
                 }
                 break;
 
@@ -225,7 +225,7 @@ export class DimensionalEchoes {
                     const offsetY = Math.cos(this.tick * path.freqY + path.phaseY) * this.quantumDrift;
                     path.points.push({ x: mx + offsetX, y: my + offsetY });
                     if (path.points.length > path.maxPoints + 10) {
-                        path.points = path.points.slice(-path.maxPoints);
+                        path.points.splice(0, path.points.length - path.maxPoints);
                     }
                 }
                 break;

@@ -56,6 +56,11 @@ export class InkDiffusion {
 
         // Drop queue for deferred spawning
         this._dropQueue = [];
+
+        // Color LUT: pre-computed RGB for 64 hue-mix ratios x 32 density levels
+        this._colorLUT = null; // Uint8Array[64 * 32 * 3]
+        this._lutHueA = -1;
+        this._lutHueB = -1;
     }
 
     configure(rng, hues) {
@@ -139,6 +144,30 @@ export class InkDiffusion {
         }
 
         this._offCanvas = null;
+        this._buildColorLUT();
+    }
+
+    _buildColorLUT() {
+        // 64 mix ratios x 32 density levels = 2048 entries, 3 bytes each
+        const RATIOS = 64;
+        const DENSITIES = 32;
+        this._colorLUT = new Uint8Array(RATIOS * DENSITIES * 3);
+        this._lutHueA = this._hueA;
+        this._lutHueB = this._hueB;
+
+        for (let ri = 0; ri < RATIOS; ri++) {
+            const ratioA = ri / (RATIOS - 1);
+            const mixHue = this._lerpAngle(this._hueA, this._hueB, 1 - ratioA);
+            for (let di = 0; di < DENSITIES; di++) {
+                const density = di / (DENSITIES - 1);
+                const light = 30 + density * 40;
+                const rgb = this._hslToRgb(mixHue / 360, this._saturation / 100, light / 100);
+                const idx = (ri * DENSITIES + di) * 3;
+                this._colorLUT[idx] = rgb[0];
+                this._colorLUT[idx + 1] = rgb[1];
+                this._colorLUT[idx + 2] = rgb[2];
+            }
+        }
     }
 
     _ensureOffCanvas() {
@@ -311,11 +340,11 @@ export class InkDiffusion {
         const inkA = this._inkA;
         const inkB = this._inkB;
         const visc = this._viscosity;
+        const temp = this._temp;
 
-        // Move ink along velocity field (semi-Lagrangian)
-        const tempA = this._temp;
-        tempA.fill(0);
-
+        // Advect both ink channels along velocity field (semi-Lagrangian)
+        // Pass 1: advect inkA
+        temp.fill(0);
         for (let y = 1; y < rows - 1; y++) {
             const yOff = y * cols;
             for (let x = 1; x < cols - 1; x++) {
@@ -323,39 +352,58 @@ export class InkDiffusion {
                 const vx = velX[idx];
                 const vy = velY[idx];
 
-                // Source position (trace back)
                 let srcX = x - vx;
                 let srcY = y - vy;
                 srcX = Math.max(0.5, Math.min(cols - 1.5, srcX));
                 srcY = Math.max(0.5, Math.min(rows - 1.5, srcY));
 
-                // Bilinear interpolation
                 const ix = Math.floor(srcX);
                 const iy = Math.floor(srcY);
                 const fx = srcX - ix;
                 const fy = srcY - iy;
-
                 const i00 = iy * cols + ix;
-                const i10 = i00 + 1;
-                const i01 = i00 + cols;
-                const i11 = i01 + 1;
 
-                if (ix >= 0 && ix < cols - 1 && iy >= 0 && iy < rows - 1) {
-                    tempA[idx] = (1 - fx) * (1 - fy) * inkA[i00] +
-                                 fx * (1 - fy) * inkA[i10] +
-                                 (1 - fx) * fy * inkA[i01] +
-                                 fx * fy * inkA[i11];
-                }
+                temp[idx] = (1 - fx) * (1 - fy) * inkA[i00] +
+                             fx * (1 - fy) * inkA[i00 + 1] +
+                             (1 - fx) * fy * inkA[i00 + cols] +
+                             fx * fy * inkA[i00 + cols + 1];
+            }
+        }
+        for (let i = cols + 1; i < (rows - 1) * cols - 1; i++) {
+            inkA[i] = temp[i];
+        }
 
-                // Dampen velocity
+        // Pass 2: advect inkB and dampen velocity
+        temp.fill(0);
+        for (let y = 1; y < rows - 1; y++) {
+            const yOff = y * cols;
+            for (let x = 1; x < cols - 1; x++) {
+                const idx = yOff + x;
+                const vx = velX[idx];
+                const vy = velY[idx];
+
+                let srcX = x - vx;
+                let srcY = y - vy;
+                srcX = Math.max(0.5, Math.min(cols - 1.5, srcX));
+                srcY = Math.max(0.5, Math.min(rows - 1.5, srcY));
+
+                const ix = Math.floor(srcX);
+                const iy = Math.floor(srcY);
+                const fx = srcX - ix;
+                const fy = srcY - iy;
+                const i00 = iy * cols + ix;
+
+                temp[idx] = (1 - fx) * (1 - fy) * inkB[i00] +
+                             fx * (1 - fy) * inkB[i00 + 1] +
+                             (1 - fx) * fy * inkB[i00 + cols] +
+                             fx * fy * inkB[i00 + cols + 1];
+
                 velX[idx] *= visc;
                 velY[idx] *= visc;
             }
         }
-
-        // Copy back
-        for (let i = 0; i < cols * rows; i++) {
-            inkA[i] = tempA[i];
+        for (let i = cols + 1; i < (rows - 1) * cols - 1; i++) {
+            inkB[i] = temp[i];
         }
     }
 
@@ -399,7 +447,7 @@ export class InkDiffusion {
 
                 if (this.mode === 1) {
                     // Sumi-e: grayscale with edge darkening
-                    const v = Math.floor((1 - clampedTotal * 0.9) * 255);
+                    const v = (1 - clampedTotal * 0.9) * 255 | 0;
                     r = v; g = v; bl = v;
                 } else if (this.mode === 5) {
                     // Oil slick: thin-film interference (hue shifts with density)
@@ -407,13 +455,14 @@ export class InkDiffusion {
                     const rgb = this._hslToRgb(filmHue / 360, 0.9, 0.3 + clampedTotal * 0.4);
                     r = rgb[0]; g = rgb[1]; bl = rgb[2];
                 } else {
-                    // Mix two ink colors based on ratio
+                    // Use pre-computed color LUT for mix ratio x density
                     const ratioA = total > 0.001 ? a / total : 0.5;
-                    const mixHue = this._lerpAngle(this._hueA, this._hueB, 1 - ratioA);
-                    const sat = this._saturation;
-                    const light = 30 + clampedTotal * 40;
-                    const rgb = this._hslToRgb(mixHue / 360, sat / 100, light / 100);
-                    r = rgb[0]; g = rgb[1]; bl = rgb[2];
+                    const ri = (ratioA * 63 + 0.5) | 0; // quantize to 0-63
+                    const di = (clampedTotal * 31 + 0.5) | 0; // quantize to 0-31
+                    const lutIdx = (ri * 32 + di) * 3;
+                    r = this._colorLUT[lutIdx];
+                    g = this._colorLUT[lutIdx + 1];
+                    bl = this._colorLUT[lutIdx + 2];
                 }
 
                 // Aurora mode: add shimmer
@@ -426,7 +475,7 @@ export class InkDiffusion {
                 data[pIdx] = r;
                 data[pIdx + 1] = g;
                 data[pIdx + 2] = bl;
-                data[pIdx + 3] = Math.floor(clampedTotal * 180);
+                data[pIdx + 3] = clampedTotal * 180 | 0;
             }
         }
 

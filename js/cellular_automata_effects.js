@@ -49,6 +49,15 @@ export class CellularAutomata {
         // Performance: only update automata every N frames
         this._updateInterval = 3;
         this._brushRadius = 3;
+
+        // Color lookup table (avoids per-cell hslToRgb)
+        this._colorLUT = null; // Uint8Array[256 * 4] for age-based coloring
+        this._brainFireLUT = null; // [r,g,b] for Brain firing state
+        this._brainRefractLUT = null; // [r,g,b] for Brain refractory state
+
+        // Stagnation detection
+        this._lastPopulation = 0;
+        this._stagnantFrames = 0;
     }
 
     configure(rng, hues) {
@@ -159,8 +168,50 @@ export class CellularAutomata {
         // Seed initial pattern based on mode
         this._seedInitialPattern(rng);
 
+        // Build color LUT
+        this._buildColorLUT();
+
+        // Reset stagnation detection
+        this._lastPopulation = 0;
+        this._stagnantFrames = 0;
+
         // Prepare offscreen canvas
         this._offCanvas = null;
+    }
+
+    _buildColorLUT() {
+        const h = this.hue;
+        // Pre-compute 256 RGBA entries for age-based coloring
+        this._colorLUT = new Uint8Array(256 * 4);
+        for (let age = 0; age < 256; age++) {
+            const ageFrac = age / 255;
+            let cellHue, sat, light;
+
+            if (this.mode === 5) {
+                cellHue = (h + ageFrac * 60) % 360;
+                sat = 90;
+                light = 30 + ageFrac * 40;
+            } else if (this.mode === 1) {
+                cellHue = (h + 180 - ageFrac * 120) % 360;
+                sat = 60 + ageFrac * 30;
+                light = 40 + ageFrac * 30;
+            } else {
+                cellHue = (h + ageFrac * 120) % 360;
+                sat = 70;
+                light = 40 + ageFrac * 30;
+            }
+
+            const rgb = this._hslToRgb(cellHue / 360, sat / 100, light / 100);
+            const idx = age * 4;
+            this._colorLUT[idx] = rgb[0];
+            this._colorLUT[idx + 1] = rgb[1];
+            this._colorLUT[idx + 2] = rgb[2];
+            this._colorLUT[idx + 3] = 100 + Math.floor(ageFrac * 100);
+        }
+
+        // Brain state colors
+        this._brainFireLUT = this._hslToRgb(h / 360, 0.8, 0.7);
+        this._brainRefractLUT = this._hslToRgb(((h + 60) % 360) / 360, 0.5, 0.3);
     }
 
     _seedInitialPattern(rng) {
@@ -255,6 +306,45 @@ export class CellularAutomata {
         // Step automata
         if (this.tick % this._updateInterval === 0) {
             this._step();
+
+            // Stagnation detection: auto-reseed when population dies or is static
+            if (this.tick % (this._updateInterval * 30) === 0) {
+                let pop = 0;
+                const grid = this._grid;
+                const total = this._cols * this._rows;
+                for (let i = 0; i < total; i++) {
+                    if (grid[i] > 0) pop++;
+                }
+                if (pop === this._lastPopulation) {
+                    this._stagnantFrames++;
+                } else {
+                    this._stagnantFrames = 0;
+                }
+                this._lastPopulation = pop;
+
+                // If population is 0 or stagnant for too long, reseed
+                if (pop === 0 || this._stagnantFrames > 10) {
+                    this._stagnantFrames = 0;
+                    // Inject some random life near cursor
+                    const seedCX = Math.floor(mx / this._cellSize);
+                    const seedCY = Math.floor(my / this._cellSize);
+                    const seedR = 10;
+                    for (let sdy = -seedR; sdy <= seedR; sdy++) {
+                        for (let sdx = -seedR; sdx <= seedR; sdx++) {
+                            if (sdx * sdx + sdy * sdy > seedR * seedR) continue;
+                            const snx = seedCX + sdx;
+                            const sny = seedCY + sdy;
+                            if (snx >= 0 && snx < this._cols && sny >= 0 && sny < this._rows) {
+                                const pr = ((this.tick * 2654435761 + snx * 1597334677 + sny) >>> 0) / 4294967296;
+                                if (pr < 0.4) {
+                                    this._grid[sny * this._cols + snx] = 1;
+                                    this._ageGrid[sny * this._cols + snx] = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -274,9 +364,11 @@ export class CellularAutomata {
                     const state = grid[idx];
                     if (state === 1) {
                         next[idx] = 2; // firing -> refractory
+                        age[idx] = Math.min(this._maxAge, age[idx] + 4); // Track firing history
                     } else if (state === 2) {
                         next[idx] = 0; // refractory -> dead
-                        age[idx] = 0;
+                        // Don't reset age - let it decay slowly for visual history
+                        age[idx] = Math.max(0, age[idx] - 1);
                     } else {
                         // Count firing neighbors
                         let count = 0;
@@ -332,63 +424,51 @@ export class CellularAutomata {
         const grid = this._grid;
         const age = this._ageGrid;
         const data = this._imageData.data;
-        const h = this.hue;
+        const lut = this._colorLUT;
+        const isBrain = this._states === 3;
+        const fireR = this._brainFireLUT[0], fireG = this._brainFireLUT[1], fireB = this._brainFireLUT[2];
+        const refR = this._brainRefractLUT[0], refG = this._brainRefractLUT[1], refB = this._brainRefractLUT[2];
+        const total = cols * rows;
 
-        // Write pixel data
-        for (let y = 0; y < rows; y++) {
-            const yOff = y * cols;
-            for (let x = 0; x < cols; x++) {
-                const idx = yOff + x;
-                const pIdx = idx * 4;
-                const state = grid[idx];
+        // Write pixel data using pre-computed color LUT
+        for (let idx = 0; idx < total; idx++) {
+            const pIdx = idx << 2; // idx * 4
+            const state = grid[idx];
 
-                if (state === 0) {
+            if (state === 0) {
+                // Dead cells: show faint ghost for Brain mode (firing history)
+                if (isBrain && age[idx] > 0) {
+                    const ghostAlpha = Math.min(60, age[idx]);
+                    data[pIdx] = refR;
+                    data[pIdx + 1] = refG;
+                    data[pIdx + 2] = refB;
+                    data[pIdx + 3] = ghostAlpha;
+                } else {
                     data[pIdx] = 0;
                     data[pIdx + 1] = 0;
                     data[pIdx + 2] = 0;
                     data[pIdx + 3] = 0;
-                } else if (this._states === 3) {
-                    // Brain: firing = bright, refractory = dim
-                    if (state === 1) {
-                        const rgb = this._hslToRgb(h / 360, 0.8, 0.7);
-                        data[pIdx] = rgb[0];
-                        data[pIdx + 1] = rgb[1];
-                        data[pIdx + 2] = rgb[2];
-                        data[pIdx + 3] = 200;
-                    } else {
-                        const rgb = this._hslToRgb(((h + 60) % 360) / 360, 0.5, 0.3);
-                        data[pIdx] = rgb[0];
-                        data[pIdx + 1] = rgb[1];
-                        data[pIdx + 2] = rgb[2];
-                        data[pIdx + 3] = 120;
-                    }
-                } else {
-                    // Color by age
-                    const ageFrac = Math.min(1, age[idx] / this._maxAge);
-                    let cellHue, sat, light;
-
-                    if (this.mode === 5) {
-                        // Lava: thermal coloring
-                        cellHue = (h + ageFrac * 60) % 360;
-                        sat = 90;
-                        light = 30 + ageFrac * 40;
-                    } else if (this.mode === 1) {
-                        // Crystal: cool to warm
-                        cellHue = (h + 180 - ageFrac * 120) % 360;
-                        sat = 60 + ageFrac * 30;
-                        light = 40 + ageFrac * 30;
-                    } else {
-                        cellHue = (h + ageFrac * 120) % 360;
-                        sat = 70;
-                        light = 40 + ageFrac * 30;
-                    }
-
-                    const rgb = this._hslToRgb(cellHue / 360, sat / 100, light / 100);
-                    data[pIdx] = rgb[0];
-                    data[pIdx + 1] = rgb[1];
-                    data[pIdx + 2] = rgb[2];
-                    data[pIdx + 3] = 100 + Math.floor(ageFrac * 100);
                 }
+            } else if (isBrain) {
+                if (state === 1) {
+                    data[pIdx] = fireR;
+                    data[pIdx + 1] = fireG;
+                    data[pIdx + 2] = fireB;
+                    data[pIdx + 3] = 200;
+                } else {
+                    data[pIdx] = refR;
+                    data[pIdx + 1] = refG;
+                    data[pIdx + 2] = refB;
+                    data[pIdx + 3] = 120;
+                }
+            } else {
+                // Use pre-computed color LUT indexed by age
+                const ageVal = Math.min(255, age[idx]);
+                const lutIdx = ageVal << 2; // ageVal * 4
+                data[pIdx] = lut[lutIdx];
+                data[pIdx + 1] = lut[lutIdx + 1];
+                data[pIdx + 2] = lut[lutIdx + 2];
+                data[pIdx + 3] = lut[lutIdx + 3];
             }
         }
 

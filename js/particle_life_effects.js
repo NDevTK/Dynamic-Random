@@ -26,6 +26,9 @@ export class ParticleLife {
         // Species config
         this.speciesCount = 4;
         this.speciesColors = [];
+        // Pre-baked HSLA strings per species (avoids per-frame string creation)
+        this._speciesFillStr = [];
+        this._speciesStrokeStr = [];
         this.interactionMatrix = []; // [i][j] = force species i exerts on species j
 
         // Particles
@@ -48,12 +51,17 @@ export class ParticleLife {
         this._gridCellSize = 130;
         this._grid = new Map();
 
-        // Trail canvas for fading phosphor effect
+        // Trail canvas for fading phosphor effect (half-res for performance)
         this._trailCanvas = null;
         this._trailCtx = null;
         this._trailW = 0;
         this._trailH = 0;
+        this._trailScale = 0.5;
         this._trailFade = 0.08;
+
+        // Click burst particles
+        this._bursts = [];
+        this._maxBursts = 60;
     }
 
     configure(rng, hues) {
@@ -67,12 +75,17 @@ export class ParticleLife {
         // Species count varies by mode
         this.speciesCount = this.mode === 5 ? 3 : 3 + Math.floor(rng() * 4); // 3-6
         this.speciesColors = [];
+        this._speciesFillStr = [];
+        this._speciesStrokeStr = [];
         const baseHue = this.hue;
         for (let i = 0; i < this.speciesCount; i++) {
             const h = (baseHue + (360 / this.speciesCount) * i + rng() * 30) % 360;
             const s = 60 + rng() * 30;
             const l = 50 + rng() * 20;
             this.speciesColors.push({ h, s, l });
+            // Pre-bake color strings
+            this._speciesFillStr.push(`hsla(${h | 0}, ${s | 0}%, ${l | 0}%, 0.8)`);
+            this._speciesStrokeStr.push(`hsla(${h | 0}, ${s | 0}%, ${l | 0}%, 0.3)`);
         }
 
         // Build interaction matrix based on mode
@@ -145,8 +158,9 @@ export class ParticleLife {
             });
         }
 
-        // Reset trail canvas
+        // Reset trail canvas and bursts
         this._trailCanvas = null;
+        this._bursts = [];
     }
 
     _getInteraction(i, j, rng) {
@@ -171,8 +185,8 @@ export class ParticleLife {
     }
 
     _ensureTrailCanvas() {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+        const w = Math.ceil(window.innerWidth * this._trailScale);
+        const h = Math.ceil(window.innerHeight * this._trailScale);
         if (!this._trailCanvas || this._trailW !== w || this._trailH !== h) {
             this._trailCanvas = document.createElement('canvas');
             this._trailCanvas.width = w;
@@ -208,6 +222,35 @@ export class ParticleLife {
             cell.push(i);
         }
 
+        // Click burst - spawn visual explosion particles
+        if (isClicking && !this._wasClicking) {
+            const burstCount = Math.min(20, this._maxBursts - this._bursts.length);
+            for (let b = 0; b < burstCount; b++) {
+                const angle = (b / burstCount) * TAU;
+                const speed = 3 + ((this.tick * 2654435761 + b * 1597334677) >>> 0) / 4294967296 * 4;
+                this._bursts.push({
+                    x: mx, y: my,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 25,
+                    maxLife: 25,
+                    species: b % this.speciesCount,
+                });
+            }
+        }
+
+        // Update bursts
+        for (let i = this._bursts.length - 1; i >= 0; i--) {
+            const b = this._bursts[i];
+            b.x += b.vx; b.y += b.vy;
+            b.vx *= 0.92; b.vy *= 0.92;
+            b.life--;
+            if (b.life <= 0) {
+                this._bursts[i] = this._bursts[this._bursts.length - 1];
+                this._bursts.pop();
+            }
+        }
+
         // Apply forces
         for (let i = 0; i < this.particles.length; i++) {
             const p = this.particles[i];
@@ -234,12 +277,10 @@ export class ParticleLife {
                         const force = this.interactionMatrix[p.species][q.species];
 
                         if (distSq < minDistSq) {
-                            // Repulsion at close range
                             const repel = (this.minDist - dist) / this.minDist;
                             fx -= (ddx / dist) * repel * 0.5;
                             fy -= (ddy / dist) * repel * 0.5;
                         } else {
-                            // Attraction/repulsion based on interaction matrix
                             const normalDist = (dist - this.minDist) / (fr - this.minDist);
                             const magnitude = force * strength * (1 - normalDist);
                             fx += (ddx / dist) * magnitude;
@@ -256,10 +297,8 @@ export class ParticleLife {
                 const toCenterX = centerX - p.x;
                 const toCenterY = centerY - p.y;
                 const centerDist = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY) + 1;
-                // Perpendicular (tangential) force for spiral
                 fx += (-toCenterY / centerDist) * 0.03;
                 fy += (toCenterX / centerDist) * 0.03;
-                // Weak radial pull
                 fx += (toCenterX / centerDist) * 0.01;
                 fy += (toCenterY / centerDist) * 0.01;
             }
@@ -270,12 +309,10 @@ export class ParticleLife {
             const mouseDist = Math.sqrt(mdx * mdx + mdy * mdy) + 1;
             if (mouseDist < 200) {
                 if (isClicking) {
-                    // Click scatters particles away
                     const scatter = (200 - mouseDist) / 200;
                     fx -= (mdx / mouseDist) * scatter * 2;
                     fy -= (mdy / mouseDist) * scatter * 2;
                 } else {
-                    // Gentle cursor attraction
                     const attract = (200 - mouseDist) / 200;
                     fx += (mdx / mouseDist) * attract * 0.3;
                     fy += (mdy / mouseDist) * attract * 0.3;
@@ -307,6 +344,7 @@ export class ParticleLife {
     draw(ctx, system) {
         this._ensureTrailCanvas();
         const tc = this._trailCtx;
+        const sc = this._trailScale;
 
         // Fade trail canvas
         tc.globalCompositeOperation = 'destination-out';
@@ -314,58 +352,116 @@ export class ParticleLife {
         tc.fillRect(0, 0, this._trailW, this._trailH);
         tc.globalCompositeOperation = 'source-over';
 
-        // Draw particles to trail canvas
-        for (const p of this.particles) {
-            const c = this.speciesColors[p.species];
-            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-            const brightness = Math.min(80, c.l + speed * 5);
-            tc.fillStyle = `hsla(${c.h}, ${c.s}%, ${brightness}%, 0.8)`;
+        // Batch particles by species to minimize fillStyle changes
+        for (let sp = 0; sp < this.speciesCount; sp++) {
+            tc.fillStyle = this._speciesFillStr[sp];
             tc.beginPath();
-            tc.arc(p.x, p.y, p.size, 0, TAU);
+            for (const p of this.particles) {
+                if (p.species !== sp) continue;
+                tc.moveTo(p.x * sc + p.size, p.y * sc);
+                tc.arc(p.x * sc, p.y * sc, p.size, 0, TAU);
+            }
             tc.fill();
 
-            // Velocity streak
-            if (speed > 1.5) {
-                tc.strokeStyle = `hsla(${c.h}, ${c.s}%, ${brightness}%, 0.3)`;
-                tc.lineWidth = 1;
-                tc.beginPath();
-                tc.moveTo(p.x, p.y);
-                tc.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
-                tc.stroke();
+            // Velocity streaks batched
+            tc.strokeStyle = this._speciesStrokeStr[sp];
+            tc.lineWidth = 1;
+            tc.beginPath();
+            for (const p of this.particles) {
+                if (p.species !== sp) continue;
+                const speed = p.vx * p.vx + p.vy * p.vy;
+                if (speed > 2.25) { // 1.5^2
+                    tc.moveTo(p.x * sc, p.y * sc);
+                    tc.lineTo((p.x - p.vx * 3) * sc, (p.y - p.vy * 3) * sc);
+                }
             }
+            tc.stroke();
         }
 
         // Composite trail onto main canvas
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = 0.7;
-        ctx.drawImage(this._trailCanvas, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(this._trailCanvas, 0, 0, window.innerWidth, window.innerHeight);
         ctx.restore();
 
-        // Draw interaction lines between close same-species particles (sparse)
-        if (this.tick % 2 === 0) {
+        // Draw click burst particles
+        if (this._bursts.length > 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (let sp = 0; sp < this.speciesCount; sp++) {
+                const c = this.speciesColors[sp];
+                ctx.fillStyle = `hsla(${c.h | 0}, ${c.s | 0}%, ${(c.l + 15) | 0}%, `;
+                for (const b of this._bursts) {
+                    if (b.species !== sp) continue;
+                    const alpha = (b.life / b.maxLife) * 0.6;
+                    const size = 3 * (1 - b.life / b.maxLife) + 1;
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, size, 0, TAU);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+
+        // Crystallize mode: draw lattice lines between nearby same-species
+        if (this.mode === 5 && this.tick % 2 === 0) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineWidth = 0.8;
+            const latticeDistSq = this.minDist * this.minDist * 9; // 3x minDist
+            for (let sp = 0; sp < this.speciesCount; sp++) {
+                const c = this.speciesColors[sp];
+                ctx.strokeStyle = `hsla(${c.h | 0}, ${c.s | 0}%, ${c.l | 0}%, 0.2)`;
+                ctx.beginPath();
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    if (p.species !== sp) continue;
+                    for (let j = i + 1; j < this.particles.length; j++) {
+                        const q = this.particles[j];
+                        if (q.species !== sp) continue;
+                        const dx = p.x - q.x;
+                        const dy = p.y - q.y;
+                        const dSq = dx * dx + dy * dy;
+                        if (dSq < latticeDistSq) {
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(q.x, q.y);
+                        }
+                    }
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Other modes: sparse interaction lines (every other frame)
+        if (this.mode !== 5 && this.tick % 3 === 0) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = 0.5;
             const lineDistSq = 3600; // 60px
-            for (let i = 0; i < this.particles.length; i += 3) {
-                const p = this.particles[i];
-                for (let j = i + 3; j < this.particles.length; j += 3) {
-                    const q = this.particles[j];
-                    if (p.species !== q.species) continue;
-                    const dx = p.x - q.x;
-                    const dy = p.y - q.y;
-                    const dSq = dx * dx + dy * dy;
-                    if (dSq < lineDistSq) {
-                        const alpha = (1 - dSq / lineDistSq) * 0.15;
-                        const c = this.speciesColors[p.species];
-                        ctx.strokeStyle = `hsla(${c.h}, ${c.s}%, ${c.l}%, ${alpha})`;
-                        ctx.beginPath();
-                        ctx.moveTo(p.x, p.y);
-                        ctx.lineTo(q.x, q.y);
-                        ctx.stroke();
+            for (let sp = 0; sp < this.speciesCount; sp++) {
+                const c = this.speciesColors[sp];
+                ctx.strokeStyle = `hsla(${c.h | 0}, ${c.s | 0}%, ${c.l | 0}%, 0.12)`;
+                ctx.beginPath();
+                for (let i = 0; i < this.particles.length; i += 3) {
+                    const p = this.particles[i];
+                    if (p.species !== sp) continue;
+                    for (let j = i + 3; j < this.particles.length; j += 3) {
+                        const q = this.particles[j];
+                        if (q.species !== sp) continue;
+                        const dx = p.x - q.x;
+                        const dy = p.y - q.y;
+                        const dSq = dx * dx + dy * dy;
+                        if (dSq < lineDistSq) {
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(q.x, q.y);
+                        }
                     }
                 }
+                ctx.stroke();
             }
             ctx.restore();
         }

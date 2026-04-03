@@ -48,6 +48,14 @@ export class TerrainErosion {
 
         // Performance: pre-allocated line segments buffer
         this._lineBuffer = [];
+
+        // Offscreen ImageData rendering (avoids per-cell fillStyle string alloc)
+        this._offCanvas = null;
+        this._offCtx = null;
+        this._imageData = null;
+
+        // Pre-computed color scale LUT: 256 entries of [r,g,b]
+        this._heightLUT = null;
     }
 
     configure(rng, hues) {
@@ -78,6 +86,53 @@ export class TerrainErosion {
         this._colorScale = this._buildColorScale(rng);
 
         this._quakes = [];
+        this._offCanvas = null;
+        this._buildHeightLUT();
+    }
+
+    _buildHeightLUT() {
+        // 256 pre-computed RGB values for height 0..1
+        this._heightLUT = new Uint8Array(256 * 3);
+        for (let i = 0; i < 256; i++) {
+            const h = i / 255;
+            const c = this._getHeightColor(h);
+            const rgb = this._hslToRgb(c.h / 360, c.s / 100, c.l / 100);
+            this._heightLUT[i * 3] = rgb[0];
+            this._heightLUT[i * 3 + 1] = rgb[1];
+            this._heightLUT[i * 3 + 2] = rgb[2];
+        }
+    }
+
+    _hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return [r * 255 | 0, g * 255 | 0, b * 255 | 0];
+    }
+
+    _ensureOffCanvas() {
+        if (!this._offCanvas || this._offCanvas.width !== this._cols || this._offCanvas.height !== this._rows) {
+            this._offCanvas = document.createElement('canvas');
+            this._offCanvas.width = this._cols;
+            this._offCanvas.height = this._rows;
+            this._offCtx = this._offCanvas.getContext('2d', { alpha: true });
+            this._imageData = this._offCtx.createImageData(this._cols, this._rows);
+        }
     }
 
     _generateTerrain(rng) {
@@ -383,32 +438,43 @@ export class TerrainErosion {
             // Wireframe 3D perspective mesh
             this._drawWireframe(ctx);
         } else {
-            // Filled terrain with contour lines
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = 0.5;
+            this._ensureOffCanvas();
 
-            // Draw filled cells (skip every other for performance)
-            const step = cs < 6 ? 2 : 1;
-            for (let y = 0; y < rows; y += step) {
-                const yOff = y * cols;
-                for (let x = 0; x < cols; x += step) {
-                    const idx = yOff + x;
-                    const h = height[idx];
-                    const c = this._getHeightColor(h);
-                    const waterLevel = this._water[idx];
+            // Render terrain to ImageData using pre-computed height LUT
+            const data = this._imageData.data;
+            const lut = this._heightLUT;
+            const water = this._water;
+            const total = cols * rows;
+            const isVolcanic = this.mode === 1;
 
-                    let fillH = c.h, fillS = c.s, fillL = c.l;
-                    if (waterLevel > 0.01 && this.mode === 1) {
-                        // Lava glow
-                        fillH = 15 + waterLevel * 30;
-                        fillS = 100;
-                        fillL = 40 + waterLevel * 30;
-                    }
+            for (let idx = 0; idx < total; idx++) {
+                const pIdx = idx << 2;
+                const h = height[idx];
+                const hi = Math.max(0, Math.min(255, h * 255 | 0));
+                const li = hi * 3;
+                const wl = water[idx];
 
-                    ctx.fillStyle = `hsla(${fillH}, ${fillS}%, ${fillL}%, 0.6)`;
-                    ctx.fillRect(x * cs, y * cs, cs * step, cs * step);
+                if (isVolcanic && wl > 0.01) {
+                    // Lava glow overrides terrain color
+                    const lavaIntensity = Math.min(1, wl);
+                    data[pIdx] = 255;
+                    data[pIdx + 1] = (100 + lavaIntensity * 155) | 0;
+                    data[pIdx + 2] = (40 * (1 - lavaIntensity)) | 0;
+                    data[pIdx + 3] = (120 + lavaIntensity * 100) | 0;
+                } else {
+                    data[pIdx] = lut[li];
+                    data[pIdx + 1] = lut[li + 1];
+                    data[pIdx + 2] = lut[li + 2];
+                    data[pIdx + 3] = 150;
                 }
             }
+
+            this._offCtx.putImageData(this._imageData, 0, 0);
+
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.5;
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(this._offCanvas, 0, 0, window.innerWidth, window.innerHeight);
 
             // Draw contour lines
             ctx.globalAlpha = 0.4;

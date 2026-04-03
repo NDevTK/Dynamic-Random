@@ -177,6 +177,10 @@ export class Ferrofluid {
         this._blobX += this._blobVX;
         this._blobY += this._blobVY;
 
+        // Mouse velocity angle for trailing spike elongation
+        const moveAngle = Math.atan2(dy, dx);
+        const speedFactor = Math.min(1, this._mouseSpeed / 15);
+
         // Update spikes
         const mouseAngle = Math.atan2(toMouseY, toMouseX);
         for (const spike of this._spikes) {
@@ -188,6 +192,15 @@ export class Ferrofluid {
             const alignment = Math.cos(angleDiff);
             const magneticPull = Math.max(0, alignment) * dist * 0.3 * this._magneticStrength;
             spike.targetLength = this._spikeMinLen + Math.min(magneticPull, this._spikeMaxLen);
+
+            // Mouse speed elongates trailing spikes
+            if (speedFactor > 0.1) {
+                let trailDiff = spike.angle - (moveAngle + Math.PI); // opposite direction = trailing
+                while (trailDiff > Math.PI) trailDiff -= TAU;
+                while (trailDiff < -Math.PI) trailDiff += TAU;
+                const trailAlignment = Math.max(0, Math.cos(trailDiff));
+                spike.targetLength += trailAlignment * speedFactor * this._spikeMaxLen * 0.5;
+            }
 
             // Click makes all spikes extend dramatically
             if (isClicking) {
@@ -280,15 +293,37 @@ export class Ferrofluid {
             ctx.fill();
         }
 
-        // Draw main blob body with gradient
-        const bodyGrad = ctx.createRadialGradient(bx - br * 0.3, by - br * 0.3, 0, bx, by, br);
+        // Draw main blob body with smooth organic outline through spike bases
+        const bodyGrad = ctx.createRadialGradient(bx - br * 0.3, by - br * 0.3, 0, bx, by, br * 1.2);
         bodyGrad.addColorStop(0, this._getColor(0.9, 0.6));
-        bodyGrad.addColorStop(0.7, this._getColor(0.5, 0.4));
+        bodyGrad.addColorStop(0.6, this._getColor(0.5, 0.4));
         bodyGrad.addColorStop(1, this._getColor(0.3, 0.2));
         ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.arc(bx, by, br, 0, TAU);
-        ctx.fill();
+
+        // Smooth blob boundary using catmull-rom-like interpolation through spike bases
+        if (this._spikes.length >= 3) {
+            ctx.beginPath();
+            const pts = [];
+            for (const spike of this._spikes) {
+                const r = br + spike.length * 0.1; // Slightly bulge at spike roots
+                pts.push({ x: bx + Math.cos(spike.angle) * r, y: by + Math.sin(spike.angle) * r });
+            }
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 0; i < pts.length; i++) {
+                const p0 = pts[(i - 1 + pts.length) % pts.length];
+                const p1 = pts[i];
+                const p2 = pts[(i + 1) % pts.length];
+                const cpx = p1.x + (p2.x - p0.x) * 0.15;
+                const cpy = p1.y + (p2.y - p0.y) * 0.15;
+                ctx.quadraticCurveTo(p1.x, p1.y, (p1.x + cpx) / 2, (p1.y + cpy) / 2);
+            }
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.arc(bx, by, br, 0, TAU);
+            ctx.fill();
+        }
 
         // Draw spikes
         for (let i = 0; i < this._spikes.length; i++) {
@@ -336,7 +371,7 @@ export class Ferrofluid {
                     const prev = this._spikes[i - 1];
                     if (prev.length > this._spikeMaxLen * 0.3) {
                         const prevTipX = bx + Math.cos(prev.angle) * (br + prev.length);
-                        const prevTipY = bx + Math.sin(prev.angle) * (br + prev.length);
+                        const prevTipY = by + Math.sin(prev.angle) * (br + prev.length);
                         const arcDist = Math.sqrt((tipX - prevTipX) ** 2 + (tipY - prevTipY) ** 2);
                         if (arcDist < 100 && this.tick % 3 === 0) {
                             ctx.strokeStyle = this._getColor(1, 0.3);

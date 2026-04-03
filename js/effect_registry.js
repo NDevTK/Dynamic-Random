@@ -94,6 +94,12 @@ import { DimensionalFabric } from './dimensional_fabric_effects.js';
 import { SynapticStorm } from './synaptic_storm_effects.js';
 import { TimeLapsePainter } from './time_lapse_painter_effects.js';
 import { MagneticOrigami } from './magnetic_origami_effects.js';
+import { GravityConstellationTrails } from './gravity_constellation_trails_effects.js';
+import { DimensionalShatter } from './dimensional_shatter_effects.js';
+import { SymmetryMirror } from './symmetry_mirror_effects.js';
+import { LivingGeometry } from './living_geometry_effects.js';
+import { ChromaticWake } from './chromatic_wake_effects.js';
+import { ParticleFountain } from './particle_fountain_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -231,6 +237,12 @@ export const EFFECT_REGISTRY = [
     { instance: new SynapticStorm(),     tags: ['tech', 'bio', 'light'],                    minQuality: 0.25, drawOrder: 83 },
     { instance: new TimeLapsePainter(),  tags: ['painterly', 'fluid', 'light'],             minQuality: 0.3,  drawOrder: 84 },
     { instance: new MagneticOrigami(),   tags: ['geometric', 'crystal', 'ethereal'],        minQuality: 0.3,  drawOrder: 85 },
+    { instance: new GravityConstellationTrails(), tags: ['stellar', 'cosmic', 'ethereal'], minQuality: 0.25, drawOrder: 86 },
+    { instance: new DimensionalShatter(),  tags: ['glitch', 'void', 'crystal'],            minQuality: 0.25, drawOrder: 87 },
+    { instance: new SymmetryMirror(),      tags: ['geometric', 'crystal', 'light'],         minQuality: 0.3,  drawOrder: 88 },
+    { instance: new LivingGeometry(),      tags: ['organic', 'bio', 'geometric'],           minQuality: 0.3,  drawOrder: 89 },
+    { instance: new ChromaticWake(),       tags: ['light', 'painterly', 'glitch'],          minQuality: 0.25, drawOrder: 90 },
+    { instance: new ParticleFountain(),    tags: ['fire', 'stellar', 'physics'],            minQuality: 0.25, drawOrder: 91 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

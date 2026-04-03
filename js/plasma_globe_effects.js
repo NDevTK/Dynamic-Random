@@ -334,15 +334,15 @@ export class PlasmaGlobe {
     }
 
     _drawNeuralArc(ctx, x1, y1, x2, y2, arc, hue, alpha) {
-        // Organic branching like dendrites
-        this._drawDendrite(ctx, x1, y1, x2, y2, arc.branchDepth, hue, alpha, arc, 1.5);
+        // Organic branching like dendrites with synapse glows
+        this._drawDendrite(ctx, x1, y1, x2, y2, arc.branchDepth, hue, alpha, arc, 2);
     }
 
     _drawDendrite(ctx, x1, y1, x2, y2, depth, hue, alpha, arc, width) {
         if (depth <= 0) return;
 
-        const segments = 4;
-        ctx.strokeStyle = `hsla(${hue}, 70%, 70%, ${alpha})`;
+        const segments = 5;
+        ctx.strokeStyle = `hsla(${hue}, 60%, 65%, ${alpha})`;
         ctx.lineWidth = width;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -352,61 +352,105 @@ export class PlasmaGlobe {
             const t = s / segments;
             const baseX = x1 + (x2 - x1) * t;
             const baseY = y1 + (y2 - y1) * t;
-            const seed = this.tick * 2 + s * 13 + depth * 37 + arc.phaseOffset * 100;
-            const curve = Math.sin(t * Math.PI) * 20 * arc.jitter;
-            endX = baseX + ((_prand(seed | 0) - 0.5) * curve);
-            endY = baseY + ((_prand((seed + 5) | 0) - 0.5) * curve);
+            const seed = this.tick * 2 + s * 13 + depth * 37 + (arc.phaseOffset * 100) | 0;
+            const curve = Math.sin(t * Math.PI) * 25 * arc.jitter;
+            endX = baseX + ((_prand(seed) - 0.5) * curve);
+            endY = baseY + ((_prand(seed + 5) - 0.5) * curve);
             ctx.lineTo(endX, endY);
         }
         ctx.stroke();
 
+        // Synapse glow at junction - pulsing node where branches meet
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        const pulse = (Math.sin(this.tick * 0.08 + depth * 1.5 + arc.phaseOffset) + 1) / 2;
+        const nodeAlpha = alpha * (0.3 + pulse * 0.5);
+        const nodeSize = 3 + pulse * 4 + depth;
+        ctx.fillStyle = `hsla(${(hue + 30) % 360}, 80%, 85%, ${nodeAlpha})`;
+        ctx.beginPath();
+        ctx.arc(midX, midY, nodeSize, 0, TAU);
+        ctx.fill();
+
         // Branch
         if (depth > 1) {
-            const midX = (x1 + x2) / 2;
-            const midY = (y1 + y2) / 2;
-            const branchSeed = this.tick + depth * 71 + arc.angleOffset * 50;
-            const bAngle = _prand(branchSeed | 0) * TAU;
-            const bLen = 30 + depth * 20;
+            const branchSeed = this.tick + depth * 71 + (arc.angleOffset * 50) | 0;
+            const bAngle = _prand(branchSeed) * TAU;
+            const bLen = 30 + depth * 25;
             const bx = midX + Math.cos(bAngle) * bLen;
             const by = midY + Math.sin(bAngle) * bLen;
-            this._drawDendrite(ctx, midX, midY, bx, by, depth - 1, (hue + 15) % 360, alpha * 0.6, arc, width * 0.7);
+            this._drawDendrite(ctx, midX, midY, bx, by, depth - 1, (hue + 20) % 360, alpha * 0.6, arc, width * 0.6);
+
+            // Second branch for more organic look
+            const bAngle2 = bAngle + 0.8 + _prand(branchSeed + 13) * 0.6;
+            const bLen2 = 20 + depth * 15;
+            const bx2 = midX + Math.cos(bAngle2) * bLen2;
+            const by2 = midY + Math.sin(bAngle2) * bLen2;
+            this._drawDendrite(ctx, midX, midY, bx2, by2, depth - 2, (hue + 40) % 360, alpha * 0.4, arc, width * 0.4);
         }
     }
 
     _drawVoidArc(ctx, x1, y1, x2, y2, arc, hue, alpha) {
-        // Jagged tear in space
-        const segments = arc.segments + 2;
-        ctx.strokeStyle = `hsla(${hue}, 30%, 40%, ${alpha * 1.5})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
+        // Jagged tear in space with dark energy bleeding through
+        const segments = arc.segments + 3;
+        const tearWidth = 8 + arc.jitter * 12;
 
+        // Build rift path points
         const points = [{ x: x1, y: y1 }];
         for (let s = 1; s <= segments; s++) {
             const t = s / segments;
             const baseX = x1 + (x2 - x1) * t;
             const baseY = y1 + (y2 - y1) * t;
-            const seed = this.tick * 7 + s * 29 + arc.angleOffset * 100;
-            const jitter = arc.jitter * 50 * (1 - Math.abs(t - 0.5) * 2);
-            const px = baseX + (_prand(seed | 0) - 0.5) * jitter;
-            const py = baseY + (_prand((seed + 11) | 0) - 0.5) * jitter;
-            ctx.lineTo(px, py);
+            const seed = this.tick * 7 + s * 29 + (arc.angleOffset * 100) | 0;
+            const jitter = arc.jitter * 60 * Math.sin(t * Math.PI);
+            const px = baseX + (_prand(seed) - 0.5) * jitter;
+            const py = baseY + (_prand(seed + 11) - 0.5) * jitter;
             points.push({ x: px, y: py });
         }
-        ctx.stroke();
 
-        // Fill the rift with dark energy
-        ctx.fillStyle = `hsla(${(hue + 180) % 360}, 60%, 10%, ${alpha * 0.3})`;
+        // Dark energy fill - wider tear shape
+        const riftAlpha = alpha * 0.4;
+        ctx.fillStyle = `hsla(${(hue + 180) % 360}, 80%, 8%, ${riftAlpha})`;
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y + 5);
+            ctx.lineTo(points[i].x, points[i].y + tearWidth);
         }
         for (let i = points.length - 1; i >= 0; i--) {
-            ctx.lineTo(points[i].x, points[i].y - 5);
+            ctx.lineTo(points[i].x, points[i].y - tearWidth);
         }
         ctx.closePath();
         ctx.fill();
+
+        // Inner bright edge (the rift boundary glowing)
+        ctx.strokeStyle = `hsla(${(hue + 180) % 360}, 50%, 70%, ${alpha * 0.8})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+        ctx.stroke();
+
+        // Secondary rift edge (offset for depth)
+        ctx.strokeStyle = `hsla(${hue}, 40%, 50%, ${alpha * 0.4})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y + tearWidth * 0.5);
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(points[i].x, points[i].y + tearWidth * 0.5);
+        }
+        ctx.stroke();
+
+        // Dark energy sparks escaping the rift
+        for (let i = 1; i < points.length - 1; i += 2) {
+            const sparkSeed = this.tick * 3 + i * 41 + (arc.angleOffset * 200) | 0;
+            const sparkAlpha = _prand(sparkSeed) * alpha * 0.6;
+            const sparkSize = 2 + _prand(sparkSeed + 1) * 4;
+            const ox = (_prand(sparkSeed + 2) - 0.5) * tearWidth * 2;
+            const oy = (_prand(sparkSeed + 3) - 0.5) * tearWidth * 2;
+            ctx.fillStyle = `hsla(${(hue + 180) % 360}, 60%, 60%, ${sparkAlpha})`;
+            ctx.beginPath();
+            ctx.arc(points[i].x + ox, points[i].y + oy, sparkSize, 0, TAU);
+            ctx.fill();
+        }
     }
 
     _drawSolarArc(ctx, x1, y1, x2, y2, arc, hue, alpha) {

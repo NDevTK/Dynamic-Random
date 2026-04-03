@@ -203,10 +203,16 @@ export class BouncyGeometry {
                 s.squashY += s.squashVy;
             }
 
-            // Zero-G trails
+            // Zero-G trails (ring buffer)
             if (this.mode === 4) {
-                s.trail.push(s.x, s.y);
-                if (s.trail.length > 60) { s.trail.copyWithin(0, 2); s.trail.length -= 2; }
+                if (s.trail.length < 60) {
+                    s.trail.push(s.x, s.y);
+                } else {
+                    if (s._tIdx === undefined) s._tIdx = 0;
+                    s.trail[s._tIdx] = s.x;
+                    s.trail[s._tIdx + 1] = s.y;
+                    s._tIdx = (s._tIdx + 2) % 60;
+                }
             }
         }
 
@@ -280,14 +286,21 @@ export class BouncyGeometry {
     }
 
     _spawnImpact(x, y, hueOffset) {
-        if (this._impacts.length > 20) return;
-        const imp = this._impactPool.length > 0 ? this._impactPool.pop() : {};
+        let imp;
+        if (this._impacts.length >= 25) {
+            // Recycle oldest impact instead of silently dropping
+            imp = this._impacts[0];
+            this._impacts[0] = this._impacts[this._impacts.length - 1];
+            this._impacts.pop();
+        } else {
+            imp = this._impactPool.length > 0 ? this._impactPool.pop() : {};
+        }
         imp.x = x;
         imp.y = y;
         imp.radius = 5;
-        imp.speed = this.mode === 5 ? 4 : 2;
-        imp.life = 15;
-        imp.maxLife = 15;
+        imp.speed = this.mode === 5 ? 5 : (this.mode === 2 ? 3 : 2);
+        imp.life = this.mode === 5 ? 20 : 15;
+        imp.maxLife = imp.life;
         imp.hueOffset = hueOffset;
         this._impacts.push(imp);
     }
@@ -296,19 +309,32 @@ export class BouncyGeometry {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        // Zero-G trails
+        // Billiards mode - table edge glow
+        if (this.mode === 0) {
+            const W = window.innerWidth, H = window.innerHeight;
+            ctx.strokeStyle = `hsla(${this.hue + 60}, 40%, 35%, 0.04)`;
+            ctx.lineWidth = 6;
+            ctx.strokeRect(10, 10, W - 20, H - 20);
+        }
+
+        // Zero-G trails with ethereal glow
         if (this.mode === 4) {
             for (const s of this._shapes) {
                 if (s.trail.length < 4) continue;
                 const hue = (this.hue + s.hueOffset + 360) % 360;
-                ctx.strokeStyle = `hsla(${hue}, 60%, 60%, 0.04)`;
-                ctx.lineWidth = s.size * 0.5;
+                // Wider glow trail
+                ctx.strokeStyle = `hsla(${hue}, 50%, 55%, 0.02)`;
+                ctx.lineWidth = s.size * 1.5;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(s.trail[0], s.trail[1]);
                 for (let t = 2; t < s.trail.length; t += 2) {
                     ctx.lineTo(s.trail[t], s.trail[t + 1]);
                 }
+                ctx.stroke();
+                // Thin bright core trail
+                ctx.strokeStyle = `hsla(${hue}, 70%, 70%, 0.06)`;
+                ctx.lineWidth = 1;
                 ctx.stroke();
             }
         }

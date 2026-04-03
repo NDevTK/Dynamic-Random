@@ -154,10 +154,38 @@ export class LaserLightShow {
 
         if (isClicking && !this._wasClicking) {
             this._clickFlash = 1;
+            // Perturb beam angles on click for dynamic pattern change
+            for (const beam of this._beams) {
+                if (beam.phase !== undefined) {
+                    beam.phase += 0.5 + _prand(this.tick * 37) * 1.5;
+                }
+                if (beam.sweepSpeed !== undefined) {
+                    // Temporarily boost sweep speed
+                    beam._origSpeed = beam._origSpeed || beam.sweepSpeed;
+                    beam.sweepSpeed = beam._origSpeed * (2 + _prand(this.tick * 53) * 2);
+                }
+            }
+            // Inject temporary rings into rave tunnel
+            if (this.mode === 4 && this._tunnelRings.length < 20) {
+                this._tunnelRings.push({
+                    depth: 0.01,
+                    sides: 4 + Math.floor(_prand(this.tick * 71) * 6),
+                    rotation: _prand(this.tick * 83) * TAU,
+                    rotSpeed: (_prand(this.tick * 97) - 0.5) * 0.06,
+                    hue: (this.hue + _prand(this.tick * 101) * 180) % 360,
+                });
+            }
         }
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
         this._clickFlash *= 0.92;
+
+        // Restore beam speeds gradually
+        for (const beam of this._beams) {
+            if (beam._origSpeed && beam.sweepSpeed > beam._origSpeed * 1.05) {
+                beam.sweepSpeed *= 0.97;
+            }
+        }
 
         // Tunnel ring movement
         for (const ring of this._tunnelRings) {
@@ -233,7 +261,7 @@ export class LaserLightShow {
             const toMouse = Math.atan2(this._my - beam.originY, this._mx - beam.originX);
             const blended = angle + (toMouse - angle) * 0.1;
 
-            const alpha = (0.08 + this._clickFlash * 0.1) * this.intensity;
+            const alpha = (0.15 + this._clickFlash * 0.2) * this.intensity;
             this._drawBeamLine(ctx, beam.originX, beam.originY, blended, beam.width, beam.length, beam.hue, alpha);
         }
     }
@@ -256,7 +284,7 @@ export class LaserLightShow {
             if (flicker < 0.3) continue; // Some beams off at times
 
             const angle = beam.angle + this.tick * beam.rotSpeed;
-            const alpha = flicker * 0.06 * this.intensity;
+            const alpha = flicker * 0.12 * this.intensity;
             this._drawBeamLine(ctx, cx, cy, angle, beam.width, beam.length, beam.hue, alpha);
         }
     }
@@ -273,7 +301,7 @@ export class LaserLightShow {
             const halfWidth = beam.width;
             const endHalfWidth = beam.width * 3;
 
-            const alpha = 0.04 * this.intensity;
+            const alpha = 0.08 * this.intensity;
             ctx.fillStyle = `hsla(${beam.hue}, 60%, 70%, ${alpha})`;
             ctx.beginPath();
             ctx.moveTo(beam.originX + Math.cos(perpAngle) * halfWidth,
@@ -313,7 +341,7 @@ export class LaserLightShow {
             const sweep = Math.sin(this.tick * beam.sweepSpeed + beam.phase) * beam.sweepRange;
             let angle = beam.angle + sweep;
             let ox = beam.originX, oy = beam.originY;
-            const alpha = 0.1 * this.intensity;
+            const alpha = 0.18 * this.intensity;
             let hue = beam.hue;
 
             // Trace up to 5 bounces
@@ -405,8 +433,9 @@ export class LaserLightShow {
             ctx.stroke();
         }
 
-        // Connecting lines between adjacent rings
-        const sorted = [...this._tunnelRings].sort((a, b) => a.depth - b.depth);
+        // Connecting lines between adjacent rings (sort in-place to avoid per-frame allocation)
+        this._tunnelRings.sort((a, b) => a.depth - b.depth);
+        const sorted = this._tunnelRings;
         ctx.lineWidth = 0.5;
         for (let i = 0; i < sorted.length - 1; i++) {
             const r1 = sorted[i], r2 = sorted[i + 1];

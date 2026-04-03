@@ -242,7 +242,7 @@ export class SmokeWisps {
             const e = this._embers[i];
             e.x += e.vx + windX * 0.2;
             e.y += e.vy;
-            e.vx += (Math.random() - 0.5) * 0.2;
+            e.vx += (((this.tick * 2654435761 + i * 2246822519) >>> 0) / 4294967296 - 0.5) * 0.2;
             e.life--;
             if (e.life <= 0) {
                 this._emberPool.push(e);
@@ -282,9 +282,9 @@ export class SmokeWisps {
         // Vortex visualization
         for (const v of this._vortices) {
             const lifeRatio = v.life / v.maxLife;
-            const alpha = lifeRatio * 0.04 * this.intensity;
-            ctx.strokeStyle = `hsla(${this.hue}, 50%, 60%, ${alpha})`;
-            ctx.lineWidth = 1;
+            const alpha = lifeRatio * 0.12 * this.intensity;
+            ctx.strokeStyle = `hsla(${this.hue}, 60%, 65%, ${alpha})`;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.arc(v.x, v.y, v.radius * (1 - lifeRatio), 0, TAU);
             ctx.stroke();

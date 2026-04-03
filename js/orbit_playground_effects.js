@@ -152,13 +152,24 @@ export class OrbitPlayground {
                 moon.angle += moon.speed;
             }
 
-            // Gentle cursor perturbation
+            // Cursor perturbation
             const bx = this._centerX + Math.cos(body.angle) * body.orbitRadius;
             const by = this._centerY + Math.sin(body.angle) * body.orbitRadius * (1 - body.eccentricity);
             const dx = mx - bx, dy = my - by;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < 200 && dist > 0) {
-                body.angle += (dx > 0 ? 0.002 : -0.002) * (1 - dist / 200);
+                const influence = (1 - dist / 200);
+                body.angle += (dx > 0 ? 0.003 : -0.003) * influence;
+                // Click near a planet scatters its orbit
+                if (isClicking && !this._wasClicking && dist < 80) {
+                    body.speed += (body.speed > 0 ? 0.02 : -0.02) * influence;
+                    body.eccentricity = Math.min(0.5, body.eccentricity + 0.05 * influence);
+                }
+            }
+
+            // Orbit decay back to original eccentricity over time
+            if (body.eccentricity > 0.2) {
+                body.eccentricity *= 0.999;
             }
         }
 
@@ -177,8 +188,14 @@ export class OrbitPlayground {
             }
             c.x += c.vx;
             c.y += c.vy;
-            c.trail.push(c.x, c.y);
-            if (c.trail.length > 40) { c.trail[0] = c.trail[c.trail.length - 2]; c.trail[1] = c.trail[c.trail.length - 1]; c.trail.length -= 2; }
+            if (c.trail.length < 40) {
+                c.trail.push(c.x, c.y);
+            } else {
+                if (c._tIdx === undefined) c._tIdx = 0;
+                c.trail[c._tIdx] = c.x;
+                c.trail[c._tIdx + 1] = c.y;
+                c._tIdx = (c._tIdx + 2) % 40;
+            }
             c.life--;
             if (c.life <= 0) {
                 this._cometPool.push(c);

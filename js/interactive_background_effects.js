@@ -214,7 +214,7 @@ class InteractiveBackgroundEffects {
                 ripple.y = this._lastClickY;
                 ripple.radius = 0;
                 ripple.alpha = 0.6;
-                ripple.hue = (this.trailHue + Math.random() * 60 - 30 + 360) % 360;
+                ripple.hue = (this.trailHue + ((this.tick * 2654435761) >>> 0) / 4294967296 * 60 - 30 + 360) % 360;
                 this.ripples.push(ripple);
             }
 

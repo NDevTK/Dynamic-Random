@@ -209,7 +209,7 @@ export class InkSplatter {
             // Trail
             if (this.tick % 2 === 0) {
                 d.trail.push(d.x, d.y);
-                if (d.trail.length > 16) d.trail.splice(0, 2);
+                if (d.trail.length > 16) { d.trail.copyWithin(0, 2); d.trail.length -= 2; }
             }
 
             if (d.life <= 0 || d.y > window.innerHeight + 10) {

@@ -200,11 +200,15 @@ export class CosmicJellyfish {
                 j.x = _prand(this.tick * 7 + j.bellPhase * 100) * W;
             }
 
-            // Store position history for tentacle dynamics
+            // Store position history for tentacle dynamics (ring buffer to avoid splice)
             if (this.tick % 2 === 0) {
-                j.history.push(j.x, j.y);
-                if (j.history.length > j.maxHistory * 2) {
-                    j.history.splice(0, 2);
+                if (j.history.length < j.maxHistory * 2) {
+                    j.history.push(j.x, j.y);
+                } else {
+                    if (j._histIdx === undefined) j._histIdx = 0;
+                    j.history[j._histIdx] = j.x;
+                    j.history[j._histIdx + 1] = j.y;
+                    j._histIdx = (j._histIdx + 2) % (j.maxHistory * 2);
                 }
             }
         }

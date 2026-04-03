@@ -199,8 +199,14 @@ export class GravityPaintArchitecture extends Architecture {
             b.y += b.vy;
 
             // Record trail
-            b.trail.push({ x: b.x, y: b.y });
-            if (b.trail.length > 20) b.trail.shift();
+            if (b.trail.length < 20) {
+                b.trail.push({ x: b.x, y: b.y });
+            } else {
+                if (b._tIdx === undefined) b._tIdx = 0;
+                b.trail[b._tIdx].x = b.x;
+                b.trail[b._tIdx].y = b.y;
+                b._tIdx = (b._tIdx + 1) % 20;
+            }
 
             // Paint onto accumulation canvas
             if (tick % 2 === 0) {

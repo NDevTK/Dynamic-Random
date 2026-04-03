@@ -68,6 +68,11 @@ import { QuantumEntanglement } from './quantum_entanglement_effects.js';
 import { WormholeTransit } from './wormhole_transit_effects.js';
 import { InkSplatter } from './ink_splatter_effects.js';
 import { CrystalGrowth } from './crystal_growth_effects.js';
+import { PlasmaGlobe } from './plasma_globe_effects.js';
+import { OrbitPlayground } from './orbit_playground_effects.js';
+import { SmokeWisps } from './smoke_wisps_effects.js';
+import { BouncyGeometry } from './bouncy_geometry_effects.js';
+import { LaserLightShow } from './laser_light_show_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -179,6 +184,11 @@ export const EFFECT_REGISTRY = [
     { instance: new WormholeTransit(),    tags: ['void', 'cosmic', 'temporal'],            minQuality: 0.3,  drawOrder: 57 },
     { instance: new InkSplatter(),        tags: ['fluid', 'painterly', 'dark'],            minQuality: 0.3,  drawOrder: 58 },
     { instance: new CrystalGrowth(),      tags: ['crystal', 'geometric', 'light'],         minQuality: 0.25, drawOrder: 59 },
+    { instance: new PlasmaGlobe(),       tags: ['fire', 'tech', 'cosmic'],                minQuality: 0.25, drawOrder: 60 },
+    { instance: new OrbitPlayground(),   tags: ['cosmic', 'stellar', 'physics'],           minQuality: 0.25, drawOrder: 61 },
+    { instance: new SmokeWisps(),        tags: ['fluid', 'ethereal', 'dark'],              minQuality: 0.3,  drawOrder: 62 },
+    { instance: new BouncyGeometry(),    tags: ['physics', 'geometric', 'light'],          minQuality: 0.25, drawOrder: 63 },
+    { instance: new LaserLightShow(),    tags: ['tech', 'digital', 'light'],               minQuality: 0.25, drawOrder: 64 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

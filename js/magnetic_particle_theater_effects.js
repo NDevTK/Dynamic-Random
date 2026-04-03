@@ -3,6 +3,7 @@
  * @description Particles that self-organize into seed-dependent shapes using magnetic
  * field simulation. The shapes morph and transition between forms. Mouse acts as a
  * powerful magnet that disrupts formations, and particles dramatically reassemble.
+ * Click triggers formation switch or scatter-and-reform.
  *
  * Modes:
  * 0 - Sacred Geometry: Particles form rotating sacred geometry patterns (flower of life, metatron's cube)
@@ -38,12 +39,13 @@ export class MagneticParticleTheater {
         // Mouse disruption
         this._mouseX = 0;
         this._mouseY = 0;
-        this._mouseForce = 0;
-        this._isDisrupted = false;
 
         // Heartbeat timing
         this._beatPhase = 0;
         this._beatRate = 0.02;
+
+        // Click scatter
+        this._scatterForce = 0;
     }
 
     configure(rng, palette) {
@@ -54,6 +56,7 @@ export class MagneticParticleTheater {
         this._morphProgress = 0;
         this._currentFormation = 0;
         this._beatPhase = 0;
+        this._scatterForce = 0;
 
         // Generate formations based on mode and seed
         this._formations = [];
@@ -227,21 +230,17 @@ export class MagneticParticleTheater {
     }
 
     _generateTypography(rng) {
-        // Simple dot-matrix representations of symbols
         const symbols = ['*', '#', '@', '!', '?', '+', '=', '~'];
         const formations = [];
 
         for (let s = 0; s < 3; s++) {
             const points = [];
             const sym = symbols[Math.floor(rng() * symbols.length)];
-
-            // Generate points in a grid pattern forming the symbol shape
             const size = 0.3;
             const cx = 0.5;
             const cy = 0.5;
 
             if (sym === '*') {
-                // Star/asterisk: 6 rays
                 for (let i = 0; i < 6; i++) {
                     const angle = (i / 6) * TAU;
                     for (let d = 0; d < 15; d++) {
@@ -250,7 +249,6 @@ export class MagneticParticleTheater {
                     }
                 }
             } else if (sym === '#') {
-                // Hash: 4 lines
                 for (let t = 0; t < 30; t++) {
                     const f = (t / 30 - 0.5) * size * 2;
                     points.push({ x: cx - size * 0.3, y: cy + f });
@@ -259,12 +257,25 @@ export class MagneticParticleTheater {
                     points.push({ x: cx + f, y: cy + size * 0.3 });
                 }
             } else if (sym === '?') {
-                // Question mark curve
                 for (let t = 0; t < 40; t++) {
                     const a = (t / 40) * Math.PI * 1.5 - Math.PI * 0.5;
                     points.push({ x: cx + Math.cos(a) * size * 0.4, y: cy - size * 0.2 + Math.sin(a) * size * 0.3 });
                 }
-                points.push({ x: cx, y: cy + size * 0.35 }); // dot
+                points.push({ x: cx, y: cy + size * 0.35 });
+            } else if (sym === '!') {
+                // Exclamation: vertical line + dot
+                for (let t = 0; t < 25; t++) {
+                    const f = (t / 25) * size * 1.2;
+                    points.push({ x: cx, y: cy - size * 0.4 + f });
+                }
+                points.push({ x: cx, y: cy + size * 0.45 });
+            } else if (sym === '@') {
+                // At sign: spiral
+                for (let t = 0; t < 80; t++) {
+                    const a = (t / 80) * TAU * 1.5;
+                    const r = size * 0.15 + (t / 80) * size * 0.25;
+                    points.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+                }
             } else {
                 // Generic spiral for other symbols
                 for (let t = 0; t < 60; t++) {
@@ -281,7 +292,6 @@ export class MagneticParticleTheater {
     }
 
     _generateConstellations(rng) {
-        // Generate star constellation patterns
         const formations = [];
 
         for (let c = 0; c < 3; c++) {
@@ -291,13 +301,11 @@ export class MagneticParticleTheater {
             for (let i = 0; i < starCount; i++) {
                 const sx = 0.2 + rng() * 0.6;
                 const sy = 0.2 + rng() * 0.6;
-                // Star glow particles
                 for (let j = 0; j < 8; j++) {
                     const a = (j / 8) * TAU;
                     const d = rng() * 0.02;
                     points.push({ x: sx + Math.cos(a) * d, y: sy + Math.sin(a) * d });
                 }
-                // Connecting lines to nearest stars
                 points.push({ x: sx, y: sy });
             }
 
@@ -308,7 +316,6 @@ export class MagneticParticleTheater {
     }
 
     _generateMagneticPoles(rng) {
-        // Generate magnetic pole positions
         this._poles = [];
         const count = 3 + Math.floor(rng() * 5);
         for (let i = 0; i < count; i++) {
@@ -320,28 +327,24 @@ export class MagneticParticleTheater {
                 vy: (rng() - 0.5) * 0.001,
             });
         }
-        // Empty formations (particles guided by poles instead)
         this._formations = [[]];
     }
 
     _generateHeartbeat(rng) {
-        // Two formations: expanded and contracted
         const expanded = [];
         const contracted = [];
 
-        // Heart shape parametric
         for (let t = 0; t < 200; t++) {
             const a = (t / 200) * TAU;
-            // Expanded heart
             const ex = 0.5 + 0.16 * Math.pow(Math.sin(a), 3);
             const ey = 0.48 - (0.13 * Math.cos(a) - 0.05 * Math.cos(2 * a) - 0.02 * Math.cos(3 * a) - 0.01 * Math.cos(4 * a));
             expanded.push({ x: ex, y: ey });
 
-            // Contracted: same shape but smaller
             const scale = 0.6;
-            const cx2 = 0.5 + (ex - 0.5) * scale;
-            const cy2 = 0.48 + (ey - 0.48) * scale;
-            contracted.push({ x: cx2, y: cy2 });
+            contracted.push({
+                x: 0.5 + (ex - 0.5) * scale,
+                y: 0.48 + (ey - 0.48) * scale,
+            });
         }
 
         this._formations = [expanded, contracted];
@@ -377,8 +380,15 @@ export class MagneticParticleTheater {
             this._initParticles(w, h);
         }
 
+        // Scatter force decay
+        if (this._scatterForce > 0.1) {
+            this._scatterForce *= 0.9;
+        } else {
+            this._scatterForce = 0;
+        }
+
         // Formation morphing
-        if (this._formations.length > 1) {
+        if (this._formations.length > 1 && this.mode !== 5) {
             this._morphProgress += this._morphSpeed;
             if (this._morphProgress >= 1) {
                 this._morphProgress = 0;
@@ -391,40 +401,46 @@ export class MagneticParticleTheater {
         if (this.mode === 5) {
             this._beatPhase += this._beatRate;
             const beat = Math.sin(this._beatPhase);
-            const formIdx = beat > 0 ? 0 : 1;
-            this._targets = this._formations[formIdx];
+            this._targets = this._formations[beat > 0 ? 0 : 1];
         }
 
-        // Update magnetic poles (mode 4)
+        // Update magnetic poles (mode 4) - fixed: was using pole.vy for both x and y
         if (this.mode === 4) {
             for (const pole of this._poles) {
-                pole.x += pole.vy;
+                pole.x += pole.vx;
                 pole.y += pole.vy;
-                // Bounce off edges
                 if (pole.x < 0.1 || pole.x > 0.9) pole.vx *= -1;
                 if (pole.y < 0.1 || pole.y > 0.9) pole.vy *= -1;
             }
         }
 
-        // Mouse disruption force
         const mx = this._mouseX;
         const my = this._mouseY;
+        const mouseRadiusSq = 15000;
+        const hasTargets = this._targets.length > 0;
+        const scatterForce = this._scatterForce;
 
         for (const p of this.particles) {
-            // Mouse repulsion
+            // Mouse repulsion (use distSq to avoid sqrt)
             const mdx = p.x - mx;
             const mdy = p.y - my;
             const mDist2 = mdx * mdx + mdy * mdy;
-            const mouseRadius = 15000;
-            if (mDist2 < mouseRadius && mDist2 > 1) {
-                const mDist = Math.sqrt(mDist2);
-                const force = (1 - mDist2 / mouseRadius) * 3;
-                p.vx += (mdx / mDist) * force;
-                p.vy += (mdy / mDist) * force;
+            if (mDist2 < mouseRadiusSq && mDist2 > 1) {
+                // Approximate normalized direction using fast inverse: 1/sqrt via Newton step
+                const invDist = 1 / Math.sqrt(mDist2);
+                const force = (1 - mDist2 / mouseRadiusSq) * 3;
+                p.vx += mdx * invDist * force;
+                p.vy += mdy * invDist * force;
+            }
+
+            // Click scatter: random outward impulse
+            if (scatterForce > 0) {
+                p.vx += (p.x - w * 0.5) * scatterForce * 0.001;
+                p.vy += (p.y - h * 0.5) * scatterForce * 0.001;
             }
 
             if (this.mode === 4) {
-                // Magnetic pole forces
+                // Magnetic pole forces (use invDist to reduce sqrt calls)
                 for (const pole of this._poles) {
                     const px = pole.x * w;
                     const py = pole.y * h;
@@ -432,24 +448,25 @@ export class MagneticParticleTheater {
                     const dy = py - p.y;
                     const dist2 = dx * dx + dy * dy;
                     if (dist2 > 4 && dist2 < 90000) {
-                        const dist = Math.sqrt(dist2);
-                        const force = pole.strength / dist2;
-                        p.vx += (dx / dist) * force;
-                        p.vy += (dy / dist) * force;
+                        const invDist = 1 / Math.sqrt(dist2);
+                        const force = pole.strength * invDist * invDist; // strength / dist^2
+                        p.vx += dx * invDist * force;
+                        p.vy += dy * invDist * force;
                     }
                 }
-            } else if (this._targets.length > 0) {
-                // Seek target position
+            } else if (hasTargets) {
+                // Seek target position (use dist2 comparison to skip far particles)
                 const target = this._targets[p.targetIdx % this._targets.length];
                 const tx = target.x * w;
                 const ty = target.y * h;
                 const dx = tx - p.x;
                 const dy = ty - p.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > 1) {
-                    const seekForce = 0.05;
-                    p.vx += (dx / dist) * seekForce * Math.min(dist, 50);
-                    p.vy += (dy / dist) * seekForce * Math.min(dist, 50);
+                const dist2 = dx * dx + dy * dy;
+                if (dist2 > 1) {
+                    const dist = Math.sqrt(dist2);
+                    const seekMag = 0.05 * Math.min(dist, 50);
+                    p.vx += (dx / dist) * seekMag;
+                    p.vy += (dy / dist) * seekMag;
                 }
             }
 
@@ -468,51 +485,84 @@ export class MagneticParticleTheater {
     }
 
     draw(ctx, system) {
+        // Handle click: scatter + advance formation
+        if (system._clickRegistered !== undefined && system._clickRegistered) {
+            this._scatterForce = 8;
+            if (this._formations.length > 1 && this.mode !== 5) {
+                this._currentFormation = (this._currentFormation + 1) % this._formations.length;
+                this._targets = this._formations[this._currentFormation];
+                this._morphProgress = 0;
+            }
+        }
+
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
+        // Batch particles by speed category to reduce fillStyle changes
+        const baseHue = this.hue;
+        const slow = [];
+        const fast = [];
+
         for (const p of this.particles) {
-            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            const speed2 = p.vx * p.vx + p.vy * p.vy;
+            if (speed2 > 1) fast.push(p);
+            else slow.push(p);
+        }
+
+        // Draw slow particles (majority) with shared style
+        for (const p of slow) {
+            const speed2 = p.vx * p.vx + p.vy * p.vy;
+            const glow = Math.min(1, speed2 * 0.01);
+            const alpha = 0.4 + glow * 0.5;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size + glow * 2, 0, TAU);
+            ctx.fillStyle = `hsla(${(p.hue + speed2 * 0.5) % 360 | 0}, 80%, ${(50 + p.brightness * 20) | 0}%, ${alpha})`;
+            ctx.fill();
+        }
+
+        // Draw fast particles with motion blur trails
+        for (const p of fast) {
+            const speed2 = p.vx * p.vx + p.vy * p.vy;
+            const speed = Math.sqrt(speed2);
             const glow = Math.min(1, speed * 0.1);
             const alpha = 0.4 + glow * 0.5;
             const size = p.size + glow * 2;
 
             ctx.beginPath();
             ctx.arc(p.x, p.y, size, 0, TAU);
-            ctx.fillStyle = `hsla(${(p.hue + speed * 5) % 360}, 80%, ${50 + p.brightness * 20}%, ${alpha})`;
+            ctx.fillStyle = `hsla(${(p.hue + speed * 5) % 360 | 0}, 80%, ${(50 + p.brightness * 20) | 0}%, ${alpha})`;
             ctx.fill();
 
             // Motion blur trail
-            if (speed > 1) {
-                ctx.beginPath();
-                ctx.moveTo(p.x, p.y);
-                ctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
-                ctx.strokeStyle = `hsla(${p.hue}, 70%, 60%, ${alpha * 0.3})`;
-                ctx.lineWidth = size * 0.5;
-                ctx.stroke();
-            }
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
+            ctx.strokeStyle = `hsla(${p.hue | 0}, 70%, 60%, ${alpha * 0.3})`;
+            ctx.lineWidth = size * 0.5;
+            ctx.stroke();
         }
 
-        // Constellation connecting lines (mode 3)
+        // Constellation connecting lines (mode 3) - batched into single path
         if (this.mode === 3) {
+            const linkDistSq = 6400; // 80^2
+            ctx.strokeStyle = `hsla(${baseHue}, 50%, 70%, 0.3)`;
+            ctx.lineWidth = 0.5;
             ctx.globalAlpha = 0.15;
-            const linkDist = 80;
+            ctx.beginPath();
             for (let i = 0; i < this.particles.length; i += 8) {
                 const a = this.particles[i];
                 for (let j = i + 8; j < this.particles.length; j += 8) {
                     const b = this.particles[j];
                     const dx = a.x - b.x;
                     const dy = a.y - b.y;
-                    if (dx * dx + dy * dy < linkDist * linkDist) {
-                        ctx.beginPath();
+                    if (dx * dx + dy * dy < linkDistSq) {
                         ctx.moveTo(a.x, a.y);
                         ctx.lineTo(b.x, b.y);
-                        ctx.strokeStyle = `hsla(${this.hue}, 50%, 70%, 0.3)`;
-                        ctx.lineWidth = 0.5;
-                        ctx.stroke();
                     }
                 }
             }
+            ctx.stroke();
+            ctx.globalAlpha = 1;
         }
 
         ctx.restore();

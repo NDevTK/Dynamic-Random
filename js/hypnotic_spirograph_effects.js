@@ -2,7 +2,8 @@
  * @file hypnotic_spirograph_effects.js
  * @description Multi-layered spirograph (epitrochoid/hypotrochoid) patterns that rotate
  * and evolve. Seed determines gear ratios, pen positions, layer count, and color schemes,
- * producing vastly different geometric art per universe.
+ * producing vastly different geometric art per universe. Click triggers a burst that
+ * temporarily distorts all layer radii.
  *
  * Modes:
  * 0 - Classic Spirograph: Clean mathematical curves with slow color cycling
@@ -14,6 +15,11 @@
  */
 
 const TAU = Math.PI * 2;
+const MAX_FRAGMENTS = 40;
+
+// Reusable point objects to avoid allocation in draw loop
+const _p1 = { x: 0, y: 0 };
+const _p2 = { x: 0, y: 0 };
 
 export class HypnoticSpirograph {
     constructor() {
@@ -41,9 +47,9 @@ export class HypnoticSpirograph {
         this._fragments = [];
         this._shatterCooldown = 0;
 
-        // Temporal echo positions for mode 4
-        this._echoHistory = [];
-        this._echoMaxLen = 5;
+        // Click burst distortion
+        this._burstEnergy = 0;
+        this._burstDecay = 0.93;
     }
 
     configure(rng, palette) {
@@ -51,10 +57,10 @@ export class HypnoticSpirograph {
         this.mode = Math.floor(rng() * 6);
         this.tick = 0;
         this.hue = palette.length > 0 ? palette[0].h : Math.floor(rng() * 360);
+        this._burstEnergy = 0;
 
         this._trailCanvas = null;
         this._fragments = [];
-        this._echoHistory = [];
 
         // Generate spirograph layers with seed-dependent parameters
         const layerCount = 2 + Math.floor(rng() * 4); // 2-5 layers
@@ -62,13 +68,12 @@ export class HypnoticSpirograph {
 
         for (let i = 0; i < layerCount; i++) {
             // Gear ratios - small integers create closed curves, irrationals create dense fills
-            const ratioOptions = [
-                () => Math.floor(rng() * 8 + 2) / Math.floor(rng() * 5 + 3), // rational
-                () => rng() * 3 + 0.5, // irrational-ish
-                () => Math.floor(rng() * 12 + 3) / 7, // septimal
-                () => (1 + Math.sqrt(5)) / 2 * (0.5 + rng()), // golden ratio variant
-            ];
-            const ratioFn = ratioOptions[Math.floor(rng() * ratioOptions.length)];
+            const ratioType = Math.floor(rng() * 4);
+            let ratio;
+            if (ratioType === 0) ratio = Math.floor(rng() * 8 + 2) / Math.floor(rng() * 5 + 3);
+            else if (ratioType === 1) ratio = rng() * 3 + 0.5;
+            else if (ratioType === 2) ratio = Math.floor(rng() * 12 + 3) / 7;
+            else ratio = (1 + Math.sqrt(5)) / 2 * (0.5 + rng());
 
             this.layers.push({
                 R: 80 + rng() * 120,        // Outer radius
@@ -76,13 +81,15 @@ export class HypnoticSpirograph {
                 d: 10 + rng() * 60,         // Pen distance from inner center
                 speed: 0.005 + rng() * 0.02, // Angular speed
                 phase: rng() * TAU,          // Starting phase
-                ratio: ratioFn(),            // Gear ratio
+                ratio,                       // Gear ratio
                 hueShift: rng() * 120,       // Hue offset from base
                 lineWidth: 0.5 + rng() * 2,
                 direction: rng() > 0.5 ? 1 : -1, // CW or CCW
                 // Noise perturbation (mode 3)
                 noiseAmp: rng() * 20,
                 noiseFreq: rng() * 0.1 + 0.01,
+                // Per-layer burst response
+                burstSensitivity: 0.5 + rng() * 1.5,
             });
         }
 
@@ -107,15 +114,14 @@ export class HypnoticSpirograph {
         }
     }
 
-    _getPoint(layer, t, cx, cy, mouseInfluence) {
-        const { R, r, d, ratio, direction, noiseAmp, noiseFreq } = layer;
-        const effR = R + (this.mode === 5 ? mouseInfluence * 30 : 0);
+    _computePoint(layer, t, cx, cy, mouseInfluence, burstOffset, out) {
+        const { R, r, d, ratio, direction, noiseAmp, noiseFreq, burstSensitivity } = layer;
+        const effR = R + (this.mode === 5 ? mouseInfluence * 30 : 0) + burstOffset * burstSensitivity;
         const angle = t * direction;
-        const rRatio = ratio;
 
         // Epitrochoid formula: x = (R-r)*cos(t) + d*cos((R-r)/r * t)
-        let x = (effR - r) * Math.cos(angle) + d * Math.cos(((effR - r) / r) * angle * rRatio);
-        let y = (effR - r) * Math.sin(angle) + d * Math.sin(((effR - r) / r) * angle * rRatio);
+        let x = (effR - r) * Math.cos(angle) + d * Math.cos(((effR - r) / r) * angle * ratio);
+        let y = (effR - r) * Math.sin(angle) + d * Math.sin(((effR - r) / r) * angle * ratio);
 
         // Organic noise perturbation (mode 3)
         if (this.mode === 3) {
@@ -124,7 +130,8 @@ export class HypnoticSpirograph {
             y += n * noiseAmp * 0.7;
         }
 
-        return { x: cx + x, y: cy + y };
+        out.x = cx + x;
+        out.y = cy + y;
     }
 
     update(system) {
@@ -132,13 +139,21 @@ export class HypnoticSpirograph {
         this._mouseX = system.mouse ? system.mouse.x : system.width / 2;
         this._mouseY = system.mouse ? system.mouse.y : system.height / 2;
 
+        // Burst energy decay
+        if (this._burstEnergy > 0.01) {
+            this._burstEnergy *= this._burstDecay;
+        } else {
+            this._burstEnergy = 0;
+        }
+
         // Shatter mode cooldown
         if (this.mode === 2) {
             this._shatterCooldown--;
             if (this._shatterCooldown <= 0) {
                 this._shatterCooldown = 150 + Math.floor(this._rng() * 100);
-                // Create shatter fragments from current trail
-                const count = 8 + Math.floor(this._rng() * 12);
+                // Create shatter fragments from current trail (capped)
+                const count = Math.min(MAX_FRAGMENTS - this._fragments.length,
+                                       8 + Math.floor(this._rng() * 12));
                 for (let i = 0; i < count; i++) {
                     this._fragments.push({
                         x: this._rng() * system.width,
@@ -175,6 +190,11 @@ export class HypnoticSpirograph {
         const cx = w / 2;
         const cy = h / 2;
 
+        // Handle click events
+        if (system._clickRegistered !== undefined && system._clickRegistered) {
+            this._burstEnergy = 60;
+        }
+
         this._ensureTrail(w, h);
         const tc = this._trailCtx;
 
@@ -186,6 +206,7 @@ export class HypnoticSpirograph {
         const mdx = (this._mouseX - cx) / cx;
         const mdy = (this._mouseY - cy) / cy;
         const mouseInf = Math.sqrt(mdx * mdx + mdy * mdy);
+        const burstOffset = this._burstEnergy;
 
         // Draw spirograph curves
         for (let li = 0; li < this.layers.length; li++) {
@@ -193,8 +214,8 @@ export class HypnoticSpirograph {
             const t = this.tick * layer.speed + layer.phase;
             const prevT = t - layer.speed;
 
-            const p1 = this._getPoint(layer, prevT, cx, cy, mouseInf);
-            const p2 = this._getPoint(layer, t, cx, cy, mouseInf);
+            this._computePoint(layer, prevT, cx, cy, mouseInf, burstOffset, _p1);
+            this._computePoint(layer, t, cx, cy, mouseInf, burstOffset, _p2);
 
             const hue = (this.hue + layer.hueShift + this.tick * 0.2) % 360;
 
@@ -204,45 +225,45 @@ export class HypnoticSpirograph {
                 // Neon bloom: thick glowing line
                 const pulse = Math.sin(this.tick * 0.03 + li) * 0.3 + 0.7;
                 tc.lineWidth = layer.lineWidth * 3 * pulse;
-                tc.strokeStyle = `hsla(${hue}, 100%, 60%, 0.15)`;
+                tc.strokeStyle = `hsla(${hue | 0}, 100%, 60%, 0.15)`;
                 tc.beginPath();
-                tc.moveTo(p1.x, p1.y);
-                tc.lineTo(p2.x, p2.y);
+                tc.moveTo(_p1.x, _p1.y);
+                tc.lineTo(_p2.x, _p2.y);
                 tc.stroke();
                 // Core
                 tc.lineWidth = layer.lineWidth;
-                tc.strokeStyle = `hsla(${hue}, 90%, 80%, 0.8)`;
+                tc.strokeStyle = `hsla(${hue | 0}, 90%, 80%, 0.8)`;
                 tc.beginPath();
-                tc.moveTo(p1.x, p1.y);
-                tc.lineTo(p2.x, p2.y);
+                tc.moveTo(_p1.x, _p1.y);
+                tc.lineTo(_p2.x, _p2.y);
                 tc.stroke();
             } else if (this.mode === 4) {
                 // Temporal echo: draw at multiple time offsets
                 for (let echo = 0; echo < 4; echo++) {
                     const echoT = t - echo * 0.5;
-                    const ep = this._getPoint(layer, echoT, cx, cy, mouseInf);
-                    const ep2 = this._getPoint(layer, echoT - layer.speed, cx, cy, mouseInf);
+                    this._computePoint(layer, echoT, cx, cy, mouseInf, burstOffset, _p2);
+                    this._computePoint(layer, echoT - layer.speed, cx, cy, mouseInf, burstOffset, _p1);
                     const alpha = 0.6 - echo * 0.12;
                     tc.lineWidth = layer.lineWidth * (1 - echo * 0.15);
-                    tc.strokeStyle = `hsla(${(hue + echo * 15) % 360}, 80%, 65%, ${alpha})`;
+                    tc.strokeStyle = `hsla(${((hue + echo * 15) % 360) | 0}, 80%, 65%, ${alpha})`;
                     tc.beginPath();
-                    tc.moveTo(ep2.x, ep2.y);
-                    tc.lineTo(ep.x, ep.y);
+                    tc.moveTo(_p1.x, _p1.y);
+                    tc.lineTo(_p2.x, _p2.y);
                     tc.stroke();
                 }
             } else {
                 // Standard / organic / interactive
                 tc.lineWidth = layer.lineWidth;
-                tc.strokeStyle = `hsla(${hue}, 85%, 65%, 0.7)`;
+                tc.strokeStyle = `hsla(${hue | 0}, 85%, 65%, 0.7)`;
                 tc.beginPath();
-                tc.moveTo(p1.x, p1.y);
-                tc.lineTo(p2.x, p2.y);
+                tc.moveTo(_p1.x, _p1.y);
+                tc.lineTo(_p2.x, _p2.y);
                 tc.stroke();
 
                 // Dot at pen position
                 tc.beginPath();
-                tc.arc(p2.x, p2.y, layer.lineWidth * 0.8, 0, TAU);
-                tc.fillStyle = `hsla(${hue}, 90%, 80%, 0.4)`;
+                tc.arc(_p2.x, _p2.y, layer.lineWidth * 0.8, 0, TAU);
+                tc.fillStyle = `hsla(${hue | 0}, 90%, 80%, 0.4)`;
                 tc.fill();
             }
         }
@@ -267,6 +288,16 @@ export class HypnoticSpirograph {
                     -f.w / 2, -f.h / 2, f.w, f.h);
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
             }
+            ctx.restore();
+        }
+
+        // Burst flash overlay
+        if (this._burstEnergy > 5) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = (this._burstEnergy / 60) * 0.15;
+            ctx.fillStyle = `hsl(${this.hue}, 80%, 70%)`;
+            ctx.fillRect(0, 0, w, h);
             ctx.restore();
         }
     }

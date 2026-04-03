@@ -18,7 +18,7 @@ import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
 import { multiMonitor } from './multi_monitor.js';
 import { interactiveEffects } from './interactive_background_effects.js';
-import { selectArchitecture, ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES } from './architecture_registry.js';
+import { selectArchitecture, ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES, ARCH_CONSTRUCTOR_NAMES } from './architecture_registry.js';
 
 // Re-export for consumers that import from background.js
 export { ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES };
@@ -699,13 +699,13 @@ class BackgroundSystem {
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // Trail
+        // Trail (capped at 200 to prevent unbounded growth)
         const speedX = (mouse.x - (this.lastMouseX || mouse.x));
         const speedY = (mouse.y - (this.lastMouseY || mouse.y));
         const speed = Math.sqrt(speedX*speedX + speedY*speedY);
         this.lastMouseX = mouse.x; this.lastMouseY = mouse.y;
         const spawnCount = Math.min(5, Math.ceil(speed * 0.5));
-        for(let i=0; i<spawnCount; i++) {
+        for(let i=0; i<spawnCount && this.trail.length < 200; i++) {
             let p = this.trailPool.length > 0 ? this.trailPool.pop() : {};
             p.x = mouse.x + (this.rng() - 0.5) * 10; p.y = mouse.y + (this.rng() - 0.5) * 10;
             p.vx = (this.rng() - 0.5) * 1; p.vy = (this.rng() - 0.5) * 1;
@@ -723,7 +723,7 @@ class BackgroundSystem {
                  if (dist > 50 && dist < 300) { p.x -= (dx/dist) * 2; p.y -= (dy/dist) * 2; }
             }
             if (p.life <= 0) {
-                this.trailPool.push(p);
+                if (this.trailPool.length < 200) this.trailPool.push(p);
                 this.trail[i] = this.trail[this.trail.length - 1];
                 this.trail.pop();
                 continue;

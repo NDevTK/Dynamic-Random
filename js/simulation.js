@@ -604,10 +604,18 @@ function applyParticleChains(p, pJS) {
 
 // Pre-computed river sample points (avoids recalculating Bezier per particle)
 let riverSamples = [];
+let _lastRiversRef = null;
+let _lastRiversLength = -1;
 
 function precomputeRiverSamples() {
+    // Skip recomputation if rivers haven't changed (same reference and length)
+    const rivers = activeEffects.cosmicRivers;
+    if (rivers === _lastRiversRef && rivers.length === _lastRiversLength) return;
+    _lastRiversRef = rivers;
+    _lastRiversLength = rivers.length;
+
     riverSamples = [];
-    for (const river of activeEffects.cosmicRivers) {
+    for (const river of rivers) {
         const samples = [];
         for (let t = 0; t < 1; t += 0.05) {
             const pt = getBezierXY(t, river.x1, river.y1, river.cx1, river.cy1, river.cx2, river.cy2, river.x2, river.y2);
@@ -812,7 +820,19 @@ function updateEntangledGroups(pJS) {
 
     for (let gi = activeEffects.entangledGroups.length - 1; gi >= 0; gi--) {
         const group = activeEffects.entangledGroups[gi];
-        group.particles = group.particles.filter(p => p && aliveSet.has(p));
+        // In-place compaction instead of filter() to avoid per-frame array allocation
+        let writeIdx = 0;
+        for (let pi = 0; pi < group.particles.length; pi++) {
+            const p = group.particles[pi];
+            if (p && aliveSet.has(p)) {
+                group.particles[writeIdx] = p;
+                if (group.initialVectors[pi] && writeIdx !== pi) {
+                    group.initialVectors[writeIdx] = group.initialVectors[pi];
+                }
+                writeIdx++;
+            }
+        }
+        group.particles.length = writeIdx;
         if (group.particles.length < 2) {
             activeEffects.entangledGroups[gi] = activeEffects.entangledGroups[activeEffects.entangledGroups.length - 1];
             activeEffects.entangledGroups.pop();
@@ -859,6 +879,9 @@ function enforceParticleLimit(pJS) {
     }
 }
 
+// Reusable mouse object to avoid per-frame allocation from { ...mouse }
+const _worldMouse = { x: 0, y: 0 };
+
 /**
  * The main update loop, called on every frame.
  * This function handles particle physics, user interaction, anomalies, and cataclysms.
@@ -898,9 +921,11 @@ export function update(pJS) {
     precomputeChoralAverage(pJS);
     precomputeRiverSamples();
 
-    const worldMouse = { ...mouse };
+    // Reuse object to avoid per-frame GC pressure from spread operator
+    _worldMouse.x = mouse.x;
+    _worldMouse.y = mouse.y;
     cacheInputState();
-    updateAllParticles(pJS, worldMouse);
+    updateAllParticles(pJS, _worldMouse);
 
     updateEntangledGroups(pJS);
     updateAnomalies(pJS);

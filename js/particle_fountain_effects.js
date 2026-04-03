@@ -4,12 +4,12 @@
  * erupts upward with gravity, each particle leaving a short trail. Fountains
  * have seed-determined behaviors: geysers, firework mortars, confetti cannons,
  * or bubble streams. Mouse proximity bends nearby fountain streams. Multiple
- * fountains can coexist and interact (particles from one can ignite another).
+ * fountains can coexist and interact.
  *
  * Seed controls: fountain type, particle count per burst, gravity strength,
  * burst frequency, particle shape (circles/squares/triangles/stars), color
- * mode (monochrome/rainbow/palette), spread angle, and whether particles
- * bounce off screen edges.
+ * mode (monochrome/rainbow/palette/random), spread angle, wind, and whether
+ * particles bounce off screen edges.
  */
 
 export class ParticleFountain {
@@ -27,22 +27,28 @@ export class ParticleFountain {
         this.palette = [];
         this._tick = 0;
         this._clickRegistered = false;
+        // Bend radius squared to avoid sqrt in hot loop
+        this._bendRadiusSq = 120 * 120;
+    }
+
+    _prand(seed) {
+        return ((seed * 2654435761) >>> 0) / 4294967296;
     }
 
     configure(rng, palette) {
-        // Fountain type: 0=geyser (continuous), 1=firework mortar (burst+explode),
-        // 2=confetti cannon, 3=bubble stream
         this.fountainType = Math.floor(rng() * 4);
         this.gravity = 0.06 + rng() * 0.12;
         this.bounceEdges = rng() > 0.5;
-        // Particle shape: 0=circle, 1=square, 2=triangle, 3=star, 4=mixed
         this.particleShape = Math.floor(rng() * 5);
-        // Color mode: 0=from palette, 1=rainbow cycle, 2=monochrome, 3=random per particle
         this.colorMode = Math.floor(rng() * 4);
         this.spreadAngle = Math.PI / (4 + rng() * 8);
         this.burstSize = 8 + Math.floor(rng() * 16);
         this.particleTrailLen = 3 + Math.floor(rng() * 5);
         this.windStrength = (rng() - 0.5) * 0.05;
+        // Fountain base glow style
+        this.baseGlowRadius = 8 + rng() * 12;
+        // Particle sparkle at peak of arc
+        this.sparkleAtPeak = rng() > 0.5;
 
         this.palette = palette && palette.length >= 2 ? palette : [
             { h: rng() * 360, s: 70 + rng() * 25, l: 55 + rng() * 25 },
@@ -57,12 +63,16 @@ export class ParticleFountain {
 
     update(mx, my, isClicking) {
         this._tick++;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
 
         // Click spawns a fountain
         if (isClicking && !this._clickRegistered) {
             this._clickRegistered = true;
             if (this.fountains.length >= this.maxFountains) {
-                this.fountains.shift();
+                // Swap-remove instead of shift
+                this.fountains[0] = this.fountains[this.fountains.length - 1];
+                this.fountains.pop();
             }
             this.fountains.push({
                 x: mx,
@@ -72,6 +82,7 @@ export class ParticleFountain {
                 burstTimer: 0,
                 burstInterval: this.fountainType === 0 ? 2 : 8,
                 exploded: false,
+                id: this._tick,
             });
         }
         if (!isClicking) this._clickRegistered = false;
@@ -83,94 +94,89 @@ export class ParticleFountain {
             f.burstTimer++;
 
             if (f.life <= 0) {
-                this.fountains.splice(i, 1);
+                // Swap-remove
+                this.fountains[i] = this.fountains[this.fountains.length - 1];
+                this.fountains.pop();
                 continue;
             }
 
-            // Emit particles
             if (this.fountainType === 1) {
-                // Firework mortar: single shot up, then explode
                 if (!f.exploded && f.burstTimer === 1) {
-                    this._emitBurst(f.x, f.y, -Math.PI / 2, 0.2, 3, 8 + Math.random() * 4);
+                    this._emitBurst(f.x, f.y, -Math.PI / 2, 0.2, 3, 8 + this._prand(f.id) * 4, f.id);
                 }
                 if (!f.exploded && f.life < f.maxLife - 30) {
                     f.exploded = true;
-                    // Find the mortar particle and explode at its position
-                    const mortar = this.particles.find(p => p.fountainId === i && !p.isSpark);
-                    const ex = mortar ? mortar.x : f.x;
-                    const ey = mortar ? mortar.y : f.y - 100;
-                    this._emitBurst(ex, ey, 0, Math.PI * 2, this.burstSize, 3 + Math.random() * 4);
+                    // Find mortar by searching recent particles near expected position
+                    let ex = f.x, ey = f.y - 100;
+                    for (let pi = this.particles.length - 1; pi >= 0; pi--) {
+                        const p = this.particles[pi];
+                        if (p.fountainId === f.id) { ex = p.x; ey = p.y; break; }
+                    }
+                    this._emitBurst(ex, ey, 0, Math.PI * 2, this.burstSize, 3 + this._prand(f.id + 7) * 4, f.id);
                 }
             } else if (this.fountainType === 0) {
-                // Geyser: continuous stream
                 if (f.burstTimer >= f.burstInterval && this.particles.length < this.maxParticles) {
                     f.burstTimer = 0;
-                    this._emitBurst(f.x, f.y, -Math.PI / 2, this.spreadAngle, 2, 4 + Math.random() * 3);
+                    this._emitBurst(f.x, f.y, -Math.PI / 2, this.spreadAngle, 2, 4 + this._prand(this._tick) * 3, f.id);
                 }
             } else if (this.fountainType === 2) {
-                // Confetti: periodic bursts
                 if (f.burstTimer >= 10 && this.particles.length < this.maxParticles) {
                     f.burstTimer = 0;
-                    this._emitBurst(f.x, f.y, -Math.PI / 2 + (Math.random() - 0.5) * 0.5,
-                        this.spreadAngle * 2, this.burstSize / 2, 3 + Math.random() * 3);
+                    this._emitBurst(f.x, f.y, -Math.PI / 2 + (this._prand(this._tick * 3) - 0.5) * 0.5,
+                        this.spreadAngle * 2, this.burstSize / 2, 3 + this._prand(this._tick * 5) * 3, f.id);
                 }
             } else {
-                // Bubbles: slow continuous upward
                 if (f.burstTimer >= 4 && this.particles.length < this.maxParticles) {
                     f.burstTimer = 0;
-                    this._emitBurst(f.x + (Math.random() - 0.5) * 20, f.y,
-                        -Math.PI / 2, 0.3, 1, 1 + Math.random() * 2);
+                    this._emitBurst(f.x + (this._prand(this._tick * 7) - 0.5) * 20, f.y,
+                        -Math.PI / 2, 0.3, 1, 1 + this._prand(this._tick * 11) * 2, f.id);
                 }
             }
         }
 
-        // Mouse bends nearby particles
-        const bendRadius = 120;
-
         // Update particles
+        const bendRSq = this._bendRadiusSq;
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             p.life -= p.decay;
 
-            if (p.life <= 0 || p.y > window.innerHeight + 20) {
+            if (p.life <= 0 || p.y > h + 20) {
                 if (this.particlePool.length < this.maxParticles) this.particlePool.push(p);
                 this.particles[i] = this.particles[this.particles.length - 1];
                 this.particles.pop();
                 continue;
             }
 
-            // Apply gravity (bubbles float up)
+            // Gravity / buoyancy
             if (this.fountainType === 3) {
-                p.vy -= this.gravity * 0.3; // Buoyancy
+                p.vy -= this.gravity * 0.3;
                 p.vy *= 0.98;
-                p.vx += Math.sin(this._tick * 0.05 + p.x * 0.01) * 0.05; // Wobble
+                p.vx += Math.sin(this._tick * 0.05 + p.x * 0.01) * 0.05;
             } else {
                 p.vy += this.gravity;
             }
 
-            // Wind
             p.vx += this.windStrength;
 
-            // Mouse bending
+            // Mouse bending (use distSq)
             const dx = mx - p.x;
             const dy = my - p.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < bendRadius && dist > 1) {
-                const force = (1 - dist / bendRadius) * 0.3;
-                p.vx += (dx / dist) * force;
-                p.vy += (dy / dist) * force;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < bendRSq && distSq > 1) {
+                const invDist = 1 / Math.sqrt(distSq);
+                const force = (1 - distSq / bendRSq) * 0.3;
+                p.vx += dx * invDist * force;
+                p.vy += dy * invDist * force;
             }
 
             p.x += p.vx;
             p.y += p.vy;
-
-            // Friction
             p.vx *= 0.99;
 
-            // Bounce off edges
+            // Edge bounce
             if (this.bounceEdges) {
-                if (p.x < 0 || p.x > window.innerWidth) p.vx *= -0.6;
-                if (p.y > window.innerHeight) { p.vy *= -0.5; p.y = window.innerHeight; }
+                if (p.x < 0 || p.x > w) p.vx *= -0.6;
+                if (p.y > h) { p.vy *= -0.5; p.y = h; }
             }
 
             // Confetti rotation
@@ -178,58 +184,61 @@ export class ParticleFountain {
                 p.rotation = (p.rotation || 0) + (p.rotSpeed || 0);
             }
 
-            // Update trail
-            if (p.trail) {
-                p.trail.push({ x: p.x, y: p.y });
-                if (p.trail.length > this.particleTrailLen) p.trail.shift();
+            // Ring-buffer trail (no shift)
+            if (p.trailIdx === undefined) {
+                p.trailBuf = new Array(this.particleTrailLen);
+                p.trailIdx = 0;
+                p.trailFilled = 0;
             }
+            p.trailBuf[p.trailIdx] = p.trailBuf[p.trailIdx] || {};
+            p.trailBuf[p.trailIdx].x = p.x;
+            p.trailBuf[p.trailIdx].y = p.y;
+            p.trailIdx = (p.trailIdx + 1) % this.particleTrailLen;
+            if (p.trailFilled < this.particleTrailLen) p.trailFilled++;
         }
     }
 
-    _emitBurst(x, y, baseAngle, spread, count, speed) {
+    _emitBurst(x, y, baseAngle, spread, count, speed, fountainId) {
         for (let i = 0; i < count; i++) {
             if (this.particles.length >= this.maxParticles) break;
             let p = this.particlePool.length > 0 ? this.particlePool.pop() : {};
-            const angle = baseAngle + (Math.random() - 0.5) * spread * 2;
-            const spd = speed * (0.6 + Math.random() * 0.6);
+            const pr1 = this._prand(this._tick * 17 + i * 53);
+            const pr2 = this._prand(this._tick * 23 + i * 67);
+            const angle = baseAngle + (pr1 - 0.5) * spread * 2;
+            const spd = speed * (0.6 + pr2 * 0.6);
             p.x = x;
             p.y = y;
             p.vx = Math.cos(angle) * spd;
             p.vy = Math.sin(angle) * spd;
             p.life = 1.0;
-            p.decay = 0.008 + Math.random() * 0.012;
-            p.size = 2 + Math.random() * 4;
-            p.trail = [];
+            p.decay = 0.008 + pr1 * 0.012;
+            p.size = 2 + pr2 * 4;
+            p.fountainId = fountainId;
+            // Reset trail ring buffer
+            p.trailIdx = 0;
+            p.trailFilled = 0;
 
             // Color
             if (this.colorMode === 1) {
                 p.hue = (this._tick * 3 + i * 30) % 360;
-                p.sat = 80;
-                p.lit = 60;
+                p.sat = 80; p.lit = 60;
             } else if (this.colorMode === 2) {
                 const c = this.palette[0];
-                p.hue = c.h;
-                p.sat = c.s;
-                p.lit = c.l;
+                p.hue = c.h; p.sat = c.s; p.lit = c.l;
             } else if (this.colorMode === 3) {
-                p.hue = Math.random() * 360;
-                p.sat = 70 + Math.random() * 25;
-                p.lit = 55 + Math.random() * 25;
+                p.hue = pr1 * 360;
+                p.sat = 70 + pr2 * 25; p.lit = 55 + pr1 * 25;
             } else {
-                const c = this.palette[Math.floor(Math.random() * this.palette.length)];
-                p.hue = c.h;
-                p.sat = c.s;
-                p.lit = c.l;
+                const c = this.palette[Math.floor(pr1 * this.palette.length)];
+                p.hue = c.h; p.sat = c.s; p.lit = c.l;
             }
 
-            // Shape
             p.shapeType = this.particleShape === 4
-                ? Math.floor(Math.random() * 4)
+                ? Math.floor(pr2 * 4)
                 : this.particleShape;
 
-            // Confetti specific
-            p.rotation = Math.random() * Math.PI * 2;
-            p.rotSpeed = (Math.random() - 0.5) * 0.15;
+            p.rotation = pr1 * Math.PI * 2;
+            p.rotSpeed = (pr2 - 0.5) * 0.15;
 
             this.particles.push(p);
         }
@@ -240,19 +249,25 @@ export class ParticleFountain {
 
         ctx.globalCompositeOperation = 'lighter';
 
-        // Draw particle trails
+        // Draw particle trails and bodies
         for (const p of this.particles) {
             if (p.life <= 0.01) continue;
 
-            // Trail
-            if (p.trail && p.trail.length > 1) {
+            // Trail from ring buffer
+            if (p.trailFilled > 1) {
+                const tLen = this.particleTrailLen;
+                const filled = p.trailFilled;
+                const startIdx = filled < tLen ? 0 : p.trailIdx;
                 ctx.lineWidth = p.size * 0.5 * p.life;
-                for (let t = 1; t < p.trail.length; t++) {
-                    const alpha = (t / p.trail.length) * p.life * 0.15;
+                for (let t = 1; t < filled; t++) {
+                    const prevPt = p.trailBuf[(startIdx + t - 1) % tLen];
+                    const currPt = p.trailBuf[(startIdx + t) % tLen];
+                    if (!prevPt || !currPt) continue;
+                    const alpha = (t / filled) * p.life * 0.15;
                     ctx.strokeStyle = `hsla(${p.hue}, ${p.sat}%, ${p.lit}%, ${alpha})`;
                     ctx.beginPath();
-                    ctx.moveTo(p.trail[t - 1].x, p.trail[t - 1].y);
-                    ctx.lineTo(p.trail[t].x, p.trail[t].y);
+                    ctx.moveTo(prevPt.x, prevPt.y);
+                    ctx.lineTo(currPt.x, currPt.y);
                     ctx.stroke();
                 }
             }
@@ -265,9 +280,8 @@ export class ParticleFountain {
             ctx.translate(p.x, p.y);
             if (p.rotation) ctx.rotate(p.rotation);
 
-            ctx.beginPath();
             const sz = p.size * (0.5 + p.life * 0.5);
-
+            ctx.beginPath();
             if (p.shapeType === 0) {
                 ctx.arc(0, 0, sz, 0, Math.PI * 2);
             } else if (p.shapeType === 1) {
@@ -278,7 +292,6 @@ export class ParticleFountain {
                 ctx.lineTo(-sz, sz);
                 ctx.closePath();
             } else {
-                // Star
                 for (let k = 0; k < 10; k++) {
                     const a = (k / 10) * Math.PI * 2 - Math.PI / 2;
                     const r = k % 2 === 0 ? sz : sz * 0.4;
@@ -298,15 +311,29 @@ export class ParticleFountain {
                 ctx.arc(p.x, p.y, sz * 1.2, 0, Math.PI * 2);
                 ctx.stroke();
             }
+
+            // Sparkle at apex (when vy crosses zero = peak of arc)
+            if (this.sparkleAtPeak && Math.abs(p.vy) < 0.3 && p.life > 0.5) {
+                ctx.fillStyle = `hsla(${p.hue}, ${p.sat}%, 90%, ${p.life * 0.4})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
-        // Draw fountain bases
+        // Draw fountain bases with glow
         for (const f of this.fountains) {
             const c = this.palette[0];
             const lifeT = f.life / f.maxLife;
+            // Outer glow
+            ctx.fillStyle = `hsla(${c.h}, ${c.s}%, ${c.l}%, ${lifeT * 0.06})`;
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, this.baseGlowRadius, 0, Math.PI * 2);
+            ctx.fill();
+            // Core
             ctx.fillStyle = `hsla(${c.h}, ${c.s}%, ${c.l}%, ${lifeT * 0.15})`;
             ctx.beginPath();
-            ctx.arc(f.x, f.y, 5 + (1 - lifeT) * 3, 0, Math.PI * 2);
+            ctx.arc(f.x, f.y, 4 + (1 - lifeT) * 2, 0, Math.PI * 2);
             ctx.fill();
         }
 

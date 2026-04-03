@@ -9,7 +9,7 @@
  *
  * Seed controls: fold count, rotation speed, center drift pattern, trail
  * type (dots/lines/ribbons), color rotation per fold, mirror vs rotational
- * symmetry, and bloom intensity on trails.
+ * symmetry, bloom intensity, and symmetry axis lines visibility.
  */
 
 export class SymmetryMirror {
@@ -31,48 +31,61 @@ export class SymmetryMirror {
         this._tick = 0;
         this._clickRegistered = false;
         this._trailWriteIdx = 0;
+        // Reusable reflect result to avoid per-call allocation
+        this._refResult = { x: 0, y: 0 };
+        // Cached window dimensions (updated on draw)
+        this._w = 0;
+        this._h = 0;
+        // Show symmetry axis lines
+        this.showAxes = false;
     }
 
     configure(rng, palette) {
-        // Fold count: 2, 3, 4, 5, 6, or 8
         const foldOptions = [2, 3, 4, 5, 6, 8];
         this.folds = foldOptions[Math.floor(rng() * foldOptions.length)];
         this.rotationSpeed = (rng() - 0.5) * 0.004;
         this.hueShiftPerFold = 15 + rng() * 60;
         this.isMirror = rng() > 0.5;
-        // Trail type: 0=dots, 1=connected line, 2=ribbon, 3=fading sparks
         this.trailType = Math.floor(rng() * 4);
-        // Drift style: 0=static center, 1=circular orbit, 2=figure-8, 3=follows mouse slowly
         this.driftStyle = Math.floor(rng() * 4);
         this.maxTrailLen = 30 + Math.floor(rng() * 50);
         this.trailWidth = 1 + rng() * 3;
         this.bloomIntensity = 0.05 + rng() * 0.2;
+        this.showAxes = rng() > 0.6;
+        // Trail alpha varies per seed for different intensities
+        this.trailAlpha = 0.2 + rng() * 0.3;
 
         this.palette = palette && palette.length >= 2 ? palette : [
             { h: rng() * 360, s: 60 + rng() * 30, l: 60 + rng() * 20 },
             { h: rng() * 360, s: 50 + rng() * 40, l: 55 + rng() * 25 },
         ];
 
-        this.centerX = window.innerWidth / 2;
-        this.centerY = window.innerHeight / 2;
+        this._w = window.innerWidth;
+        this._h = window.innerHeight;
+        this.centerX = this._w / 2;
+        this.centerY = this._h / 2;
         this.trails = [];
         this.bursts = [];
         this.burstPool = [];
         this._trailWriteIdx = 0;
     }
 
+    _prand(seed) {
+        return ((seed * 2654435761) >>> 0) / 4294967296;
+    }
+
     update(mx, my, isClicking) {
         this._tick++;
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+        this._w = window.innerWidth;
+        this._h = window.innerHeight;
 
         // Update center based on drift style
         if (this.driftStyle === 1) {
-            this.centerX = w / 2 + Math.cos(this._tick * 0.003) * w * 0.15;
-            this.centerY = h / 2 + Math.sin(this._tick * 0.003) * h * 0.15;
+            this.centerX = this._w / 2 + Math.cos(this._tick * 0.003) * this._w * 0.15;
+            this.centerY = this._h / 2 + Math.sin(this._tick * 0.003) * this._h * 0.15;
         } else if (this.driftStyle === 2) {
-            this.centerX = w / 2 + Math.sin(this._tick * 0.002) * w * 0.2;
-            this.centerY = h / 2 + Math.sin(this._tick * 0.004) * h * 0.1;
+            this.centerX = this._w / 2 + Math.sin(this._tick * 0.002) * this._w * 0.2;
+            this.centerY = this._h / 2 + Math.sin(this._tick * 0.004) * this._h * 0.1;
         } else if (this.driftStyle === 3) {
             this.centerX += (mx - this.centerX) * 0.01;
             this.centerY += (my - this.centerY) * 0.01;
@@ -80,7 +93,7 @@ export class SymmetryMirror {
 
         this.rotationOffset += this.rotationSpeed;
 
-        // Record trail point
+        // Record trail point using ring buffer
         if (this.trails.length < this.maxTrailLen) {
             this.trails.push({ x: mx, y: my, tick: this._tick });
         } else {
@@ -96,12 +109,12 @@ export class SymmetryMirror {
             this._clickRegistered = true;
             for (let f = 0; f < this.folds; f++) {
                 const angle = (f / this.folds) * Math.PI * 2 + this.rotationOffset;
-                const reflected = this._reflect(mx, my, angle, f);
+                this._reflectInto(mx, my, angle, f);
                 let burst = this.burstPool.length > 0 ? this.burstPool.pop() : {};
-                burst.x = reflected.x;
-                burst.y = reflected.y;
+                burst.x = this._refResult.x;
+                burst.y = this._refResult.y;
                 burst.radius = 0;
-                burst.maxRadius = 40 + Math.random() * 40;
+                burst.maxRadius = 40 + this._prand(this._tick + f * 7) * 40;
                 burst.life = 1.0;
                 burst.hue = (this.palette[0].h + f * this.hueShiftPerFold) % 360;
                 this.bursts.push(burst);
@@ -122,23 +135,21 @@ export class SymmetryMirror {
         }
     }
 
-    _reflect(x, y, angle, foldIdx) {
+    // Writes result into this._refResult to avoid object allocation
+    _reflectInto(x, y, angle, foldIdx) {
         const dx = x - this.centerX;
         const dy = y - this.centerY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         let pointAngle = Math.atan2(dy, dx);
 
         if (this.isMirror && foldIdx % 2 === 1) {
-            // Mirror reflection
             pointAngle = angle * 2 - pointAngle;
         } else {
             pointAngle += angle;
         }
 
-        return {
-            x: this.centerX + Math.cos(pointAngle) * dist,
-            y: this.centerY + Math.sin(pointAngle) * dist,
-        };
+        this._refResult.x = this.centerX + Math.cos(pointAngle) * dist;
+        this._refResult.y = this.centerY + Math.sin(pointAngle) * dist;
     }
 
     draw(ctx) {
@@ -151,6 +162,20 @@ export class SymmetryMirror {
 
         ctx.globalCompositeOperation = 'lighter';
 
+        // Draw faint symmetry axis lines
+        if (this.showAxes) {
+            const maxDim = Math.max(this._w, this._h);
+            ctx.lineWidth = 0.5;
+            for (let f = 0; f < this.folds; f++) {
+                const angle = (f / this.folds) * Math.PI * 2 + this.rotationOffset;
+                ctx.strokeStyle = `hsla(${this.palette[0].h}, 30%, 50%, 0.04)`;
+                ctx.beginPath();
+                ctx.moveTo(this.centerX, this.centerY);
+                ctx.lineTo(this.centerX + Math.cos(angle) * maxDim, this.centerY + Math.sin(angle) * maxDim);
+                ctx.stroke();
+            }
+        }
+
         // Draw trails for each fold
         for (let f = 0; f < this.folds; f++) {
             const angle = (f / this.folds) * Math.PI * 2 + this.rotationOffset;
@@ -158,16 +183,16 @@ export class SymmetryMirror {
             const c = this.palette[f % this.palette.length];
 
             if (this.trailType === 0) {
-                // Dots
+                // Dots — batch with single fill style per fold
                 for (let j = 0; j < len; j++) {
                     const p = pts[(startIdx + j) % len];
-                    const age = (tick - p.tick);
-                    if (age > this.maxTrailLen) continue;
-                    const alpha = (1 - age / this.maxTrailLen) * 0.4;
-                    const ref = this._reflect(p.x, p.y, angle, f);
+                    const age = tick - p.tick;
+                    if (age > this.maxTrailLen || age < 0) continue;
+                    const alpha = (1 - age / this.maxTrailLen) * this.trailAlpha;
+                    this._reflectInto(p.x, p.y, angle, f);
                     ctx.fillStyle = `hsla(${hue}, ${c.s}%, ${c.l}%, ${alpha})`;
                     ctx.beginPath();
-                    ctx.arc(ref.x, ref.y, this.trailWidth, 0, Math.PI * 2);
+                    ctx.arc(this._refResult.x, this._refResult.y, this.trailWidth, 0, Math.PI * 2);
                     ctx.fill();
                 }
             } else if (this.trailType === 1 || this.trailType === 2) {
@@ -176,14 +201,13 @@ export class SymmetryMirror {
                 let first = true;
                 for (let j = 0; j < len; j++) {
                     const p = pts[(startIdx + j) % len];
-                    const age = (tick - p.tick);
-                    if (age > this.maxTrailLen) continue;
-                    const ref = this._reflect(p.x, p.y, angle, f);
-                    if (first) { ctx.moveTo(ref.x, ref.y); first = false; }
-                    else ctx.lineTo(ref.x, ref.y);
+                    const age = tick - p.tick;
+                    if (age > this.maxTrailLen || age < 0) continue;
+                    this._reflectInto(p.x, p.y, angle, f);
+                    if (first) { ctx.moveTo(this._refResult.x, this._refResult.y); first = false; }
+                    else ctx.lineTo(this._refResult.x, this._refResult.y);
                 }
-                const alpha = 0.25;
-                ctx.strokeStyle = `hsla(${hue}, ${c.s}%, ${c.l}%, ${alpha})`;
+                ctx.strokeStyle = `hsla(${hue}, ${c.s}%, ${c.l}%, ${this.trailAlpha * 0.8})`;
                 ctx.lineWidth = this.trailType === 2 ? this.trailWidth * 2 : this.trailWidth;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
@@ -192,28 +216,28 @@ export class SymmetryMirror {
                 // Fading sparks
                 for (let j = 0; j < len; j += 2) {
                     const p = pts[(startIdx + j) % len];
-                    const age = (tick - p.tick);
-                    if (age > this.maxTrailLen) continue;
-                    const alpha = (1 - age / this.maxTrailLen) * 0.35;
-                    const ref = this._reflect(p.x, p.y, angle, f);
+                    const age = tick - p.tick;
+                    if (age > this.maxTrailLen || age < 0) continue;
+                    const alpha = (1 - age / this.maxTrailLen) * this.trailAlpha;
+                    this._reflectInto(p.x, p.y, angle, f);
                     const sparkSize = this.trailWidth * (1 - age / this.maxTrailLen);
                     ctx.fillStyle = `hsla(${hue}, ${c.s}%, ${c.l + 10}%, ${alpha})`;
-                    ctx.fillRect(ref.x - sparkSize, ref.y - sparkSize, sparkSize * 2, sparkSize * 2);
+                    ctx.fillRect(this._refResult.x - sparkSize, this._refResult.y - sparkSize, sparkSize * 2, sparkSize * 2);
                 }
             }
 
-            // Bloom glow for recent trail
+            // Bloom glow at cursor head position
             if (this.bloomIntensity > 0.05 && len > 0) {
                 const latest = pts[(startIdx + len - 1) % len];
-                const ref = this._reflect(latest.x, latest.y, angle, f);
+                this._reflectInto(latest.x, latest.y, angle, f);
                 ctx.fillStyle = `hsla(${hue}, ${c.s}%, ${c.l + 15}%, ${this.bloomIntensity})`;
                 ctx.beginPath();
-                ctx.arc(ref.x, ref.y, 15, 0, Math.PI * 2);
+                ctx.arc(this._refResult.x, this._refResult.y, 15, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
 
-        // Draw center point
+        // Draw center point with pulse
         const centerPulse = 0.3 + 0.1 * Math.sin(tick * 0.05);
         ctx.fillStyle = `hsla(${this.palette[0].h}, 50%, 80%, ${centerPulse})`;
         ctx.beginPath();
@@ -222,11 +246,20 @@ export class SymmetryMirror {
 
         // Draw bursts
         for (const burst of this.bursts) {
+            if (burst.life < 0.01) continue;
             ctx.strokeStyle = `hsla(${burst.hue}, 70%, 70%, ${burst.life * 0.4})`;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
             ctx.arc(burst.x, burst.y, burst.radius, 0, Math.PI * 2);
             ctx.stroke();
+            // Inner ring
+            if (burst.radius > 10) {
+                ctx.strokeStyle = `hsla(${burst.hue}, 70%, 80%, ${burst.life * 0.2})`;
+                ctx.lineWidth = 0.8;
+                ctx.beginPath();
+                ctx.arc(burst.x, burst.y, burst.radius * 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+            }
         }
 
         ctx.globalCompositeOperation = 'source-over';

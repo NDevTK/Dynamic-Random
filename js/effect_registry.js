@@ -86,6 +86,9 @@ import { AsciiRain } from './ascii_rain_effects.js';
 import { HolographicFoil } from './holographic_foil_effects.js';
 import { GravitySymphony } from './gravity_symphony_effects.js';
 import { NeonSpiderweb } from './neon_spiderweb_effects.js';
+import { TrailBlossom } from './trail_blossom_effects.js';
+import { GravityWeb } from './gravity_web_effects.js';
+import { EchoRipple } from './echo_ripple_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -215,6 +218,9 @@ export const EFFECT_REGISTRY = [
     { instance: new HolographicFoil(),   tags: ['light', 'crystal', 'ethereal'],            minQuality: 0.25, drawOrder: 75 },
     { instance: new GravitySymphony(),   tags: ['harmonic', 'cosmic', 'geometric'],         minQuality: 0.25, drawOrder: 76 },
     { instance: new NeonSpiderweb(),     tags: ['organic', 'dark', 'ethereal'],             minQuality: 0.25, drawOrder: 77 },
+    { instance: new TrailBlossom(),      tags: ['organic', 'painterly', 'light'],           minQuality: 0.25, drawOrder: 78 },
+    { instance: new GravityWeb(),        tags: ['organic', 'dark', 'geometric'],            minQuality: 0.25, drawOrder: 79 },
+    { instance: new EchoRipple(),        tags: ['harmonic', 'physics', 'ethereal'],         minQuality: 0.25, drawOrder: 80 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

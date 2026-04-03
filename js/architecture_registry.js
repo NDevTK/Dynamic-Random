@@ -90,6 +90,9 @@ import { DreamWeaverArchitecture } from './dream_weaver_architecture.js';
 import { ChaosMosaicArchitecture } from './chaos_mosaic_architecture.js';
 import { UnderwaterCausticsArchitecture } from './underwater_caustics_architecture.js';
 import { ParticleTornadoArchitecture } from './particle_tornado_architecture.js';
+import { CosmicWhaleArchitecture } from './cosmic_whale_architecture.js';
+import { FlockMurmurationArchitecture } from './flock_murmuration_architecture.js';
+import { NeonCircuitPulseArchitecture } from './neon_circuit_pulse_architecture.js';
 
 /**
  * Architecture registry. Each entry maps a factory to the blueprints it pairs well with.
@@ -156,6 +159,9 @@ export const ARCHITECTURE_REGISTRY = [
     { factory: () => new ChaosMosaicArchitecture(), blueprints: ['QuantumFoam', 'Digital', 'ArcaneCodex', 'Eldritch', 'NeonCyber', 'TechnoUtopia', 'SentientSwarm'], weight: 1 },
     { factory: () => new UnderwaterCausticsArchitecture(), blueprints: ['AbyssalZone', 'CoralReef', 'GlassySea', 'AbyssalHorror', 'GlacialDrift', 'Aetherial', 'MoltenHeart', 'VolcanicForge'], weight: 1 },
     { factory: () => new ParticleTornadoArchitecture(), blueprints: ['VoidTouched', 'StarForged', 'CelestialForge', 'StellarNursery', 'VolcanicForge', 'MoltenHeart', 'Aetherial', 'GlacialDrift', 'HauntedRealm'], weight: 1 },
+    { factory: () => new CosmicWhaleArchitecture(), blueprints: ['AbyssalZone', 'AbyssalHorror', 'Aetherial', 'GlassySea', 'CoralReef', 'GlacialDrift', 'VoidTouched', 'PhantomEcho'], weight: 1 },
+    { factory: () => new FlockMurmurationArchitecture(), blueprints: ['SentientSwarm', 'Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'Classical', 'HauntedRealm', 'Aetherial'], weight: 1 },
+    { factory: () => new NeonCircuitPulseArchitecture(), blueprints: ['Digital', 'NeonCyber', 'TechnoUtopia', 'BioMechanical', 'ArcaneCodex', 'QuantumFoam', 'StarForged'], weight: 1 },
     { factory: () => new ReactionDiffusionArchitecture(), blueprints: ['Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'QuantumFoam', 'SentientSwarm', 'GooeyMess'], weight: 1 },
     { factory: () => new VoronoiArchitecture(), blueprints: ['Crystalline', 'GlassySea', 'ArcaneCodex', 'Papercraft', 'Eldritch', 'AbyssalZone'], weight: 1 },
     { factory: () => new MagneticFieldArchitecture(), blueprints: ['StarForged', 'CelestialForge', 'StellarNursery', 'VolcanicForge', 'MoltenHeart', 'SonicScapes'], weight: 1 },
@@ -276,7 +282,10 @@ export const ALL_ARCHITECTURES = [
     () => new DreamWeaverArchitecture(),
     () => new ChaosMosaicArchitecture(),
     () => new UnderwaterCausticsArchitecture(),
-    () => new ParticleTornadoArchitecture()
+    () => new ParticleTornadoArchitecture(),
+    () => new CosmicWhaleArchitecture(),
+    () => new FlockMurmurationArchitecture(),
+    () => new NeonCircuitPulseArchitecture()
 ];
 
 // Display-friendly names derived from constructor names

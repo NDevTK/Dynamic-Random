@@ -267,14 +267,22 @@ class PostProcessingSystem {
             const angle = this.lightLeakAngle;
             const cx = w * (0.3 + 0.4 * Math.cos(angle));
             const cy = h * (0.3 + 0.4 * Math.sin(angle));
-            const leakGrad = ctx.createRadialGradient(
-                cx, cy, 0,
-                cx, cy, Math.max(w, h) * 0.5
-            );
-            leakGrad.addColorStop(0, 'rgba(255, 200, 100, 1)');
-            leakGrad.addColorStop(0.5, 'rgba(255, 100, 50, 0.5)');
-            leakGrad.addColorStop(1, 'rgba(255, 50, 0, 0)');
-            ctx.fillStyle = leakGrad;
+            // Cache light leak gradient (perf: avoid recreating radial gradient every frame)
+            if (!this._leakGrad || this._leakW !== w || this._leakH !== h ||
+                this._leakCx !== cx | 0 || this._leakCy !== cy | 0) {
+                this._leakGrad = ctx.createRadialGradient(
+                    cx, cy, 0,
+                    cx, cy, Math.max(w, h) * 0.5
+                );
+                this._leakGrad.addColorStop(0, 'rgba(255, 200, 100, 1)');
+                this._leakGrad.addColorStop(0.5, 'rgba(255, 100, 50, 0.5)');
+                this._leakGrad.addColorStop(1, 'rgba(255, 50, 0, 0)');
+                this._leakW = w;
+                this._leakH = h;
+                this._leakCx = cx | 0;
+                this._leakCy = cy | 0;
+            }
+            ctx.fillStyle = this._leakGrad;
             ctx.fillRect(0, 0, w, h);
         }
 

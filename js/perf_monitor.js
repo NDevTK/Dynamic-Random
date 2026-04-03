@@ -34,25 +34,27 @@ export const perfMonitor = {
     }
 
     this._frameCount++;
-    if (this._frameCount % 120 !== 0) return;
+    // Check more frequently (every 60 frames) for faster reaction to drops
+    if (this._frameCount % 60 !== 0) return;
 
     const fps = this.fps;
 
-    if (fps < 30) {
+    if (fps < 25) {
       this._checksAboveThreshold = 0;
       this.qualityLevel = 'low';
       this.qualityScale = 0.25;
-    } else if (fps < 45) {
+    } else if (fps < 40) {
       this._checksAboveThreshold = 0;
       this.qualityLevel = 'medium';
       this.qualityScale = 0.5;
-    } else if (fps < 55) {
+    } else if (fps < 52) {
       this._checksAboveThreshold = 0;
       this.qualityLevel = 'high';
       this.qualityScale = 0.75;
     } else {
       this._checksAboveThreshold++;
-      if (this._checksAboveThreshold >= 3) {
+      // Require sustained good FPS before upgrading quality back
+      if (this._checksAboveThreshold >= 5) {
         this.qualityLevel = 'ultra';
         this.qualityScale = 1.0;
       }

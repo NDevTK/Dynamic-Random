@@ -43,6 +43,11 @@ import { PixelFireflies } from './pixel_fireflies_effects.js';
 import { GeometricTessellation } from './geometric_tessellation_effects.js';
 import { RippleSymphony } from './ripple_symphony_effects.js';
 import { MagneticTopography } from './magnetic_topography_effects.js';
+import { ParticleLife } from './particle_life_effects.js';
+import { Ferrofluid } from './ferrofluid_effects.js';
+import { CellularAutomata } from './cellular_automata_effects.js';
+import { InkDiffusion } from './ink_diffusion_effects.js';
+import { TerrainErosion } from './terrain_erosion_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -129,6 +134,11 @@ export const EFFECT_REGISTRY = [
     { instance: new GeometricTessellation(),  tags: ['geometric', 'crystal', 'digital'],     minQuality: 0.3,  drawOrder: 32 },
     { instance: new RippleSymphony(),         tags: ['physics', 'harmonic', 'aquatic'],      minQuality: 0.25, drawOrder: 33 },
     { instance: new MagneticTopography(),     tags: ['cosmic', 'physics', 'geometric'],      minQuality: 0.25, drawOrder: 34 },
+    { instance: new ParticleLife(),          tags: ['organic', 'swarm', 'bio'],             minQuality: 0.25, drawOrder: 35 },
+    { instance: new Ferrofluid(),            tags: ['cosmic', 'dark', 'fluid'],             minQuality: 0.3,  drawOrder: 36 },
+    { instance: new CellularAutomata(),      tags: ['digital', 'geometric', 'bio'],         minQuality: 0.25, drawOrder: 37 },
+    { instance: new InkDiffusion(),          tags: ['fluid', 'painterly', 'organic'],       minQuality: 0.3,  drawOrder: 38 },
+    { instance: new TerrainErosion(),        tags: ['cosmic', 'geometric', 'physics'],      minQuality: 0.25, drawOrder: 39 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

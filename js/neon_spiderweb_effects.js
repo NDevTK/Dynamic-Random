@@ -49,6 +49,13 @@ export class NeonSpiderweb {
         // Energy pulses traveling along strands
         this._pulses = [];
         this._pulsePool = [];
+
+        // Adjacency list for fast pulse routing
+        this._adjacency = new Map();
+
+        // Pluck interaction - holding mouse near web creates vibration waves
+        this._pluckIntensity = 0;
+        this._mouseSpeed = 0;
     }
 
     configure(rng, palette) {
@@ -62,6 +69,8 @@ export class NeonSpiderweb {
         this._brokenStrands = new Set();
         this._pulses = [];
         this._webCenters = [];
+        this._adjacency = new Map();
+        this._pluckIntensity = 0;
 
         const W = window.innerWidth, H = window.innerHeight;
 
@@ -77,6 +86,15 @@ export class NeonSpiderweb {
             this._buildDewdropGalaxy(rng, W, H);
         } else if (this.mode === 5) {
             this._buildElectricWeb(rng, W, H);
+        }
+
+        // Build adjacency list for fast pulse routing
+        for (let i = 0; i < this._strands.length; i++) {
+            const s = this._strands[i];
+            if (!this._adjacency.has(s.a)) this._adjacency.set(s.a, []);
+            if (!this._adjacency.has(s.b)) this._adjacency.set(s.b, []);
+            this._adjacency.get(s.a).push(i);
+            this._adjacency.get(s.b).push(i);
         }
 
         // Place dew drops on random strands
@@ -316,6 +334,18 @@ export class NeonSpiderweb {
         this._isClicking = isClicking;
         this.tick++;
 
+        // Track mouse speed for pluck intensity
+        const sdx = mx - this._pmx;
+        const sdy = my - this._pmy;
+        this._mouseSpeed = Math.sqrt(sdx * sdx + sdy * sdy);
+
+        // Pluck: holding mouse near web builds vibration
+        if (isClicking) {
+            this._pluckIntensity = Math.min(5, this._pluckIntensity + 0.05);
+        } else {
+            this._pluckIntensity *= 0.95;
+        }
+
         // Click breaks nearby strands
         if (this._isClicking && !this._wasClicking) {
             for (let i = 0; i < this._strands.length; i++) {
@@ -354,7 +384,10 @@ export class NeonSpiderweb {
             this._brokenStrands.delete(arr[Math.floor(Math.random() * arr.length)]);
         }
 
-        // Node physics: cursor proximity causes trembling
+        // Node physics: cursor proximity causes trembling, pluck adds periodic vibration
+        const pluckWave = this._pluckIntensity > 0.1 ? Math.sin(this.tick * 0.3) * this._pluckIntensity : 0;
+        const speedForce = Math.min(5, this._mouseSpeed * 0.3);
+
         for (const node of this._nodes) {
             const dx = node.x - mx;
             const dy = node.y - my;
@@ -362,9 +395,16 @@ export class NeonSpiderweb {
 
             if (distSq < 40000) { // 200px radius
                 const dist = Math.sqrt(distSq);
-                const force = (1 - dist / 200) * 3;
+                const proximity = 1 - dist / 200;
+                // Base push + speed-based force + pluck vibration
+                const force = proximity * (3 + speedForce);
                 node.vx += (dx / dist) * force;
                 node.vy += (dy / dist) * force;
+                // Pluck adds oscillation perpendicular to push direction
+                if (pluckWave !== 0) {
+                    node.vx += (-dy / dist) * pluckWave * proximity;
+                    node.vy += (dx / dist) * pluckWave * proximity;
+                }
             }
 
             // Spring back to base position
@@ -385,13 +425,14 @@ export class NeonSpiderweb {
             dew.x = na.x + (nb.x - na.x) * dew.t;
             dew.y = na.y + (nb.y - na.y) * dew.t;
 
-            // Drip when disturbed
+            // Drip when disturbed (use distSq for fast reject)
             const dx = dew.x - mx;
             const dy = dew.y - my;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 100) {
-                dew.wobble = Math.min(1, dew.wobble + 0.1);
-                dew.drip = Math.min(8, dew.drip + 0.05);
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 10000) { // 100px radius
+                const pluckMod = 1 + this._pluckIntensity * 0.5;
+                dew.wobble = Math.min(1, dew.wobble + 0.1 * pluckMod);
+                dew.drip = Math.min(12, dew.drip + 0.05 * pluckMod);
             } else {
                 dew.wobble *= 0.95;
                 dew.drip *= 0.98;
@@ -403,21 +444,19 @@ export class NeonSpiderweb {
             const p = this._pulses[i];
             p.t += p.speed;
             if (p.t > 1) {
-                // Jump to connected strand
+                // Jump to connected strand via adjacency list (O(degree) not O(strands))
                 const s = this._strands[p.strandIdx];
                 const endNode = s.b;
-                // Find connected strands
+                const neighbors = this._adjacency.get(endNode) || [];
                 let jumped = false;
-                for (let j = 0; j < this._strands.length; j++) {
+                for (const j of neighbors) {
                     if (j === p.strandIdx || this._brokenStrands.has(j)) continue;
-                    if (this._strands[j].a === endNode || this._strands[j].b === endNode) {
-                        p.strandIdx = j;
-                        p.t = this._strands[j].a === endNode ? 0 : 1;
-                        p.speed = this._strands[j].a === endNode ? Math.abs(p.speed) : -Math.abs(p.speed);
-                        p.life -= 0.15;
-                        jumped = true;
-                        break;
-                    }
+                    p.strandIdx = j;
+                    p.t = this._strands[j].a === endNode ? 0 : 1;
+                    p.speed = this._strands[j].a === endNode ? Math.abs(p.speed) : -Math.abs(p.speed);
+                    p.life -= 0.15;
+                    jumped = true;
+                    break;
                 }
                 if (!jumped || p.life <= 0) {
                     this._pulsePool.push(p);
@@ -455,29 +494,35 @@ export class NeonSpiderweb {
         ctx.save();
         ctx.globalAlpha = this.intensity * 0.5;
 
-        // Draw strands
+        // Draw strands - batch by proximity band to reduce strokeStyle changes
         ctx.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < this._strands.length; i++) {
-            if (this._brokenStrands.has(i)) continue;
-            const s = this._strands[i];
-            const na = this._nodes[s.a];
-            const nb = this._nodes[s.b];
 
-            // Proximity glow
-            const midX = (na.x + nb.x) / 2;
-            const midY = (na.y + nb.y) / 2;
-            const dx = midX - this._mx;
-            const dy = midY - this._my;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const proximity = Math.max(0, 1 - dist / 300);
-            const alpha = 0.05 + proximity * 0.2;
+        // 3 bands: far (dim), medium, close (bright)
+        const strandBands = [
+            { minSq: 90000, maxSq: Infinity, alpha: 0.04, lineWidth: 0.5, lightAdd: 0 },  // >300px
+            { minSq: 22500, maxSq: 90000,    alpha: 0.1,  lineWidth: 0.8, lightAdd: 10 },  // 150-300px
+            { minSq: 0,     maxSq: 22500,    alpha: 0.2,  lineWidth: 1.5, lightAdd: 25 },  // <150px
+        ];
 
-            const hue = (this.hue + proximity * 30) % 360;
-            ctx.strokeStyle = `hsla(${hue}, 70%, ${50 + proximity * 30}%, ${alpha})`;
-            ctx.lineWidth = 0.5 + proximity;
+        for (const band of strandBands) {
+            ctx.strokeStyle = `hsla(${this.hue}, 70%, ${50 + band.lightAdd}%, ${band.alpha})`;
+            ctx.lineWidth = band.lineWidth;
             ctx.beginPath();
-            ctx.moveTo(na.x, na.y);
-            ctx.lineTo(nb.x, nb.y);
+            for (let i = 0; i < this._strands.length; i++) {
+                if (this._brokenStrands.has(i)) continue;
+                const s = this._strands[i];
+                const na = this._nodes[s.a];
+                const nb = this._nodes[s.b];
+                const midX = (na.x + nb.x) / 2;
+                const midY = (na.y + nb.y) / 2;
+                const dx = midX - this._mx;
+                const dy = midY - this._my;
+                const distSq = dx * dx + dy * dy;
+                if (distSq >= band.minSq && distSq < band.maxSq) {
+                    ctx.moveTo(na.x, na.y);
+                    ctx.lineTo(nb.x, nb.y);
+                }
+            }
             ctx.stroke();
         }
 

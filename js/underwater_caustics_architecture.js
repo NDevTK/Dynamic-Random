@@ -23,6 +23,10 @@ import { mouse } from './state.js';
 
 const TAU = Math.PI * 2;
 
+function _prand(seed) {
+    return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+}
+
 export class UnderwaterCausticsArchitecture extends Architecture {
     constructor() {
         super();
@@ -39,8 +43,15 @@ export class UnderwaterCausticsArchitecture extends Architecture {
         // Fish shadows (coral reef mode)
         this._fishShadows = [];
 
+        // Floating bubbles (deep ocean / alien sea)
+        this._bubbles = [];
+        this._bubblePool = [];
+
         // Light rays
         this._lightRays = [];
+
+        // Hold-to-disturb: holding mouse creates persistent ripple source
+        this._holdTime = 0;
 
         // Rendering config
         this._resolution = 4; // Pixel grid size (perf vs quality)
@@ -173,6 +184,25 @@ export class UnderwaterCausticsArchitecture extends Architecture {
             }
         }
 
+        // Floating bubbles for deep ocean and alien sea modes
+        if (this.mode === 1 || this.mode === 5) {
+            const bubbleCount = 8 + Math.floor(rng() * 12);
+            for (let i = 0; i < bubbleCount; i++) {
+                this._bubbles.push({
+                    x: rng() * system.width,
+                    y: rng() * system.height,
+                    vy: -(0.2 + rng() * 0.6),
+                    vx: (rng() - 0.5) * 0.3,
+                    size: 3 + rng() * 8,
+                    wobblePhase: rng() * TAU,
+                    wobbleSpeed: 0.02 + rng() * 0.04,
+                    alpha: 0.05 + rng() * 0.1,
+                });
+            }
+        }
+
+        this._holdTime = 0;
+
         // Register click handler
         if (!this._clickHandler) {
             this._clickHandler = (e) => {
@@ -191,17 +221,35 @@ export class UnderwaterCausticsArchitecture extends Architecture {
 
         const W = system.width, H = system.height;
 
+        // Hold-to-disturb: continuous waves from mouse while any button held
+        if (system.isGravityWell || (typeof isLeftMouseDown !== 'undefined' && isLeftMouseDown)) {
+            this._holdTime++;
+            // Periodically spawn splash at mouse
+            if (this._holdTime % 20 === 0 && this._splashes.length < 8) {
+                const splash = this._splashPool.length > 0 ? this._splashPool.pop() : {};
+                splash.x = mouse.x;
+                splash.y = mouse.y;
+                splash.time = 0;
+                splash.maxTime = 80;
+                splash.freq = 0.06 + _prand(this.tick) * 0.04;
+                splash.amplitude = 0.8 + _prand(this.tick + 7) * 0.6;
+                this._splashes.push(splash);
+            }
+        } else {
+            this._holdTime = 0;
+        }
+
         // Handle clicks - create splash
         if (this._clickRegistered) {
             this._clickRegistered = false;
-            if (this._splashes.length < 5) {
+            if (this._splashes.length < 8) {
                 const splash = this._splashPool.length > 0 ? this._splashPool.pop() : {};
                 splash.x = this._lastClickX;
                 splash.y = this._lastClickY;
                 splash.time = 0;
                 splash.maxTime = 120;
-                splash.freq = 0.05 + Math.random() * 0.05;
-                splash.amplitude = 1.5 + Math.random();
+                splash.freq = 0.05 + _prand(this.tick * 41) * 0.05;
+                splash.amplitude = 1.5 + _prand(this.tick * 67);
                 this._splashes.push(splash);
             }
         }
@@ -255,6 +303,30 @@ export class UnderwaterCausticsArchitecture extends Architecture {
             if (fish.x < -fish.size * 2) fish.x = W + fish.size * 2;
             if (fish.y < 0) fish.vy = Math.abs(fish.vy);
             if (fish.y > H) fish.vy = -Math.abs(fish.vy);
+        }
+
+        // Update floating bubbles
+        for (const bub of this._bubbles) {
+            bub.y += bub.vy;
+            bub.x += bub.vx + Math.sin(bub.wobblePhase) * 0.3;
+            bub.wobblePhase += bub.wobbleSpeed;
+            // Mouse pushes bubbles
+            const bdx = bub.x - mouse.x;
+            const bdy = bub.y - mouse.y;
+            const bdistSq = bdx * bdx + bdy * bdy;
+            if (bdistSq < 10000 && bdistSq > 1) {
+                const bdist = Math.sqrt(bdistSq);
+                bub.vx += (bdx / bdist) * 0.15;
+                bub.vy += (bdy / bdist) * 0.1;
+            }
+            bub.vx *= 0.99;
+            // Wrap vertically (rise to top, respawn at bottom)
+            if (bub.y < -bub.size) {
+                bub.y = H + bub.size;
+                bub.x = _prand(this.tick + bub.size * 100) * W;
+            }
+            if (bub.x < -20) bub.x = W + 10;
+            if (bub.x > W + 20) bub.x = -10;
         }
 
         // Drift light rays
@@ -395,6 +467,24 @@ export class UnderwaterCausticsArchitecture extends Architecture {
                 ctx.fill();
 
                 ctx.restore();
+            }
+        }
+
+        // Draw floating bubbles
+        if (this._bubbles.length > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            for (const bub of this._bubbles) {
+                // Bubble body (ring)
+                ctx.strokeStyle = `hsla(${this._baseHue}, 40%, 80%, ${bub.alpha})`;
+                ctx.lineWidth = 0.8;
+                ctx.beginPath();
+                ctx.arc(bub.x, bub.y, bub.size, 0, TAU);
+                ctx.stroke();
+                // Highlight
+                ctx.fillStyle = `hsla(${this._baseHue}, 30%, 90%, ${bub.alpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(bub.x - bub.size * 0.3, bub.y - bub.size * 0.3, bub.size * 0.25, 0, TAU);
+                ctx.fill();
             }
         }
 

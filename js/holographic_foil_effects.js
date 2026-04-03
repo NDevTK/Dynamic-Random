@@ -3,7 +3,8 @@
  * @description Iridescent holographic shimmer effect like holographic trading cards or
  * credit card security foils. The effect creates rainbow prismatic patterns that shift
  * color based on cursor position (simulating viewing angle). Clicking creates "scratch"
- * reveals that expose hidden holographic patterns beneath.
+ * reveals that expose hidden holographic patterns beneath. Dragging the mouse leaves
+ * a shimmering wake trail. Holding the mouse intensifies the iridescence.
  *
  * Modes:
  * 0 - Trading Card: Diagonal stripe shimmer that shifts rainbow colors with mouse angle
@@ -32,6 +33,7 @@ export class HolographicFoil {
         this._pmy = 0;
         this._isClicking = false;
         this._wasClicking = false;
+        this._mouseSpeed = 0;
 
         // Shimmer parameters
         this._stripeAngle = 0;
@@ -46,6 +48,10 @@ export class HolographicFoil {
         this._rings = [];
         this._ringPool = [];
 
+        // Shimmer wake trail from mouse movement
+        this._wakeTrail = [];
+        this._maxWakePoints = 30;
+
         // Butterfly scales
         this._scaleSize = 0;
         this._scaleRows = 0;
@@ -54,6 +60,9 @@ export class HolographicFoil {
         // Holographic grid cells
         this._cellSize = 0;
         this._gridPhase = 0;
+
+        // Hold intensity buildup
+        this._holdIntensity = 0;
     }
 
     configure(rng, palette) {
@@ -63,6 +72,8 @@ export class HolographicFoil {
         this.intensity = 0.4 + rng() * 0.6;
         this._rings = [];
         this._blobs = [];
+        this._wakeTrail = [];
+        this._holdIntensity = 0;
 
         this._stripeAngle = rng() * Math.PI;
         this._stripeSpacing = 12 + rng() * 30;
@@ -73,7 +84,6 @@ export class HolographicFoil {
         const W = window.innerWidth, H = window.innerHeight;
 
         if (this.mode === 1) {
-            // Oil slick blobs
             const count = 5 + Math.floor(rng() * 8);
             for (let i = 0; i < count; i++) {
                 this._blobs.push({
@@ -109,6 +119,18 @@ export class HolographicFoil {
         this._isClicking = isClicking;
         this.tick++;
 
+        // Track mouse speed
+        const dx = mx - this._pmx;
+        const dy = my - this._pmy;
+        this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
+
+        // Hold intensity: builds up while clicking, decays when released
+        if (isClicking) {
+            this._holdIntensity = Math.min(1, this._holdIntensity + 0.02);
+        } else {
+            this._holdIntensity *= 0.95;
+        }
+
         // Click spawns Newton's rings
         if (this._isClicking && !this._wasClicking) {
             if (this._rings.length < 8) {
@@ -116,9 +138,9 @@ export class HolographicFoil {
                 ring.x = mx;
                 ring.y = my;
                 ring.radius = 0;
-                ring.maxRadius = 150 + Math.random() * 150;
+                ring.maxRadius = 150 + _prand(this.tick * 31) * 150;
                 ring.life = 1;
-                ring.ringCount = 5 + Math.floor(Math.random() * 8);
+                ring.ringCount = 5 + Math.floor(_prand(this.tick * 47) * 8);
                 this._rings.push(ring);
             }
         }
@@ -135,6 +157,28 @@ export class HolographicFoil {
             }
         }
 
+        // Shimmer wake trail: record mouse positions when moving fast
+        if (this._mouseSpeed > 3) {
+            if (this._wakeTrail.length < this._maxWakePoints) {
+                this._wakeTrail.push({ x: mx, y: my, life: 40, speed: this._mouseSpeed });
+            } else {
+                // Ring buffer overwrite
+                const oldest = this._wakeTrail.reduce((a, b) => a.life < b.life ? a : b);
+                oldest.x = mx;
+                oldest.y = my;
+                oldest.life = 40;
+                oldest.speed = this._mouseSpeed;
+            }
+        }
+        // Decay wake trail
+        for (let i = this._wakeTrail.length - 1; i >= 0; i--) {
+            this._wakeTrail[i].life--;
+            if (this._wakeTrail[i].life <= 0) {
+                this._wakeTrail[i] = this._wakeTrail[this._wakeTrail.length - 1];
+                this._wakeTrail.pop();
+            }
+        }
+
         // Update oil blobs
         if (this.mode === 1) {
             const W = window.innerWidth, H = window.innerHeight;
@@ -142,17 +186,18 @@ export class HolographicFoil {
                 b.x += b.vx;
                 b.y += b.vy;
                 b.phase += b.phaseSpeed;
-                // Mouse repulsion
-                const dx = b.x - mx;
-                const dy = b.y - my;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 200 && dist > 1) {
-                    b.vx += (dx / dist) * 0.1;
-                    b.vy += (dy / dist) * 0.1;
+                // Mouse interaction: repel normally, attract while holding
+                const bDx = b.x - mx;
+                const bDy = b.y - my;
+                const distSq = bDx * bDx + bDy * bDy;
+                if (distSq < 40000 && distSq > 1) { // 200px
+                    const dist = Math.sqrt(distSq);
+                    const dir = this._holdIntensity > 0.3 ? -1 : 1; // Attract when holding
+                    b.vx += (bDx / dist) * 0.1 * dir;
+                    b.vy += (bDy / dist) * 0.1 * dir;
                 }
                 b.vx *= 0.98;
                 b.vy *= 0.98;
-                // Wrap
                 if (b.x < -b.radius) b.x = W + b.radius;
                 if (b.x > W + b.radius) b.x = -b.radius;
                 if (b.y < -b.radius) b.y = H + b.radius;
@@ -166,13 +211,13 @@ export class HolographicFoil {
         const H = system.height;
         const mx = this._mx;
         const my = this._my;
-        // Angle from center to mouse (simulates viewing angle)
         const viewAngle = Math.atan2(my - H / 2, mx - W / 2);
         const viewDist = Math.sqrt((mx - W / 2) ** 2 + (my - H / 2) ** 2) / Math.max(W, H);
 
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = this.intensity * 0.3;
+        // Holding intensifies the effect
+        ctx.globalAlpha = this.intensity * (0.3 + this._holdIntensity * 0.25);
 
         if (this.mode === 0) {
             this._drawTradingCard(ctx, W, H, viewAngle, viewDist);
@@ -188,6 +233,9 @@ export class HolographicFoil {
             this._drawHolographicSticker(ctx, W, H, mx, my, viewAngle);
         }
 
+        // Draw shimmer wake trail (all modes)
+        this._drawWakeTrail(ctx);
+
         // Draw Newton's rings from clicks (all modes)
         this._drawRings(ctx);
 
@@ -199,26 +247,41 @@ export class HolographicFoil {
         const sin = Math.sin(this._stripeAngle);
         const timeShift = this.tick * this._shimmerSpeed * 0.5;
         const angleShift = viewAngle * 60 * this._rainbowSpread;
-
-        // Draw shimmer stripes
         const step = Math.max(4, Math.floor(this._stripeSpacing / 2));
         const diag = Math.sqrt(W * W + H * H);
 
-        for (let d = -diag; d < diag * 2; d += step) {
-            const proj = d + timeShift + angleShift;
-            const hue = ((proj * 2) % 360 + 360) % 360;
-            const brightness = 0.3 + 0.2 * Math.sin(proj * 0.1 + viewDist * 10);
-
-            ctx.strokeStyle = `hsla(${hue}, 90%, ${50 + brightness * 30}%, ${brightness})`;
-            ctx.lineWidth = step * 0.6;
+        // Batch stripes by hue band to reduce strokeStyle changes
+        const bandCount = 6;
+        for (let band = 0; band < bandCount; band++) {
+            const bandHue = (band / bandCount) * 360;
             ctx.beginPath();
-            const x1 = d * cos - diag * sin;
-            const y1 = d * sin + diag * cos;
-            const x2 = d * cos + diag * sin;
-            const y2 = d * sin - diag * cos;
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
+            let bandAlpha = 0;
+            let lineCount = 0;
+
+            for (let d = -diag; d < diag * 2; d += step) {
+                const proj = d + timeShift + angleShift;
+                const hue = ((proj * 2) % 360 + 360) % 360;
+                // Check if this stripe belongs to this band
+                const hueDist = Math.abs(hue - bandHue);
+                if (hueDist > 360 / bandCount && hueDist < 360 - 360 / bandCount) continue;
+
+                const brightness = 0.3 + 0.2 * Math.sin(proj * 0.1 + viewDist * 10);
+                bandAlpha += brightness;
+                lineCount++;
+
+                const x1 = d * cos - diag * sin;
+                const y1 = d * sin + diag * cos;
+                const x2 = d * cos + diag * sin;
+                const y2 = d * sin - diag * cos;
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+            }
+
+            if (lineCount > 0) {
+                ctx.strokeStyle = `hsla(${bandHue}, 90%, 65%, ${bandAlpha / lineCount})`;
+                ctx.lineWidth = step * 0.6;
+                ctx.stroke();
+            }
         }
     }
 
@@ -239,12 +302,11 @@ export class HolographicFoil {
             ctx.fill();
 
             // Interference rings inside blob
-            const ringCount = 3;
-            for (let i = 1; i <= ringCount; i++) {
-                const ringR = r * (i / (ringCount + 1));
+            ctx.lineWidth = 1.5;
+            for (let i = 1; i <= 3; i++) {
+                const ringR = r * (i / 4);
                 const ringHue = (hue + i * 40 + this.tick * 2) % 360;
                 ctx.strokeStyle = `hsla(${ringHue}, 90%, 65%, 0.12)`;
-                ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, ringR, 0, TAU);
                 ctx.stroke();
@@ -253,35 +315,58 @@ export class HolographicFoil {
     }
 
     _drawDiffraction(ctx, W, H, mx, my) {
-        // Parallel lines that create spectral decomposition based on mouse distance
-        const lineCount = Math.floor(H / 3);
-        const centerX = W / 2;
-        const centerY = H / 2;
+        // Batch lines by proximity band to reduce strokeStyle changes
+        const bands = [
+            { minDist: 0, maxDist: 100, alpha: 0.25 },
+            { minDist: 100, maxDist: 200, alpha: 0.12 },
+            { minDist: 200, maxDist: 300, alpha: 0.06 },
+        ];
 
         ctx.lineWidth = 1;
-        for (let i = 0; i < lineCount; i += 2) {
-            const y = i * 3;
-            const distToMouse = Math.abs(y - my);
-            const proximity = Math.max(0, 1 - distToMouse / 300);
-
-            // Spectral decomposition: hue shifts based on distance from mouse
-            const xOffset = mx - centerX;
-            const hue = ((i * 4 + xOffset * 0.3 + this.tick * this._shimmerSpeed) % 360 + 360) % 360;
-            const alpha = 0.05 + proximity * 0.2;
-
-            ctx.strokeStyle = `hsla(${hue}, 95%, 60%, ${alpha})`;
+        for (const band of bands) {
             ctx.beginPath();
-            // Slight wave distortion near mouse
-            const wave = proximity * Math.sin(i * 0.1 + this.tick * 0.05) * 10;
-            ctx.moveTo(0, y + wave);
-            ctx.lineTo(W, y - wave);
-            ctx.stroke();
+            let avgHue = 0;
+            let count = 0;
+            for (let i = 0; i < H; i += 6) {
+                const distToMouse = Math.abs(i - my);
+                if (distToMouse < band.minDist || distToMouse >= band.maxDist) continue;
+                const proximity = Math.max(0, 1 - distToMouse / 300);
+                const xOffset = mx - W / 2;
+                const hue = ((i * 4 + xOffset * 0.3 + this.tick * this._shimmerSpeed) % 360 + 360) % 360;
+                avgHue += hue;
+                count++;
+                const wave = proximity * Math.sin(i * 0.1 + this.tick * 0.05) * 10;
+                ctx.moveTo(0, i + wave);
+                ctx.lineTo(W, i - wave);
+            }
+            if (count > 0) {
+                ctx.strokeStyle = `hsla(${avgHue / count}, 95%, 60%, ${band.alpha})`;
+                ctx.stroke();
+            }
         }
+
+        // Far-field dim lines (no per-line style change)
+        ctx.strokeStyle = `hsla(${(this.tick * this._shimmerSpeed) % 360}, 80%, 50%, 0.03)`;
+        ctx.beginPath();
+        for (let i = 0; i < H; i += 6) {
+            if (Math.abs(i - my) < 300) continue;
+            ctx.moveTo(0, i);
+            ctx.lineTo(W, i);
+        }
+        ctx.stroke();
     }
 
     _drawButterflyWing(ctx, W, H, mx, my, viewAngle) {
         const s = this._scaleSize;
         const halfS = s / 2;
+        // Precompute hex vertices (normalized)
+        const hexCos = [];
+        const hexSin = [];
+        for (let v = 0; v < 6; v++) {
+            const angle = (v / 6) * TAU - Math.PI / 6;
+            hexCos[v] = Math.cos(angle) * halfS;
+            hexSin[v] = Math.sin(angle) * halfS;
+        }
 
         for (let row = 0; row < this._scaleRows; row++) {
             const yOff = row % 2 === 0 ? 0 : halfS;
@@ -289,29 +374,25 @@ export class HolographicFoil {
                 const cx = col * s + yOff;
                 const cy = row * s * 0.866;
 
-                // Distance to mouse affects hue shift
-                const dx = cx - mx;
-                const dy = cy - my;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+                // Use distSq for proximity check, only sqrt for close cells
+                const cdx = cx - mx;
+                const cdy = cy - my;
+                const distSq = cdx * cdx + cdy * cdy;
+                if (distSq > 160000) continue; // Skip cells > 400px away (invisible)
+
+                const dist = Math.sqrt(distSq);
                 const proximity = Math.max(0, 1 - dist / 400);
 
-                // Each cell has unique structural color
                 const cellSeed = row * 1000 + col;
                 const baseHue = _prand(cellSeed) * 360;
                 const hue = (baseHue + viewAngle * 40 + proximity * 60 + this.tick * 0.3) % 360;
-                const sat = 70 + proximity * 25;
-                const light = 30 + proximity * 30;
                 const alpha = 0.03 + proximity * 0.12;
 
-                ctx.fillStyle = `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
-                // Draw hexagonal scale
+                ctx.fillStyle = `hsla(${hue}, ${70 + proximity * 25}%, ${30 + proximity * 30}%, ${alpha})`;
                 ctx.beginPath();
-                for (let v = 0; v < 6; v++) {
-                    const angle = (v / 6) * TAU - Math.PI / 6;
-                    const px = cx + Math.cos(angle) * halfS;
-                    const py = cy + Math.sin(angle) * halfS;
-                    if (v === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
+                ctx.moveTo(cx + hexCos[0], cy + hexSin[0]);
+                for (let v = 1; v < 6; v++) {
+                    ctx.lineTo(cx + hexCos[v], cy + hexSin[v]);
                 }
                 ctx.closePath();
                 ctx.fill();
@@ -320,29 +401,46 @@ export class HolographicFoil {
     }
 
     _drawSoapFilm(ctx, W, H, mx, my) {
-        // Thin-film interference - base shimmer across whole screen
+        // Thin-film interference - use larger grid step and batch by hue
+        const gridStep = 10;
         const t = this.tick * 0.02;
-        const gridStep = 8;
+
+        // Use 6 hue buckets for batching
+        const buckets = [];
+        for (let b = 0; b < 6; b++) buckets.push({ hue: b * 60, rects: [] });
 
         for (let x = 0; x < W; x += gridStep) {
             for (let y = 0; y < H; y += gridStep) {
                 const dx = x - mx;
                 const dy = y - my;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+                // Use fast distance approximation for the wave pattern
+                const distSq = dx * dx + dy * dy;
+                const dist = Math.sqrt(distSq);
 
-                // Interference pattern from multiple wave sources
                 const wave1 = Math.sin(dist * 0.03 - t * 2);
                 const wave2 = Math.sin(x * 0.02 + y * 0.01 + t);
-                const interference = (wave1 + wave2) * 0.5;
+                // Mouse proximity adds extra interference ripple
+                const mouseWave = distSq < 90000 ? Math.sin(dist * 0.08 + t * 3) * (1 - dist / 300) * 0.5 : 0;
+                const interference = (wave1 + wave2 + mouseWave) * 0.5;
+
+                const alpha = Math.abs(interference) * 0.08;
+                if (alpha < 0.015) continue;
 
                 const hue = ((interference * 180 + 180 + this.hue) % 360 + 360) % 360;
-                const alpha = Math.abs(interference) * 0.08;
-
-                if (alpha > 0.01) {
-                    ctx.fillStyle = `hsla(${hue}, 90%, 60%, ${alpha})`;
-                    ctx.fillRect(x, y, gridStep, gridStep);
-                }
+                const bucketIdx = Math.floor(hue / 60) % 6;
+                buckets[bucketIdx].rects.push(x, y);
             }
+        }
+
+        // Draw each bucket with a single fillStyle
+        for (const bucket of buckets) {
+            if (bucket.rects.length === 0) continue;
+            ctx.fillStyle = `hsla(${bucket.hue + 30}, 90%, 60%, 0.06)`;
+            ctx.beginPath();
+            for (let i = 0; i < bucket.rects.length; i += 2) {
+                ctx.rect(bucket.rects[i], bucket.rects[i + 1], gridStep, gridStep);
+            }
+            ctx.fill();
         }
     }
 
@@ -358,20 +456,17 @@ export class HolographicFoil {
 
                 const dx = x + cs / 2 - mx;
                 const dy = y + cs / 2 - my;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const angle = Math.atan2(dy, dx);
+                const distSq = dx * dx + dy * dy;
 
-                // Each cell reflects light differently based on its position
+                const angle = Math.atan2(dy, dx);
                 const cellPhase = _prand(row * 500 + col + 7) * TAU;
                 const reflectAngle = angle + cellPhase + this._gridPhase;
 
-                // Rainbow based on reflection angle relative to view
                 const angleDiff = Math.abs(reflectAngle - viewAngle) % TAU;
                 const hue = (angleDiff * 57.3 * 3 + this.tick * 0.5) % 360;
 
-                // Brightness based on "catching the light"
                 const catchLight = Math.cos(angleDiff) * 0.5 + 0.5;
-                const proximity = Math.max(0, 1 - dist / 500);
+                const proximity = distSq < 250000 ? Math.max(0, 1 - Math.sqrt(distSq) / 500) : 0;
                 const alpha = (0.02 + catchLight * 0.08 + proximity * 0.05) * this.intensity;
 
                 if (alpha > 0.01) {
@@ -382,13 +477,33 @@ export class HolographicFoil {
         }
     }
 
+    _drawWakeTrail(ctx) {
+        if (this._wakeTrail.length < 2) return;
+        for (const wp of this._wakeTrail) {
+            const alpha = (wp.life / 40) * 0.2;
+            const hue = (this.hue + wp.life * 8 + this.tick) % 360;
+            const r = 5 + wp.speed * 0.5;
+            ctx.fillStyle = `hsla(${hue}, 90%, 70%, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, r, 0, TAU);
+            ctx.fill();
+            // Rainbow ring
+            ctx.strokeStyle = `hsla(${(hue + 90) % 360}, 85%, 65%, ${alpha * 0.5})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(wp.x, wp.y, r * 1.5, 0, TAU);
+            ctx.stroke();
+        }
+    }
+
     _drawRings(ctx) {
         for (const r of this._rings) {
+            // Batch all rings for this click into a single path per hue
+            ctx.lineWidth = 2;
             for (let i = 0; i < r.ringCount; i++) {
                 const ringR = r.radius * (i + 1) / r.ringCount;
                 const hue = (i * 50 + this.tick * 2 + this.hue) % 360;
                 ctx.strokeStyle = `hsla(${hue}, 90%, 60%, ${r.life * 0.3})`;
-                ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.arc(r.x, r.y, ringR, 0, TAU);
                 ctx.stroke();

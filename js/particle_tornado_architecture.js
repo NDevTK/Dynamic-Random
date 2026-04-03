@@ -39,6 +39,10 @@ export class ParticleTornadoArchitecture extends Architecture {
         this._debris = [];
         this._debrisPool = [];
 
+        // Escape trails from particles flung out of tornadoes
+        this._escapeTrails = [];
+        this._maxEscapeTrails = 200;
+
         // Atmospheric elements
         this._clouds = [];
         this._arcs = []; // Electric arcs for mode 5
@@ -65,6 +69,7 @@ export class ParticleTornadoArchitecture extends Architecture {
         this._debris = [];
         this._clouds = [];
         this._arcs = [];
+        this._escapeTrails = [];
 
         const W = system.width, H = system.height;
 
@@ -217,11 +222,12 @@ export class ParticleTornadoArchitecture extends Architecture {
             t.wobblePhase += t.wobbleSpeed;
             t.x = t.baseX + Math.sin(t.wobblePhase) * t.wobbleAmount;
 
-            // Mouse attraction/repulsion
+            // Mouse attraction/repulsion (distSq fast reject)
             const dx = mouse.x - t.x;
             const dy = mouse.y - (t.topY + t.bottomY) / 2;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 300 && dist > 1) {
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 90000 && distSq > 1) { // 300px
+                const dist = Math.sqrt(distSq);
                 const force = isLeftMouseDown ? -0.5 : 0.2;
                 t.baseX += (dx / dist) * force;
                 // Keep in bounds
@@ -261,9 +267,11 @@ export class ParticleTornadoArchitecture extends Architecture {
 
                 const dx = p.x - tcx;
                 const dy = p.y - (t.topY + t.bottomY) / 2;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+                const distSq = dx * dx + dy * dy;
+                const suctionRadiusSq = t.suctionRadius * t.suctionRadius;
 
-                if (dist < t.suctionRadius) {
+                if (distSq < suctionRadiusSq) {
+                    const dist = Math.sqrt(distSq);
                     p.captured = true;
                     const force = t.pullStrength * (1 - dist / t.suctionRadius) * lifeAlpha;
 
@@ -298,6 +306,26 @@ export class ParticleTornadoArchitecture extends Architecture {
             p.rotation += p.rotSpeed;
         }
 
+        // Spawn escape trails from fast-moving captured particles
+        if (this.tick % 2 === 0) {
+            for (const p of this._particles) {
+                if (!p.captured) continue;
+                const speed = p.vx * p.vx + p.vy * p.vy;
+                if (speed > 9 && this._escapeTrails.length < this._maxEscapeTrails) { // speed > 3
+                    this._escapeTrails.push({ x: p.x, y: p.y, hue: p.hue, life: 15, alpha: p.alpha * 0.3 });
+                }
+            }
+        }
+
+        // Update escape trails
+        for (let i = this._escapeTrails.length - 1; i >= 0; i--) {
+            this._escapeTrails[i].life--;
+            if (this._escapeTrails[i].life <= 0) {
+                this._escapeTrails[i] = this._escapeTrails[this._escapeTrails.length - 1];
+                this._escapeTrails.pop();
+            }
+        }
+
         // Respawn particles to maintain count
         const rng = () => _prand(this.tick * 17 + this._particles.length);
         while (this._particles.length < this._maxParticles * 0.7) {
@@ -311,17 +339,23 @@ export class ParticleTornadoArchitecture extends Architecture {
             if (cloud.x < -cloud.width * 2) cloud.x = W + cloud.width;
         }
 
-        // Electric arcs (mode 5)
+        // Electric arcs (mode 5) - deterministic using _prand
         if (this.mode === 5 && this.tick % 15 === 0 && this._tornadoes.length > 0) {
-            const t = this._tornadoes[Math.floor(Math.random() * this._tornadoes.length)];
+            const pr0 = _prand(this.tick * 23);
+            const t = this._tornadoes[Math.floor(pr0 * this._tornadoes.length)];
             if (this._arcs.length < 10) {
+                const pr1 = _prand(this.tick * 37);
+                const pr2 = _prand(this.tick * 53);
+                const pr3 = _prand(this.tick * 71);
+                const pr4 = _prand(this.tick * 89);
+                const pr5 = _prand(this.tick * 97);
                 this._arcs.push({
-                    x1: t.x + (Math.random() - 0.5) * t.topWidth,
-                    y1: t.topY + Math.random() * (t.bottomY - t.topY) * 0.5,
-                    x2: t.x + (Math.random() - 0.5) * t.topWidth * 2,
-                    y2: t.topY + Math.random() * (t.bottomY - t.topY),
-                    life: 5 + Math.floor(Math.random() * 10),
-                    hue: (this._baseHue + Math.random() * 40) % 360,
+                    x1: t.x + (pr1 - 0.5) * t.topWidth,
+                    y1: t.topY + pr2 * (t.bottomY - t.topY) * 0.5,
+                    x2: t.x + (pr3 - 0.5) * t.topWidth * 2,
+                    y2: t.topY + pr4 * (t.bottomY - t.topY),
+                    life: 5 + Math.floor(pr5 * 10),
+                    hue: (this._baseHue + pr0 * 40) % 360,
                 });
             }
         }
@@ -468,31 +502,49 @@ export class ParticleTornadoArchitecture extends Architecture {
                 ctx.fill();
                 ctx.restore();
             } else {
-                // Embers (mode 1)
-                const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
-                glow.addColorStop(0, `hsla(${p.hue}, 90%, 80%, ${alpha * 0.5})`);
-                glow.addColorStop(0.5, `hsla(${p.hue + 20}, 80%, 50%, ${alpha * 0.2})`);
-                glow.addColorStop(1, 'transparent');
-                ctx.fillStyle = glow;
+                // Embers (mode 1) - only gradient for large embers, simple fill otherwise
+                const r = p.size * 3;
+                if (r > 8) {
+                    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+                    glow.addColorStop(0, `hsla(${p.hue}, 90%, 80%, ${alpha * 0.5})`);
+                    glow.addColorStop(0.5, `hsla(${p.hue + 20}, 80%, 50%, ${alpha * 0.2})`);
+                    glow.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glow;
+                } else {
+                    ctx.fillStyle = `hsla(${p.hue}, 90%, 70%, ${alpha * 0.4})`;
+                }
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size * 3, 0, TAU);
+                ctx.arc(p.x, p.y, r, 0, TAU);
                 ctx.fill();
             }
         }
 
-        // Draw electric arcs (mode 5)
+        // Draw escape trails
+        if (this._escapeTrails.length > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            for (const t of this._escapeTrails) {
+                const a = (t.life / 15) * t.alpha;
+                ctx.fillStyle = `hsla(${t.hue}, 60%, 60%, ${a})`;
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, 1.5, 0, TAU);
+                ctx.fill();
+            }
+        }
+
+        // Draw electric arcs (mode 5) - deterministic jitter using tick
         if (this.mode === 5) {
-            for (const arc of this._arcs) {
+            for (let ai = 0; ai < this._arcs.length; ai++) {
+                const arc = this._arcs[ai];
                 ctx.strokeStyle = `hsla(${arc.hue}, 90%, 75%, ${(arc.life / 15) * 0.6})`;
-                ctx.lineWidth = 1 + Math.random() * 2;
+                ctx.lineWidth = 1 + _prand(this.tick * 17 + ai * 3) * 2;
                 ctx.beginPath();
                 ctx.moveTo(arc.x1, arc.y1);
-                // Jagged lightning path
                 const segments = 5;
                 for (let s = 1; s <= segments; s++) {
                     const t = s / segments;
-                    const lx = arc.x1 + (arc.x2 - arc.x1) * t + (Math.random() - 0.5) * 30;
-                    const ly = arc.y1 + (arc.y2 - arc.y1) * t + (Math.random() - 0.5) * 20;
+                    const jitterSeed = this.tick * 7 + ai * 13 + s * 31;
+                    const lx = arc.x1 + (arc.x2 - arc.x1) * t + (_prand(jitterSeed) - 0.5) * 30;
+                    const ly = arc.y1 + (arc.y2 - arc.y1) * t + (_prand(jitterSeed + 1000) - 0.5) * 20;
                     ctx.lineTo(lx, ly);
                 }
                 ctx.stroke();

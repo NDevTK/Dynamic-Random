@@ -3,7 +3,8 @@
  * @description Musical gravity system where geometric "notes" orbit attractor points,
  * creating visual harmonics. Each note shape represents a musical interval and orbits
  * at a ratio-locked radius. Cursor creates temporary attractors, clicking spawns note
- * bursts. The visual result looks like a living orrery/music box mechanism.
+ * bursts. Mouse speed modulates attractor strength. Holding mouse creates a persistent
+ * gravity well that pulls notes into tighter orbits.
  *
  * Modes:
  * 0 - Orrery: Circular orbits with planet-like notes, gravitational trails
@@ -35,6 +36,8 @@ export class GravitySymphony {
         this._pmy = 0;
         this._isClicking = false;
         this._wasClicking = false;
+        this._mouseSpeed = 0;
+        this._holdStrength = 0;
 
         // Notes (orbiting shapes)
         this._notes = [];
@@ -46,6 +49,7 @@ export class GravitySymphony {
 
         // Trail segments for weave mode
         this._trails = [];
+        this._trailPool = [];
         this._maxTrails = 500;
 
         // Burst particles on collision
@@ -58,6 +62,9 @@ export class GravitySymphony {
         // Lissajous params
         this._lissA = 3;
         this._lissB = 2;
+
+        // Reusable mouse attractor (avoid per-frame allocation)
+        this._mouseAttract = { x: 0, y: 0, mass: 300 };
     }
 
     configure(rng, palette) {
@@ -69,6 +76,7 @@ export class GravitySymphony {
         this._attractors = [];
         this._trails = [];
         this._bursts = [];
+        this._holdStrength = 0;
 
         const W = window.innerWidth, H = window.innerHeight;
 
@@ -94,7 +102,6 @@ export class GravitySymphony {
         // Mode-specific setup
         if (this.mode === 3) {
             this._pendulumOriginY = H * 0.1;
-            // Convert notes to pendulums
             for (const n of this._notes) {
                 n.pendulumLength = 100 + rng() * (H * 0.5);
                 n.pendulumAngle = (rng() - 0.5) * 1.2;
@@ -143,41 +150,52 @@ export class GravitySymphony {
         this._isClicking = isClicking;
         this.tick++;
 
+        // Track mouse speed for dynamic attractor strength
+        const sdx = mx - this._pmx;
+        const sdy = my - this._pmy;
+        this._mouseSpeed = Math.sqrt(sdx * sdx + sdy * sdy);
+
+        // Hold strength builds up while clicking
+        if (isClicking) {
+            this._holdStrength = Math.min(3, this._holdStrength + 0.03);
+        } else {
+            this._holdStrength *= 0.95;
+        }
+
         const W = system.width, H = system.height;
 
         // Click: spawn burst of notes + temporary attractor
         if (this._isClicking && !this._wasClicking) {
-            // Temporary attractor at click
             if (this._attractors.length < this._maxAttractors + 3) {
                 this._attractors.push({
                     x: mx, y: my,
-                    mass: 800 + Math.random() * 600,
+                    mass: 800 + _prand(this.tick * 31) * 600,
                     permanent: false,
                     life: 120,
                     hue: (this.hue + this.tick) % 360,
                 });
             }
             // Spawn note burst
-            const burstCount = 3 + Math.floor(Math.random() * 4);
-            const tempRng = () => _prand(this.tick * 31 + this._notes.length * 7);
+            const burstCount = 3 + Math.floor(_prand(this.tick * 47) * 4);
             for (let i = 0; i < burstCount; i++) {
                 if (this._notes.length >= this._maxNotes) break;
                 const angle = (i / burstCount) * TAU;
-                const speed = 3 + Math.random() * 4;
+                const speed = 3 + _prand(this.tick * 13 + i * 7) * 4;
+                const pr = _prand(this.tick * 59 + i * 11);
                 this._notes.push({
                     x: mx,
                     y: my,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    size: 3 + Math.random() * 6,
-                    shape: ['circle', 'triangle', 'diamond', 'star', 'square'][Math.floor(Math.random() * 5)],
+                    size: 3 + pr * 6,
+                    shape: ['circle', 'triangle', 'diamond', 'star', 'square'][Math.floor(pr * 5)],
                     hue: (this.hue + i * 30 + this.tick) % 360,
-                    harmonic: HARMONIC_RATIOS[Math.floor(Math.random() * HARMONIC_RATIOS.length)],
-                    orbitSpeed: 0.01 + Math.random() * 0.03,
-                    phase: Math.random() * TAU,
-                    glowIntensity: 0.5 + Math.random() * 0.5,
-                    pendulumLength: 100 + Math.random() * 200,
-                    pendulumAngle: (Math.random() - 0.5) * 0.8,
+                    harmonic: HARMONIC_RATIOS[Math.floor(pr * HARMONIC_RATIOS.length)],
+                    orbitSpeed: 0.01 + pr * 0.03,
+                    phase: pr * TAU,
+                    glowIntensity: 0.5 + pr * 0.5,
+                    pendulumLength: 100 + pr * 200,
+                    pendulumAngle: (pr - 0.5) * 0.8,
                     pendulumVel: 0,
                     anchorX: mx,
                 });
@@ -196,18 +214,18 @@ export class GravitySymphony {
             }
         }
 
-        // Mouse acts as weak attractor
-        const mouseAttract = { x: mx, y: my, mass: 300 };
+        // Reuse mouse attractor object (no allocation)
+        this._mouseAttract.x = mx;
+        this._mouseAttract.y = my;
+        // Mouse speed + hold strength modulates attractor mass
+        this._mouseAttract.mass = 200 + this._mouseSpeed * 20 + this._holdStrength * 500;
 
         if (this.mode === 3) {
-            // Pendulum mode
             this._updatePendulums(W, H);
         } else if (this.mode === 5) {
-            // Lissajous weave
             this._updateLissajous(W, H);
         } else {
-            // Standard gravity modes
-            this._updateGravity(mouseAttract, W, H);
+            this._updateGravity(this._mouseAttract, W, H);
         }
 
         // Update bursts
@@ -235,19 +253,20 @@ export class GravitySymphony {
                 const dx = a.x - n.x;
                 const dy = a.y - n.y;
                 const distSq = dx * dx + dy * dy;
+                if (distSq < 25) continue; // 5^2
                 const dist = Math.sqrt(distSq);
-                if (dist < 5) continue;
                 const force = a.mass / (distSq + 100);
                 fx += (dx / dist) * force;
                 fy += (dy / dist) * force;
             }
 
-            // Mouse attractor (weaker)
+            // Mouse attractor (strength scales with speed/hold)
             const mdx = mouseAttract.x - n.x;
             const mdy = mouseAttract.y - n.y;
-            const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
-            if (mdist > 5 && mdist < 400) {
-                const mforce = mouseAttract.mass / (mdist * mdist + 200);
+            const mdistSq = mdx * mdx + mdy * mdy;
+            if (mdistSq > 25 && mdistSq < 160000) { // 5-400px
+                const mdist = Math.sqrt(mdistSq);
+                const mforce = mouseAttract.mass / (mdistSq + 200);
                 fx += (mdx / mdist) * mforce;
                 fy += (mdy / mdist) * mforce;
             }
@@ -257,7 +276,6 @@ export class GravitySymphony {
 
             // Mode-specific behaviors
             if (this.mode === 1) {
-                // Music box: enforce more circular motion
                 const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
                 if (speed > 0.1) {
                     const perpX = -n.vy / speed;
@@ -266,12 +284,12 @@ export class GravitySymphony {
                     n.vy = n.vy * 0.9 + perpY * speed * 0.1;
                 }
             } else if (this.mode === 2) {
-                // Harmonic rings: radial oscillation around nearest attractor
                 if (this._attractors.length > 0) {
                     const a = this._attractors[0];
                     const dx = n.x - a.x;
                     const dy = n.y - a.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const distSq = dx * dx + dy * dy;
+                    const dist = Math.sqrt(distSq);
                     const targetR = 50 * n.harmonic;
                     const pullStrength = (dist - targetR) * 0.001;
                     if (dist > 1) {
@@ -280,7 +298,6 @@ export class GravitySymphony {
                     }
                 }
             } else if (this.mode === 4) {
-                // Wind chime: slight downward drift + collision detection
                 n.vy += 0.01;
             }
 
@@ -296,15 +313,17 @@ export class GravitySymphony {
             if (n.y < 0) { n.y = 0; n.vy = Math.abs(n.vy) * 0.8; }
             if (n.y > H) { n.y = H; n.vy = -Math.abs(n.vy) * 0.8; }
 
-            // Trail for weave-like modes (orrery)
+            // Orbital trails (orrery mode)
             if (this.mode === 0 && this.tick % 3 === 0) {
                 if (this._trails.length < this._maxTrails) {
-                    this._trails.push({ x: n.x, y: n.y, hue: n.hue, life: 40 });
+                    const t = this._trailPool.length > 0 ? this._trailPool.pop() : {};
+                    t.x = n.x; t.y = n.y; t.hue = n.hue; t.life = 40;
+                    this._trails.push(t);
                 }
             }
         }
 
-        // Wind chime collisions
+        // Wind chime collisions - use distSq for fast reject
         if (this.mode === 4) {
             for (let i = 0; i < this._notes.length; i++) {
                 for (let j = i + 1; j < this._notes.length; j++) {
@@ -312,10 +331,11 @@ export class GravitySymphony {
                     const b = this._notes[j];
                     const dx = b.x - a.x;
                     const dy = b.y - a.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
                     const minDist = a.size + b.size;
-                    if (dist < minDist && dist > 0) {
-                        // Simple elastic collision
+                    const minDistSq = minDist * minDist;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < minDistSq && distSq > 0) {
+                        const dist = Math.sqrt(distSq);
                         const nx = dx / dist;
                         const ny = dy / dist;
                         const dvx = a.vx - b.vx;
@@ -326,7 +346,6 @@ export class GravitySymphony {
                             a.vy -= ny * dvn;
                             b.vx += nx * dvn;
                             b.vy += ny * dvn;
-                            // Spawn burst
                             this._spawnBurst((a.x + b.x) / 2, (a.y + b.y) / 2, (a.hue + b.hue) / 2);
                         }
                     }
@@ -338,6 +357,7 @@ export class GravitySymphony {
         for (let i = this._trails.length - 1; i >= 0; i--) {
             this._trails[i].life--;
             if (this._trails[i].life <= 0) {
+                this._trailPool.push(this._trails[i]);
                 this._trails[i] = this._trails[this._trails.length - 1];
                 this._trails.pop();
             }
@@ -346,11 +366,12 @@ export class GravitySymphony {
 
     _updatePendulums(W, H) {
         for (const n of this._notes) {
-            // Simple pendulum physics
             const gravity = 0.0005;
             const accel = -gravity * Math.sin(n.pendulumAngle) * n.pendulumLength;
             n.pendulumVel += accel;
-            n.pendulumVel *= 0.999; // Small damping
+            // Mouse hold shortens pendulums (speeds them up)
+            const dampMod = this._holdStrength > 0.5 ? 0.995 : 0.999;
+            n.pendulumVel *= dampMod;
             n.pendulumAngle += n.pendulumVel;
 
             n.x = n.anchorX + Math.sin(n.pendulumAngle) * n.pendulumLength;
@@ -362,8 +383,11 @@ export class GravitySymphony {
     _updateLissajous(W, H) {
         const cx = W / 2;
         const cy = H / 2;
-        const rx = W * 0.35;
-        const ry = H * 0.35;
+        // Mouse position modulates Lissajous amplitude
+        const mouseOffX = (this._mx - cx) / cx;
+        const mouseOffY = (this._my - cy) / cy;
+        const rx = W * (0.25 + 0.15 * Math.abs(mouseOffX));
+        const ry = H * (0.25 + 0.15 * Math.abs(mouseOffY));
 
         for (let i = 0; i < this._notes.length; i++) {
             const n = this._notes[i];
@@ -375,16 +399,17 @@ export class GravitySymphony {
             n.x = cx + Math.sin(this._lissA * t + n.phase) * rx;
             n.y = cy + Math.sin(this._lissB * t) * ry;
 
-            // Store trail
             if (this.tick % 2 === 0 && this._trails.length < this._maxTrails) {
-                this._trails.push({ x: prevX, y: prevY, hue: n.hue, life: 60 });
+                const tr = this._trailPool.length > 0 ? this._trailPool.pop() : {};
+                tr.x = prevX; tr.y = prevY; tr.hue = n.hue; tr.life = 60;
+                this._trails.push(tr);
             }
         }
 
-        // Decay trails
         for (let i = this._trails.length - 1; i >= 0; i--) {
             this._trails[i].life--;
             if (this._trails[i].life <= 0) {
+                this._trailPool.push(this._trails[i]);
                 this._trails[i] = this._trails[this._trails.length - 1];
                 this._trails.pop();
             }
@@ -392,18 +417,18 @@ export class GravitySymphony {
     }
 
     _spawnBurst(x, y, hue) {
-        const count = 4;
+        const count = 6;
         for (let i = 0; i < count; i++) {
             if (this._bursts.length > 100) break;
-            const angle = (i / count) * TAU + Math.random() * 0.5;
-            const speed = 1 + Math.random() * 3;
+            const angle = (i / count) * TAU + _prand(this.tick + i) * 0.5;
+            const speed = 1 + _prand(this.tick * 3 + i) * 4;
             const b = this._burstPool.length > 0 ? this._burstPool.pop() : {};
             b.x = x; b.y = y;
             b.vx = Math.cos(angle) * speed;
             b.vy = Math.sin(angle) * speed;
             b.hue = hue;
-            b.life = 20 + Math.floor(Math.random() * 15);
-            b.size = 1 + Math.random() * 2;
+            b.life = 20 + Math.floor(_prand(this.tick * 7 + i) * 15);
+            b.size = 1 + _prand(this.tick * 11 + i) * 3;
             this._bursts.push(b);
         }
     }
@@ -412,68 +437,80 @@ export class GravitySymphony {
         ctx.save();
         ctx.globalAlpha = this.intensity * 0.6;
 
-        // Draw trails first (behind notes)
+        // Draw trails first - batch into single path for performance
         if (this._trails.length > 0) {
             ctx.globalCompositeOperation = 'lighter';
-            for (const t of this._trails) {
-                const alpha = (t.life / 60) * 0.15;
-                ctx.fillStyle = `hsla(${t.hue}, 70%, 60%, ${alpha})`;
+            // Group trails by approximate hue to reduce fillStyle changes
+            const hueStep = 60;
+            for (let hBase = 0; hBase < 360; hBase += hueStep) {
+                ctx.fillStyle = `hsla(${hBase + 30}, 70%, 60%, 0.08)`;
                 ctx.beginPath();
-                ctx.arc(t.x, t.y, 2, 0, TAU);
+                for (const t of this._trails) {
+                    const tHue = ((t.hue % 360) + 360) % 360;
+                    if (tHue >= hBase && tHue < hBase + hueStep) {
+                        ctx.moveTo(t.x + 2, t.y);
+                        ctx.arc(t.x, t.y, 2, 0, TAU);
+                    }
+                }
                 ctx.fill();
             }
         }
 
-        // Draw attractor glow
+        // Draw attractor glow - only use gradient for large/permanent attractors
         ctx.globalCompositeOperation = 'lighter';
         for (const a of this._attractors) {
             const alpha = a.permanent ? 0.08 : (a.life / 120) * 0.1;
             const r = Math.sqrt(a.mass) * 0.5;
-            const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, r);
-            g.addColorStop(0, `hsla(${a.hue}, 60%, 70%, ${alpha})`);
-            g.addColorStop(1, 'transparent');
-            ctx.fillStyle = g;
+            if (r > 10) {
+                const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, r);
+                g.addColorStop(0, `hsla(${a.hue}, 60%, 70%, ${alpha})`);
+                g.addColorStop(1, 'transparent');
+                ctx.fillStyle = g;
+            } else {
+                ctx.fillStyle = `hsla(${a.hue}, 60%, 70%, ${alpha})`;
+            }
             ctx.beginPath();
             ctx.arc(a.x, a.y, r, 0, TAU);
             ctx.fill();
         }
 
-        // Draw connection lines between close notes (harmonic threads)
+        // Draw connection lines - batch into single path with distSq fast-reject
         ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = `hsla(${this.hue}, 60%, 60%, 0.06)`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
         for (let i = 0; i < this._notes.length; i++) {
             for (let j = i + 1; j < this._notes.length; j++) {
                 const a = this._notes[i];
                 const b = this._notes[j];
                 const dx = b.x - a.x;
                 const dy = b.y - a.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 100) {
-                    const alpha = (1 - dist / 100) * 0.1;
-                    ctx.strokeStyle = `hsla(${(a.hue + b.hue) / 2}, 60%, 60%, ${alpha})`;
-                    ctx.lineWidth = 0.5;
-                    ctx.beginPath();
+                const distSq = dx * dx + dy * dy;
+                if (distSq < 10000) { // 100^2
                     ctx.moveTo(a.x, a.y);
                     ctx.lineTo(b.x, b.y);
-                    ctx.stroke();
                 }
             }
         }
+        ctx.stroke();
 
-        // Draw notes
+        // Draw notes - use simple fill for small notes, gradient only for large
         ctx.globalCompositeOperation = 'lighter';
         for (const n of this._notes) {
             const pulse = 1 + 0.3 * Math.sin(n.phase * n.harmonic);
             const s = n.size * pulse;
             const glowR = s * 3;
 
-            // Glow
-            const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowR);
-            g.addColorStop(0, `hsla(${n.hue}, 80%, 65%, ${n.glowIntensity * 0.2})`);
-            g.addColorStop(1, 'transparent');
-            ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, glowR, 0, TAU);
-            ctx.fill();
+            // Only create gradient for notes large enough to see the glow
+            if (glowR > 12) {
+                const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, glowR);
+                g.addColorStop(0, `hsla(${n.hue}, 80%, 65%, ${n.glowIntensity * 0.2})`);
+                g.addColorStop(1, 'transparent');
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, glowR, 0, TAU);
+                ctx.fill();
+            }
 
             // Shape
             ctx.fillStyle = `hsla(${n.hue}, 80%, 70%, ${n.glowIntensity * 0.6})`;
@@ -485,15 +522,15 @@ export class GravitySymphony {
             ctx.globalCompositeOperation = 'source-over';
             ctx.strokeStyle = `hsla(${this.hue}, 30%, 50%, 0.1)`;
             ctx.lineWidth = 0.5;
+            ctx.beginPath();
             for (const n of this._notes) {
-                ctx.beginPath();
                 ctx.moveTo(n.anchorX, this._pendulumOriginY);
                 ctx.lineTo(n.x, n.y);
-                ctx.stroke();
             }
+            ctx.stroke();
         }
 
-        // Draw bursts
+        // Draw bursts - batch by approximate hue
         if (this._bursts.length > 0) {
             ctx.globalCompositeOperation = 'lighter';
             for (const b of this._bursts) {
@@ -503,6 +540,20 @@ export class GravitySymphony {
                 ctx.arc(b.x, b.y, b.size, 0, TAU);
                 ctx.fill();
             }
+        }
+
+        // Draw hold indicator (gravity well visual)
+        if (this._holdStrength > 0.1) {
+            ctx.globalCompositeOperation = 'lighter';
+            const r = 30 + this._holdStrength * 50;
+            ctx.strokeStyle = `hsla(${this.hue}, 70%, 60%, ${this._holdStrength * 0.15})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this._mx, this._my, r, 0, TAU);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(this._mx, this._my, r * 0.5, 0, TAU);
+            ctx.stroke();
         }
 
         ctx.restore();
@@ -522,7 +573,6 @@ export class GravitySymphony {
             }
             ctx.closePath();
         } else if (shape === 'diamond') {
-            const r = phase * 0.3;
             ctx.moveTo(x, y - size);
             ctx.lineTo(x + size * 0.7, y);
             ctx.lineTo(x, y + size);
@@ -537,7 +587,6 @@ export class GravitySymphony {
             }
             ctx.closePath();
         } else {
-            // Square
             const half = size * 0.7;
             ctx.rect(x - half, y - half, half * 2, half * 2);
         }

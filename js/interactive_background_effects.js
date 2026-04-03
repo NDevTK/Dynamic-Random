@@ -277,16 +277,13 @@ class InteractiveBackgroundEffects {
                 }
             }
             if (this.tick % 2 === 0) {
-                const toRemove = [];
+                // Iterate and delete in-place to avoid temp array GC pressure
                 for (const idx of this._heatDirtyCells) {
                     this.heatGrid[idx] *= this.heatDecay;
                     if (this.heatGrid[idx] < 0.005) {
                         this.heatGrid[idx] = 0;
-                        toRemove.push(idx);
+                        this._heatDirtyCells.delete(idx);
                     }
-                }
-                for (const idx of toRemove) {
-                    this._heatDirtyCells.delete(idx);
                 }
             }
         }
@@ -356,20 +353,30 @@ class InteractiveBackgroundEffects {
 
         // --- Original effects below ---
 
-        // Heat map
+        // Heat map — batch into 4 heat bands to reduce fillStyle changes
         if (this.hasHeatMap && this.heatGrid && this._heatDirtyCells.size > 0) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            for (const idx of this._heatDirtyCells) {
-                const heat = this.heatGrid[idx];
-                if (heat < 0.01) continue;
-                const x = (idx % this.heatCols);
-                const y = Math.floor(idx / this.heatCols);
-                const alpha = heat * 0.15;
-                const lightness = 40 + heat * 30;
-                ctx.fillStyle = `hsla(${this.heatHue + heat * 60}, 80%, ${lightness}%, ${alpha})`;
-                ctx.fillRect(x * this.heatCellSize, y * this.heatCellSize,
-                    this.heatCellSize, this.heatCellSize);
+            const bands = [0.01, 0.25, 0.5, 0.75];
+            const cs = this.heatCellSize;
+            const cols = this.heatCols;
+            for (let b = 0; b < bands.length; b++) {
+                const lo = bands[b];
+                const hi = b < bands.length - 1 ? bands[b + 1] : 1.01;
+                const midHeat = (lo + hi) / 2;
+                const alpha = midHeat * 0.15;
+                const lightness = 40 + midHeat * 30;
+                ctx.fillStyle = `hsla(${this.heatHue + midHeat * 60}, 80%, ${lightness}%, ${alpha})`;
+                ctx.beginPath();
+                for (const idx of this._heatDirtyCells) {
+                    const heat = this.heatGrid[idx];
+                    if (heat >= lo && heat < hi) {
+                        const x = (idx % cols) * cs;
+                        const y = Math.floor(idx / cols) * cs;
+                        ctx.rect(x, y, cs, cs);
+                    }
+                }
+                ctx.fill();
             }
             ctx.restore();
         }
@@ -427,36 +434,51 @@ class InteractiveBackgroundEffects {
             ctx.restore();
         }
 
-        // Mouse trail ribbon
+        // Mouse trail ribbon — sort by tick to get correct temporal order from ring buffer
         if (this.hasMouseTrail && this.trailPoints.length > 2) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.lineWidth = this.trailWidth;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
+
+            // Build ordered view of ring buffer without allocating a new array:
+            // find the oldest entry and iterate from there
+            const pts = this.trailPoints;
+            const len = pts.length;
+            let startIdx = 0;
+            if (this._trailWriteIdx !== undefined && len === this.maxTrailPoints) {
+                startIdx = this._trailWriteIdx; // oldest entry
+            }
+
             if (this.trailStyle === 3) {
-                for (let i = 1; i < this.trailPoints.length; i++) {
-                    const alpha = i / this.trailPoints.length;
-                    const hue = (this.trailHue + i * 8) % 360;
+                for (let j = 1; j < len; j++) {
+                    const prev = pts[(startIdx + j - 1) % len];
+                    const curr = pts[(startIdx + j) % len];
+                    const alpha = j / len;
+                    const hue = (this.trailHue + j * 8) % 360;
                     ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${alpha * 0.3})`;
                     ctx.beginPath();
-                    ctx.moveTo(this.trailPoints[i - 1].x, this.trailPoints[i - 1].y);
-                    ctx.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
+                    ctx.moveTo(prev.x, prev.y);
+                    ctx.lineTo(curr.x, curr.y);
                     ctx.stroke();
                 }
             } else if (this.trailStyle === 1) {
-                for (let i = 0; i < this.trailPoints.length; i += 2) {
-                    const alpha = i / this.trailPoints.length;
+                for (let j = 0; j < len; j += 2) {
+                    const p = pts[(startIdx + j) % len];
+                    const alpha = j / len;
                     ctx.fillStyle = `hsla(${this.trailHue}, 60%, 60%, ${alpha * 0.3})`;
                     ctx.beginPath();
-                    ctx.arc(this.trailPoints[i].x, this.trailPoints[i].y, this.trailWidth, 0, Math.PI * 2);
+                    ctx.arc(p.x, p.y, this.trailWidth, 0, Math.PI * 2);
                     ctx.fill();
                 }
             } else {
+                const first = pts[startIdx % len];
                 ctx.beginPath();
-                ctx.moveTo(this.trailPoints[0].x, this.trailPoints[0].y);
-                for (let i = 1; i < this.trailPoints.length; i++) {
-                    ctx.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
+                ctx.moveTo(first.x, first.y);
+                for (let j = 1; j < len; j++) {
+                    const p = pts[(startIdx + j) % len];
+                    ctx.lineTo(p.x, p.y);
                 }
                 ctx.strokeStyle = `hsla(${this.trailHue}, 60%, 60%, 0.25)`;
                 ctx.stroke();

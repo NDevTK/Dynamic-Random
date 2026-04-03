@@ -252,12 +252,51 @@ export class SonicTerrain {
         ctx.lineWidth = 0.6;
         ctx.lineCap = 'round';
 
-        // Draw terrain as wireframe lines (row-major for horizontal lines)
         // Project 3D grid to 2D with perspective
-        const vanishY = H * 0.3; // vanishing point Y
+        const vanishY = H * 0.3;
         const vanishX = W * 0.5;
 
-        // Draw horizontal lines (across columns)
+        // Shaded fill strips between adjacent rows (gives depth/body to terrain)
+        for (let r = 0; r < rows - 2; r += 2) {
+            const rp0 = r / rows;
+            const rp1 = (r + 2) / rows;
+            const ps0 = 0.3 + rp0 * 0.7;
+            const ps1 = 0.3 + rp1 * 0.7;
+            const sy0Base = vanishY + (r * cs * viewAngle) * ps0;
+            const sy1Base = vanishY + ((r + 2) * cs * viewAngle) * ps1;
+
+            if (sy0Base > H + 50 || sy1Base < -50) continue;
+
+            // Sample average height for fill color
+            const midIdx = (r + 1) * cols + Math.floor(cols / 2);
+            const midHeight = heights[midIdx] || 0;
+            let fillHue;
+            if (this.mode === 2) fillHue = (hue + r * 3 + this.tick * 0.5) % 360;
+            else if (this.mode === 5) fillHue = (hue + r * 5) % 360;
+            else fillHue = (hue + rp0 * 30) % 360;
+
+            const fillAlpha = (0.01 + rp0 * 0.03 + Math.abs(midHeight) * 0.001) * intensity;
+            ctx.fillStyle = `hsla(${fillHue}, 50%, 30%, ${fillAlpha})`;
+
+            ctx.beginPath();
+            // Top edge
+            for (let c = 0; c < cols; c += 2) {
+                const sx = vanishX + (c * cs - W / 2) * ps0;
+                const sy = sy0Base - heights[r * cols + c] * ps0;
+                if (c === 0) ctx.moveTo(sx, sy);
+                else ctx.lineTo(sx, sy);
+            }
+            // Bottom edge (reversed)
+            for (let c = cols - 1; c >= 0; c -= 2) {
+                const sx = vanishX + (c * cs - W / 2) * ps1;
+                const sy = sy1Base - heights[(r + 2) * cols + Math.min(c, cols - 1)] * ps1;
+                ctx.lineTo(sx, sy);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Wireframe horizontal lines
         for (let r = 0; r < rows - 1; r++) {
             const rowProgress = r / rows;
             const perspectiveScale = 0.3 + rowProgress * 0.7;
@@ -271,7 +310,6 @@ export class SonicTerrain {
             for (let c = 0; c < cols; c++) {
                 const idx = r * cols + c;
                 const height = heights[idx];
-                const absHeight = Math.abs(height);
 
                 const screenX = vanishX + (c * cs - W / 2) * perspectiveScale;
                 const sy = screenY - height * perspectiveScale;
@@ -289,12 +327,12 @@ export class SonicTerrain {
                 }
             }
 
-            // Color by row depth and average height
             const depthAlpha = (0.05 + rowProgress * 0.15) * intensity;
             let lineHue;
             if (this.mode === 2) {
-                lineHue = (hue + r * 3 + this.tick * 0.5) % 360; // Rainbow
+                lineHue = (hue + r * 3 + this.tick * 0.5) % 360;
             } else if (this.mode === 4) {
+                // Mirror mode: higher saturation, chrome-like gradient
                 lineHue = (hue + Math.sin(r * 0.1 + this.tick * 0.01) * 30) % 360;
             } else if (this.mode === 5) {
                 lineHue = (hue + r * 5) % 360;
@@ -302,12 +340,14 @@ export class SonicTerrain {
                 lineHue = (hue + rowProgress * 30) % 360;
             }
 
-            ctx.strokeStyle = `hsla(${lineHue}, 60%, ${50 + rowProgress * 20}%, ${depthAlpha})`;
+            const sat = this.mode === 4 ? 30 : 60; // Chrome desaturated
+            const light = this.mode === 4 ? 70 + rowProgress * 20 : 50 + rowProgress * 20;
+            ctx.strokeStyle = `hsla(${lineHue}, ${sat}%, ${light}%, ${depthAlpha})`;
             ctx.stroke();
         }
 
-        // Draw vertical lines (across rows) for depth
-        for (let c = 0; c < cols; c += 2) { // Skip every other for perf
+        // Vertical lines for depth (every other column)
+        for (let c = 0; c < cols; c += 2) {
             ctx.beginPath();
             let hasStarted = false;
 
@@ -334,12 +374,38 @@ export class SonicTerrain {
             }
 
             const colProgress = c / cols;
-            const alpha = 0.04 * intensity;
+            const alpha = (this.mode === 4 ? 0.06 : 0.04) * intensity;
             ctx.strokeStyle = `hsla(${(hue2 + colProgress * 20) % 360}, 50%, 55%, ${alpha})`;
             ctx.stroke();
         }
 
-        // Highlight peaks and valleys
+        // Mode 4: mirror reflection — draw inverted faint copy below terrain
+        if (this.mode === 4) {
+            ctx.globalAlpha = 0.15 * intensity;
+            for (let r = 0; r < rows - 1; r += 2) {
+                const rowProgress = r / rows;
+                const perspectiveScale = 0.3 + rowProgress * 0.7;
+                const screenY = vanishY + (r * cs * viewAngle) * perspectiveScale;
+                if (screenY < -50 || screenY > H + 50) continue;
+
+                ctx.beginPath();
+                for (let c = 0; c < cols; c++) {
+                    const height = heights[r * cols + c];
+                    const screenX = vanishX + (c * cs - W / 2) * perspectiveScale;
+                    // Mirror: reflect height below the baseline
+                    const sy = screenY + height * perspectiveScale * 0.5;
+                    if (c === 0) ctx.moveTo(screenX, sy);
+                    else ctx.lineTo(screenX, sy);
+                }
+                const mirrorHue = (hue + rowProgress * 20) % 360;
+                ctx.strokeStyle = `hsla(${mirrorHue}, 30%, 65%, ${0.08})`;
+                ctx.lineWidth = 0.4;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Highlight peaks and valleys (every other cell)
         for (let r = 1; r < rows - 1; r += 2) {
             const rowProgress = r / rows;
             const perspectiveScale = 0.3 + rowProgress * 0.7;
@@ -366,7 +432,26 @@ export class SonicTerrain {
             }
         }
 
-        // Mode 3: draw fault lines
+        // Cursor glow indicator on terrain surface
+        const gridMX = Math.floor(this._mx / cs);
+        const gridMY = Math.floor(this._my / (cs * viewAngle));
+        if (gridMX >= 0 && gridMX < cols && gridMY >= 0 && gridMY < rows) {
+            const rp = gridMY / rows;
+            const ps = 0.3 + rp * 0.7;
+            const cursorH = heights[gridMY * cols + gridMX];
+            const sx = vanishX + (gridMX * cs - W / 2) * ps;
+            const sy = vanishY + (gridMY * cs * viewAngle) * ps - cursorH * ps;
+            ctx.fillStyle = `hsla(${hue2}, 80%, 75%, ${0.15 * intensity})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 8, 0, TAU);
+            ctx.fill();
+            ctx.fillStyle = `hsla(${hue2}, 80%, 75%, ${0.04 * intensity})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 25, 0, TAU);
+            ctx.fill();
+        }
+
+        // Mode 3: fault line rings
         if (this.mode === 3) {
             ctx.strokeStyle = `hsla(${hue2}, 80%, 60%, ${0.15 * intensity})`;
             ctx.lineWidth = 1.5;

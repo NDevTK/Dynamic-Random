@@ -14,7 +14,6 @@
  */
 
 const TAU = Math.PI * 2;
-const HALF_PI = Math.PI / 2;
 
 export class MagneticCompassField {
     constructor() {
@@ -38,14 +37,15 @@ export class MagneticCompassField {
         this._isClicking = false;
         this._wasClicking = false;
         this._clickWaves = []; // {cx, cy, radius, strength}
-        this._rippleGrid = null; // For mode 5
         this._intensity = 1;
+        this._holdEmitTimer = 0;
     }
 
     configure(rng, hues) {
         this.tick = 0;
         this.mode = Math.floor(rng() * 6);
         this._clickWaves = [];
+        this._holdEmitTimer = 0;
 
         this._hue = hues.length > 0 ? hues[0].h : Math.floor(rng() * 360);
         this._hue2 = hues.length > 1 ? hues[1].h : (this._hue + 140 + Math.floor(rng() * 80)) % 360;
@@ -101,13 +101,6 @@ export class MagneticCompassField {
                 }
             }
         }
-
-        // Mode 5: ripple propagation grid (stores last disturbance time)
-        if (this.mode === 5) {
-            this._rippleGrid = new Float32Array(count);
-        } else {
-            this._rippleGrid = null;
-        }
     }
 
     update(mx, my, isClicking) {
@@ -120,10 +113,17 @@ export class MagneticCompassField {
         const dy = my - this._pmy;
         this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
 
+        // Click: emit a single wave; hold: emit repeated weaker waves
         if (isClicking && !this._wasClicking) {
             this._clickWaves.push({ cx: mx, cy: my, radius: 0, strength: 1 });
-            if (this._clickWaves.length > 5) this._clickWaves.shift();
+            this._holdEmitTimer = 0;
+        } else if (isClicking) {
+            this._holdEmitTimer++;
+            if (this._holdEmitTimer % 12 === 0) {
+                this._clickWaves.push({ cx: mx, cy: my, radius: 0, strength: 0.4 });
+            }
         }
+        if (this._clickWaves.length > 8) this._clickWaves.splice(0, this._clickWaves.length - 8);
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
@@ -148,6 +148,7 @@ export class MagneticCompassField {
         const damping = this._damping;
         const needles = this._needles;
         const mouseSpeedFactor = Math.min(1, this._mouseSpeed * 0.02);
+        const waveCount = this._clickWaves.length;
 
         for (let row = 0; row < rows; row++) {
             const ny = row * spacing;
@@ -165,7 +166,7 @@ export class MagneticCompassField {
 
                 if (this.mode === 1) {
                     // Magnetic Storm: add jitter proportional to mouse speed
-                    targetAngle += (Math.sin(this.tick * 0.3 + col * 0.5) * mouseSpeedFactor * 1.5);
+                    targetAngle += Math.sin(this.tick * 0.3 + col * 0.5) * mouseSpeedFactor * 1.5;
                 } else if (this.mode === 3) {
                     // Tidal Pull: sinusoidal sway + cursor attraction
                     const tidalPhase = this.tick * 0.015 + col * 0.2 + row * 0.1;
@@ -174,18 +175,24 @@ export class MagneticCompassField {
                     // Broken: spin wildly
                     targetAngle = needles[idx] + 0.2 + Math.sin(this.tick * 0.1 + col) * 0.5;
                 } else if (this.mode === 5) {
-                    // Ripple: delayed reaction based on distance
-                    const dist = Math.sqrt(distSq);
-                    const delay = dist * 0.015;
+                    // Ripple: delayed reaction based on distance (avoid sqrt for perf)
+                    // Approximate delay using distSq scaled down
+                    const approxDist = (Math.abs(toMouseX) + Math.abs(toMouseY)) * 0.7; // Manhattan approx
+                    const delay = approxDist * 0.015;
                     const delayedTick = this.tick - delay;
                     targetAngle += Math.sin(delayedTick * 0.1) * 0.3;
                 }
 
-                // Click wave influence
-                for (const w of this._clickWaves) {
+                // Click wave influence (use distSq to skip far waves)
+                for (let wi = 0; wi < waveCount; wi++) {
+                    const w = this._clickWaves[wi];
                     const wdx = nx - w.cx;
                     const wdy = ny - w.cy;
-                    const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
+                    const wDistSq = wdx * wdx + wdy * wdy;
+                    // Max possible influence: radius+40, so skip if distSq > (radius+40)^2
+                    const maxDist = w.radius + 40;
+                    if (wDistSq > maxDist * maxDist) continue;
+                    const wDist = Math.sqrt(wDistSq);
                     const ringDist = Math.abs(wDist - w.radius);
                     if (ringDist < 40) {
                         const wavePush = (1 - ringDist / 40) * w.strength * Math.PI;
@@ -205,9 +212,9 @@ export class MagneticCompassField {
                 needles[idx + 1] *= damping;
                 needles[idx] += needles[idx + 1];
 
-                // Brightness: based on alignment + proximity
-                const dist = Math.sqrt(distSq);
-                const proximityBright = Math.max(0, 1 - dist / 400) * 0.5;
+                // Brightness: avoid sqrt - use approximate distance
+                const approxDist = (Math.abs(toMouseX) + Math.abs(toMouseY)) * 0.7;
+                const proximityBright = Math.max(0, 1 - approxDist / 400) * 0.5;
                 const alignBright = Math.abs(Math.cos(angleDiff)) * 0.4;
                 let brightness = 0.15 + proximityBright + alignBright;
 
@@ -221,15 +228,17 @@ export class MagneticCompassField {
                     brightness = 0.3 + Math.abs(Math.sin(this.tick * 0.15 + col)) * 0.5;
                 }
 
-                // Mode 4: broken needles infect neighbors
+                // Mode 4: broken needles infect neighbors (unique seed per neighbor)
                 if (this.mode === 4 && isBroken && this.tick % 60 === 0) {
-                    const neighbors = [
-                        [row - 1, col], [row + 1, col], [row, col - 1], [row, col + 1]
-                    ];
-                    for (const [nr, nc] of neighbors) {
-                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-                            const nIdx = (nr * cols + nc) * stride;
-                            if (needles[nIdx + 4] === 0 && ((this.tick * 2654435761) >>> 0) % 100 < 3) {
+                    const offsets = [-cols, cols, -1, 1]; // up, down, left, right
+                    const bounds = [row > 0, row < rows - 1, col > 0, col < cols - 1];
+                    for (let n = 0; n < 4; n++) {
+                        if (!bounds[n]) continue;
+                        const nIdx = ((row * cols + col) + offsets[n]) * stride;
+                        if (needles[nIdx + 4] === 0) {
+                            // Unique pseudo-random per neighbor per tick
+                            const seed = this.tick * 2654435761 + n * 1597334677 + row * 3266489917 + col * 2246822519;
+                            if (((seed >>> 0) % 100) < 3) {
                                 needles[nIdx + 4] = 1;
                             }
                         }
@@ -258,20 +267,17 @@ export class MagneticCompassField {
         const hue2 = this._hue2;
         const intensity = this._intensity;
 
-        // Batch needles by approximate brightness band for fewer fillStyle changes
-        const bands = [
-            { minB: 0.5, color: null },
-            { minB: 0.3, color: null },
-            { minB: 0.0, color: null },
+        // Batch needles by brightness band for fewer fillStyle changes
+        // Band 0: bright (>=0.5), Band 1: medium (0.3-0.5), Band 2: dim (<0.3)
+        const bandConfigs = [
+            { lo: 0.5, hi: 2,   alpha: (0.15 + 0.5 * 0.5) * intensity, lw: 1.5, light: 45 + 0.5 * 35 },
+            { lo: 0.3, hi: 0.5, alpha: (0.15 + 0.3 * 0.5) * intensity, lw: 1.3, light: 45 + 0.3 * 35 },
+            { lo: 0.0, hi: 0.3, alpha: 0.15 * intensity,                lw: 1.0, light: 45 },
         ];
 
-        for (const band of bands) {
-            const b = band.minB;
-            const alpha = (0.15 + b * 0.5) * intensity;
-            const lightness = 45 + b * 35;
-
-            ctx.strokeStyle = `hsla(${hue}, 65%, ${lightness}%, ${alpha.toFixed(3)})`;
-            ctx.lineWidth = 1 + b;
+        for (const band of bandConfigs) {
+            ctx.strokeStyle = `hsla(${hue}, 65%, ${band.light}%, ${band.alpha.toFixed(3)})`;
+            ctx.lineWidth = band.lw;
             ctx.beginPath();
 
             for (let row = 0; row < rows; row++) {
@@ -280,9 +286,7 @@ export class MagneticCompassField {
                     const idx = (row * cols + col) * stride;
                     const brightness = needles[idx + 3];
 
-                    if (brightness < band.minB) continue;
-                    if (band.minB < 0.3 && brightness >= 0.3) continue;
-                    if (band.minB < 0.5 && band.minB >= 0.3 && brightness >= 0.5) continue;
+                    if (brightness < band.lo || brightness >= band.hi) continue;
 
                     const nx = col * spacing;
                     const angle = needles[idx];
@@ -332,23 +336,54 @@ export class MagneticCompassField {
             }
         }
 
-        // Mode 2: Ley line glow
+        // Mode 2: Ley line glow — batched into a single path
         if (this.mode === 2) {
-            ctx.globalAlpha = 0.08 * intensity;
-            ctx.fillStyle = `hsl(${hue2}, 80%, 60%)`;
+            ctx.fillStyle = `hsla(${hue2}, 80%, 60%, ${0.08 * intensity})`;
+            ctx.beginPath();
+            const glowR = spacing * 0.6;
             for (let row = 0; row < rows; row++) {
                 const ny = row * spacing;
                 for (let col = 0; col < cols; col++) {
                     const idx = (row * cols + col) * stride;
                     if (needles[idx + 5] > 0) {
                         const nx = col * spacing;
-                        ctx.beginPath();
-                        ctx.arc(nx, ny, spacing * 0.6, 0, TAU);
-                        ctx.fill();
+                        ctx.moveTo(nx + glowR, ny);
+                        ctx.arc(nx, ny, glowR, 0, TAU);
                     }
                 }
             }
-            ctx.globalAlpha = 1;
+            ctx.fill();
+        }
+
+        // Mode 4: Draw "corruption" glow around broken needles
+        if (this.mode === 4) {
+            ctx.fillStyle = `hsla(${(hue + 180) % 360}, 70%, 50%, ${0.04 * intensity})`;
+            ctx.beginPath();
+            for (let row = 0; row < rows; row++) {
+                const ny = row * spacing;
+                for (let col = 0; col < cols; col++) {
+                    const idx = (row * cols + col) * stride;
+                    if (needles[idx + 4] > 0) {
+                        const nx = col * spacing;
+                        ctx.moveTo(nx + spacing * 0.5, ny);
+                        ctx.arc(nx, ny, spacing * 0.5, 0, TAU);
+                    }
+                }
+            }
+            ctx.fill();
+        }
+
+        // Click wave rings (visible ripple indicators)
+        if (this._clickWaves.length > 0) {
+            ctx.lineWidth = 1;
+            for (const w of this._clickWaves) {
+                if (w.radius < 5) continue;
+                const alpha = w.strength * 0.3 * intensity;
+                ctx.strokeStyle = `hsla(${hue2}, 70%, 70%, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(w.cx, w.cy, w.radius, 0, TAU);
+                ctx.stroke();
+            }
         }
 
         ctx.restore();

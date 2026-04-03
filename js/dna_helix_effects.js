@@ -72,14 +72,16 @@ export class DNAHelix {
                 });
             }
         } else if (this.mode === 5) {
-            // Braided: 3-5 strands flowing
+            // Braided: 3-5 strands that weave around each other
             const strandCount = 3 + Math.floor(rng() * 3);
+            const centerX = W / 2;
+            const braidAmplitude = 40 + rng() * 40;
             for (let i = 0; i < strandCount; i++) {
                 this._helices.push({
-                    cx: W * (0.2 + (i / strandCount) * 0.6),
+                    cx: centerX,
                     cy: H / 2,
-                    radius: 30 + rng() * 40,
-                    length: 40 + Math.floor(rng() * 30),
+                    radius: 25 + rng() * 30,
+                    length: 50 + Math.floor(rng() * 30),
                     twist: 0.08 + rng() * 0.15,
                     speed: 0.008 + rng() * 0.012,
                     phase: (i / strandCount) * TAU,
@@ -88,7 +90,10 @@ export class DNAHelix {
                     orbitPhase: 0,
                     hueOffset: i * (360 / strandCount),
                     vertical: true,
-                    basePairs: this._generateBasePairs(rng, 40 + Math.floor(rng() * 30)),
+                    basePairs: this._generateBasePairs(rng, 50 + Math.floor(rng() * 30)),
+                    braidIndex: i,
+                    braidCount: strandCount,
+                    braidAmplitude,
                 });
             }
         } else {
@@ -153,9 +158,9 @@ export class DNAHelix {
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
-        // Mode 2: advance read head
-        if (this.mode === 2) {
-            this._readHeadPos = (this._readHeadPos + 0.3) % (this._helices[0]?.length || 50);
+        // Mode 2: advance read head (modulo basePairs count, not helix object length)
+        if (this.mode === 2 && this._helices.length > 0) {
+            this._readHeadPos = (this._readHeadPos + 0.3) % this._helices[0].basePairs.length;
         }
 
         for (const helix of this._helices) {
@@ -228,12 +233,44 @@ export class DNAHelix {
             }
         }
 
-        // Trail persistence
+        // Trail persistence — draw glowing nodes to trail for all modes
         if (this._trailCtx) {
             const tc = this._trailCtx;
+            const tw = this._trailCanvas.width;
+            const th = this._trailCanvas.height;
             tc.globalCompositeOperation = 'destination-out';
             tc.fillStyle = 'rgba(0,0,0,0.015)';
-            tc.fillRect(0, 0, this._trailCanvas.width, this._trailCanvas.height);
+            tc.fillRect(0, 0, tw, th);
+
+            tc.globalCompositeOperation = 'lighter';
+            for (const helix of this._helices) {
+                const bpCount = helix.basePairs.length;
+                for (let i = 0; i < bpCount; i += 3) { // Every 3rd for perf
+                    const bp = helix.basePairs[i];
+                    if (bp.glow < 0.2) continue;
+                    const t = i / bpCount;
+                    const twistAngle = helix.phase + i * helix.twist;
+                    const sx = Math.cos(twistAngle);
+                    let braidOff = 0;
+                    if (this.mode === 5 && helix.braidIndex !== undefined) {
+                        const braidPhase = (helix.braidIndex / helix.braidCount) * TAU;
+                        braidOff = Math.sin(t * TAU * 2 + braidPhase + helix.phase) * helix.braidAmplitude;
+                    }
+                    let px, py;
+                    if (helix.vertical) {
+                        px = helix.cx + braidOff + sx * helix.radius;
+                        py = helix.cy + (t - 0.5) * bpCount * 12;
+                    } else {
+                        px = helix.cx + (t - 0.5) * bpCount * 12;
+                        py = helix.cy + braidOff + sx * helix.radius;
+                    }
+                    const alpha = bp.glow * 0.12;
+                    tc.fillStyle = `hsla(${(this._hue + helix.hueOffset) % 360}, 70%, 60%, ${alpha})`;
+                    tc.beginPath();
+                    tc.arc(px / 2, py / 2, 3, 0, TAU);
+                    tc.fill();
+                }
+            }
         }
     }
 
@@ -270,19 +307,29 @@ export class DNAHelix {
                 const depth1 = (Math.sin(twistAngle) + 1) / 2;
                 const depth2 = (Math.sin(twistAngle + Math.PI) + 1) / 2;
 
+                // Mode 4: unzipped strands drift apart
+                const unzipDrift = (!bp.connected && this.mode === 4) ? (1 - bp.glow) * 15 : 0;
+
+                // Mode 5: braid weaving — each strand oscillates horizontally
+                let braidOffset = 0;
+                if (this.mode === 5 && helix.braidIndex !== undefined) {
+                    const braidPhase = (helix.braidIndex / helix.braidCount) * TAU;
+                    braidOffset = Math.sin(t * TAU * 2 + braidPhase + helix.phase) * helix.braidAmplitude;
+                }
+
                 let x1, y1, x2, y2;
                 if (helix.vertical) {
                     const baseY = helix.cy + (t - 0.5) * bpCount * spacing;
-                    x1 = helix.cx + strand1X * helix.radius;
+                    x1 = helix.cx + braidOffset + strand1X * helix.radius - unzipDrift;
                     y1 = baseY;
-                    x2 = helix.cx + strand2X * helix.radius;
+                    x2 = helix.cx + braidOffset + strand2X * helix.radius + unzipDrift;
                     y2 = baseY;
                 } else {
                     const baseX = helix.cx + (t - 0.5) * bpCount * spacing;
                     x1 = baseX;
-                    y1 = helix.cy + strand1X * helix.radius;
+                    y1 = helix.cy + braidOffset + strand1X * helix.radius - unzipDrift;
                     x2 = baseX;
-                    y2 = helix.cy + strand2X * helix.radius;
+                    y2 = helix.cy + braidOffset + strand2X * helix.radius + unzipDrift;
                 }
 
                 const baseHue = (hue1 + helix.hueOffset) % 360;

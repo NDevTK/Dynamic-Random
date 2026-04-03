@@ -40,6 +40,10 @@ export class PendulumWave {
         this._trailCanvas = null;
         this._trailCtx = null;
         this._trailFade = 0.02;
+
+        // Cached bob positions to avoid recomputing 3x per frame
+        this._bobXs = null;
+        this._bobYs = null;
     }
 
     configure(rng, hues) {
@@ -127,6 +131,8 @@ export class PendulumWave {
 
         this._count = pendulumData.length;
         this._pendulums = new Float32Array(this._count * this._stride);
+        this._bobXs = new Float32Array(this._count);
+        this._bobYs = new Float32Array(this._count);
 
         for (let i = 0; i < this._count; i++) {
             const p = pendulumData[i];
@@ -209,7 +215,9 @@ export class PendulumWave {
                     // Resonance: sync phase
                     pends[base + 3] = this.tick * freq;
                 }
-                angVel += force * 0.1 * (Math.random() > 0.5 ? 1 : -1);
+                // Deterministic direction using tick-based pseudo-random
+                const dir = ((this.tick * 2654435761 + i * 1597334677) >>> 0) > 2147483648 ? 1 : -1;
+                angVel += force * 0.1 * dir;
             }
 
             // Physics: simple harmonic with energy as amplitude
@@ -248,6 +256,26 @@ export class PendulumWave {
             pends[base + 4] = energy;
         }
 
+        // Compute and cache bob positions once per frame
+        const bobXs = this._bobXs;
+        const bobYs = this._bobYs;
+        for (let i = 0; i < count; i++) {
+            const base = i * stride;
+            const ax = pends[base + 5];
+            const ay = pends[base + 6];
+            const angle = pends[base];
+            const energy = pends[base + 4];
+
+            if (this.mode === 2) {
+                const freq2 = pends[base + 2] * 1.618;
+                bobXs[i] = ax + Math.sin(this.tick * pends[base + 2] + pends[base + 3]) * armLen * energy;
+                bobYs[i] = ay + Math.cos(this.tick * freq2 + pends[base + 3]) * armLen * energy;
+            } else {
+                bobXs[i] = ax + Math.sin(angle) * armLen;
+                bobYs[i] = ay + Math.cos(angle) * armLen * 0.3 + armLen * 0.7;
+            }
+        }
+
         // Draw to trail canvas
         if (this._trailCtx) {
             const tc = this._trailCtx;
@@ -260,28 +288,12 @@ export class PendulumWave {
             tc.globalCompositeOperation = 'lighter';
 
             for (let i = 0; i < count; i++) {
-                const base = i * stride;
-                const ax = pends[base + 5];
-                const ay = pends[base + 6];
-                const angle = pends[base];
-                const energy = pends[base + 4];
-
-                let bobX, bobY;
-                if (this.mode === 2) {
-                    // Lissajous: bob traces elliptical path
-                    const freq2 = pends[base + 2] * 1.618; // golden ratio frequency
-                    bobX = ax + Math.sin(this.tick * pends[base + 2] + pends[base + 3]) * armLen * energy;
-                    bobY = ay + Math.cos(this.tick * freq2 + pends[base + 3]) * armLen * energy;
-                } else {
-                    bobX = ax + Math.sin(angle) * armLen;
-                    bobY = ay + Math.cos(angle) * armLen * 0.3 + armLen * 0.7;
-                }
-
+                const energy = pends[i * stride + 4];
                 const alpha = energy * 0.15 * this._intensity;
                 const hue = (this._hue + energy * 40) % 360;
                 tc.fillStyle = `hsla(${hue}, 70%, 60%, ${alpha})`;
                 tc.beginPath();
-                tc.arc(bobX / 2, bobY / 2, this._bobSize * energy, 0, TAU);
+                tc.arc(bobXs[i] / 2, bobYs[i] / 2, this._bobSize * energy, 0, TAU);
                 tc.fill();
             }
         }
@@ -304,81 +316,94 @@ export class PendulumWave {
         const pends = this._pendulums;
         const stride = this._stride;
         const count = this._count;
-        const armLen = this._armLength;
         const hue = this._hue;
         const hue2 = this._hue2;
         const intensity = this._intensity;
+        const bobXs = this._bobXs;
+        const bobYs = this._bobYs;
 
-        // Draw arms and bobs
+        if (!bobXs) { ctx.restore(); return; }
+
+        // Draw arms — batched into single path
         ctx.lineWidth = 0.5;
         ctx.lineCap = 'round';
-
-        // Batch arms
         ctx.strokeStyle = `hsla(${hue}, 40%, 50%, ${0.12 * intensity})`;
         ctx.beginPath();
         for (let i = 0; i < count; i++) {
             const base = i * stride;
-            const ax = pends[base + 5];
-            const ay = pends[base + 6];
-            const angle = pends[base];
-            const energy = pends[base + 4];
-
-            let bobX, bobY;
-            if (this.mode === 2) {
-                const freq2 = pends[base + 2] * 1.618;
-                bobX = ax + Math.sin(this.tick * pends[base + 2] + pends[base + 3]) * armLen * energy;
-                bobY = ay + Math.cos(this.tick * freq2 + pends[base + 3]) * armLen * energy;
-            } else {
-                bobX = ax + Math.sin(angle) * armLen;
-                bobY = ay + Math.cos(angle) * armLen * 0.3 + armLen * 0.7;
-            }
-
-            ctx.moveTo(ax, ay);
-            ctx.lineTo(bobX, bobY);
+            ctx.moveTo(pends[base + 5], pends[base + 6]);
+            ctx.lineTo(bobXs[i], bobYs[i]);
         }
         ctx.stroke();
 
-        // Draw bobs with glow
-        for (let i = 0; i < count; i++) {
-            const base = i * stride;
-            const ax = pends[base + 5];
-            const ay = pends[base + 6];
-            const angle = pends[base];
-            const energy = pends[base + 4];
-
-            let bobX, bobY;
-            if (this.mode === 2) {
-                const freq2 = pends[base + 2] * 1.618;
-                bobX = ax + Math.sin(this.tick * pends[base + 2] + pends[base + 3]) * armLen * energy;
-                bobY = ay + Math.cos(this.tick * freq2 + pends[base + 3]) * armLen * energy;
-            } else {
-                bobX = ax + Math.sin(angle) * armLen;
-                bobY = ay + Math.cos(angle) * armLen * 0.3 + armLen * 0.7;
+        // Mode 3: coupling springs between sequential pendulums
+        if (this.mode === 3 && count > 1) {
+            ctx.lineWidth = 0.4;
+            ctx.beginPath();
+            for (let i = 0; i < count - 1; i++) {
+                const e1 = pends[i * stride + 4];
+                const e2 = pends[(i + 1) * stride + 4];
+                const ddx = bobXs[i + 1] - bobXs[i];
+                const ddy = bobYs[i + 1] - bobYs[i];
+                if (ddx * ddx + ddy * ddy < 10000) { // Only draw if close enough (100px)
+                    ctx.moveTo(bobXs[i], bobYs[i]);
+                    ctx.lineTo(bobXs[i + 1], bobYs[i + 1]);
+                }
             }
+            ctx.strokeStyle = `hsla(${(hue + 60) % 360}, 50%, 55%, ${0.1 * intensity})`;
+            ctx.stroke();
+        }
 
+        // Mode 5: resonance wave connections — when pendulums are in phase, draw arcs
+        if (this.mode === 5 && count > 1) {
+            ctx.lineWidth = 0.3;
+            ctx.beginPath();
+            for (let i = 0; i < count; i++) {
+                for (let j = i + 1; j < Math.min(i + 6, count); j++) {
+                    const angleDiff = Math.abs(pends[i * stride] - pends[j * stride]);
+                    const normalized = ((angleDiff % TAU) + TAU) % TAU;
+                    // In-phase: near 0 or TAU
+                    const phaseProximity = Math.min(normalized, TAU - normalized);
+                    if (phaseProximity < 0.3) {
+                        ctx.moveTo(bobXs[i], bobYs[i]);
+                        ctx.lineTo(bobXs[j], bobYs[j]);
+                    }
+                }
+            }
+            ctx.strokeStyle = `hsla(${hue2}, 60%, 65%, ${0.08 * intensity})`;
+            ctx.stroke();
+        }
+
+        // Draw bobs — batch glow, core, and hot center separately
+        // Outer glow (only high-energy)
+        ctx.beginPath();
+        for (let i = 0; i < count; i++) {
+            const energy = pends[i * stride + 4];
+            if (energy <= 0.5) continue;
+            const size = this._bobSize * (0.6 + energy * 0.4);
+            ctx.moveTo(bobXs[i] + size * 4, bobYs[i]);
+            ctx.arc(bobXs[i], bobYs[i], size * 4, 0, TAU);
+        }
+        ctx.fillStyle = `hsla(${hue2}, 60%, 55%, ${0.08 * intensity})`;
+        ctx.fill();
+
+        // Core bobs
+        for (let i = 0; i < count; i++) {
+            const energy = pends[i * stride + 4];
             const bobHue = (hue2 + energy * 60) % 360;
             const alpha = (0.2 + energy * 0.3) * intensity;
             const size = this._bobSize * (0.6 + energy * 0.4);
 
-            // Outer glow
-            if (energy > 0.5) {
-                ctx.fillStyle = `hsla(${bobHue}, 60%, 55%, ${alpha * 0.15})`;
-                ctx.beginPath();
-                ctx.arc(bobX, bobY, size * 4, 0, TAU);
-                ctx.fill();
-            }
-
-            // Core
             ctx.fillStyle = `hsla(${bobHue}, 70%, 65%, ${alpha})`;
             ctx.beginPath();
-            ctx.arc(bobX, bobY, size, 0, TAU);
+            ctx.arc(bobXs[i], bobYs[i], size, 0, TAU);
             ctx.fill();
 
             // Hot center at high energy
             if (energy > 1) {
                 ctx.fillStyle = `hsla(${bobHue}, 30%, 90%, ${(energy - 1) * 0.4 * intensity})`;
                 ctx.beginPath();
-                ctx.arc(bobX, bobY, size * 0.4, 0, TAU);
+                ctx.arc(bobXs[i], bobYs[i], size * 0.4, 0, TAU);
                 ctx.fill();
             }
         }

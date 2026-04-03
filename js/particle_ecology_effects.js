@@ -122,21 +122,25 @@ export class ParticleEcology {
     }
 
     _createParticle(rng, type, x, y) {
-        const speeds = { spore: 0.2, grazer: 1.2, hunter: 2.0, decomposer: 0.8 };
-        const sizes = { spore: 2, grazer: 3, hunter: 3.5, decomposer: 2.5 };
+        // Inline lookup instead of dictionary allocation each call
+        let speed, size, maxAge;
+        switch (type) {
+            case 'spore':      speed = 0.2; size = 2;   maxAge = 600 + Math.floor(rng() * 400); break;
+            case 'grazer':     speed = 1.2; size = 3;   maxAge = 800 + Math.floor(rng() * 400); break;
+            case 'hunter':     speed = 2.0; size = 3.5; maxAge = 500 + Math.floor(rng() * 300); break;
+            case 'decomposer': speed = 0.8; size = 2.5; maxAge = 700 + Math.floor(rng() * 300); break;
+            default:           speed = 1.0; size = 2.5; maxAge = 600;
+        }
         return {
             type,
             x, y,
-            vx: (rng() - 0.5) * speeds[type],
-            vy: (rng() - 0.5) * speeds[type],
-            size: sizes[type] * (0.7 + rng() * 0.6),
+            vx: (rng() - 0.5) * speed,
+            vy: (rng() - 0.5) * speed,
+            size: size * (0.7 + rng() * 0.6),
             energy: 0.5 + rng() * 0.5,
-            maxSpeed: speeds[type] * (0.8 + rng() * 0.4),
+            maxSpeed: speed * (0.8 + rng() * 0.4),
             age: 0,
-            maxAge: type === 'spore' ? 600 + Math.floor(rng() * 400)
-                : type === 'grazer' ? 800 + Math.floor(rng() * 400)
-                : type === 'hunter' ? 500 + Math.floor(rng() * 300)
-                : 700 + Math.floor(rng() * 300),
+            maxAge,
             partner: null, // Mode 5 symbiosis
             wanderAngle: rng() * TAU,
             _gridNext: null,
@@ -153,6 +157,37 @@ export class ParticleEcology {
             p._gridNext = this._grid[cellIdx];
             this._grid[cellIdx] = i;
         }
+    }
+
+    _findNearestDying(p, range) {
+        const col = Math.max(0, Math.min(this._gridCols - 1, Math.floor(p.x / this._gridCellSize)));
+        const row = Math.max(0, Math.min(this._gridRows - 1, Math.floor(p.y / this._gridCellSize)));
+        const cellRange = Math.ceil(range / this._gridCellSize);
+        let nearest = null, nearDistSq = range * range;
+
+        for (let dr = -cellRange; dr <= cellRange; dr++) {
+            const r2 = row + dr;
+            if (r2 < 0 || r2 >= this._gridRows) continue;
+            for (let dc = -cellRange; dc <= cellRange; dc++) {
+                const c2 = col + dc;
+                if (c2 < 0 || c2 >= this._gridCols) continue;
+                let idx = this._grid[r2 * this._gridCols + c2];
+                while (idx !== null && idx !== undefined) {
+                    const other = this._particles[idx];
+                    if (other !== p && other.type !== 'decomposer' && other.energy < 0.2 && other.energy > 0) {
+                        const dx = other.x - p.x;
+                        const dy = other.y - p.y;
+                        const dSq = dx * dx + dy * dy;
+                        if (dSq < nearDistSq) {
+                            nearDistSq = dSq;
+                            nearest = other;
+                        }
+                    }
+                    idx = other._gridNext;
+                }
+            }
+        }
+        return nearest;
     }
 
     _findNearest(p, typeFilter, range) {
@@ -278,7 +313,13 @@ export class ParticleEcology {
                 if (p.energy > 0.9 && this._particles.length + toAdd.length < this._maxParticles && this.tick % 30 === 0) {
                     const pr = ((this.tick * 2654435761 + i * 1234567) >>> 0) / 4294967296;
                     if (pr < 0.1) {
-                        const child = this._createParticle(() => ((this.tick * 2246822519 + i * 3266489917) >>> 0) / 4294967296,
+                        // Create a counter-based RNG for the child particle
+                        let childSeed = this.tick * 1597334677 + i * 2246822519;
+                        const childRng = () => {
+                            childSeed = (childSeed * 1664525 + 1013904223) >>> 0;
+                            return childSeed / 4294967296;
+                        };
+                        const child = this._createParticle(childRng,
                             'spore', p.x + (pr - 0.5) * 20, p.y + (pr - 0.5) * 20);
                         child.energy = 0.3;
                         toAdd.push(child);
@@ -326,9 +367,29 @@ export class ParticleEcology {
                     }
                 }
             } else if (p.type === 'decomposer') {
-                // Move toward dead particles (any particle with low energy nearby)
-                // Mode 3: connect via mycelium (handled in draw)
-                p.energy = Math.min(1, p.energy + 0.0005); // Slow passive regen
+                // Seek low-energy particles to feed on (recycling)
+                const corpse = this._findNearestDying(p, 100);
+                if (corpse) {
+                    const cdx = corpse.x - p.x;
+                    const cdy = corpse.y - p.y;
+                    const cDist = Math.sqrt(cdx * cdx + cdy * cdy);
+                    p.vx += (cdx / cDist) * 0.04;
+                    p.vy += (cdy / cDist) * 0.04;
+                    if (cDist < 15) {
+                        p.energy = Math.min(1, p.energy + 0.15);
+                        corpse.energy = 0; // Consume it
+                        // Boost nearby energy nodes
+                        for (const node of this._energyNodes) {
+                            const ndx = p.x - node.x;
+                            const ndy = p.y - node.y;
+                            if (ndx * ndx + ndy * ndy < node.radius * node.radius) {
+                                node.energy = Math.min(1, node.energy + 0.05);
+                            }
+                        }
+                    }
+                } else {
+                    p.energy = Math.min(1, p.energy + 0.0005); // Slow passive regen
+                }
             }
 
             // Mode 5: symbiosis - orbit partner
@@ -495,7 +556,7 @@ export class ParticleEcology {
             }
         }
 
-        // Draw particles
+        // Draw particles with species-specific shapes
         for (const p of this._particles) {
             if (p.energy <= 0) continue;
 
@@ -516,10 +577,41 @@ export class ParticleEcology {
                 ctx.fill();
             }
 
-            // Core
             ctx.fillStyle = `hsla(${hue}, 70%, ${lightness}%, ${alpha})`;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, size, 0, TAU);
+
+            if (p.type === 'spore') {
+                // Spores: soft hexagonal bloom
+                for (let k = 0; k < 6; k++) {
+                    const a = (k / 6) * TAU;
+                    const lx = p.x + Math.cos(a) * size;
+                    const ly = p.y + Math.sin(a) * size;
+                    if (k === 0) ctx.moveTo(lx, ly);
+                    else ctx.lineTo(lx, ly);
+                }
+                ctx.closePath();
+            } else if (p.type === 'hunter') {
+                // Hunters: sharp triangle pointing in movement direction
+                const angle = Math.atan2(p.vy, p.vx);
+                ctx.moveTo(p.x + Math.cos(angle) * size * 1.8, p.y + Math.sin(angle) * size * 1.8);
+                ctx.lineTo(p.x + Math.cos(angle + 2.4) * size, p.y + Math.sin(angle + 2.4) * size);
+                ctx.lineTo(p.x + Math.cos(angle - 2.4) * size, p.y + Math.sin(angle - 2.4) * size);
+                ctx.closePath();
+            } else if (p.type === 'decomposer') {
+                // Decomposers: 4-pointed star
+                for (let k = 0; k < 8; k++) {
+                    const a = (k / 8) * TAU;
+                    const r = k % 2 === 0 ? size * 1.3 : size * 0.5;
+                    const lx = p.x + Math.cos(a) * r;
+                    const ly = p.y + Math.sin(a) * r;
+                    if (k === 0) ctx.moveTo(lx, ly);
+                    else ctx.lineTo(lx, ly);
+                }
+                ctx.closePath();
+            } else {
+                // Grazers: circle (default)
+                ctx.arc(p.x, p.y, size, 0, TAU);
+            }
             ctx.fill();
 
             // Hot center for full energy

@@ -42,12 +42,19 @@ export class MorphingGeometry {
         this._spiroR = 0;
         this._spiroR2 = 0;
         this._spiroD = 0;
-        this._spiroTrail = [];
+        this._spiroTrailX = null; // Ring buffer Float32Array
+        this._spiroTrailY = null;
+        this._spiroTrailHue = null;
         this._spiroMaxTrail = 2000;
+        this._spiroWriteIdx = 0;
+        this._spiroCount = 0;
 
         // Trail canvas
         this._trailCanvas = null;
         this._trailCtx = null;
+
+        // Cursor proximity pulse
+        this._cursorPulse = 0;
     }
 
     configure(rng, hues) {
@@ -58,7 +65,9 @@ export class MorphingGeometry {
         this._targetForm = 0;
         this._rotation = 0;
         this._breathPhase = 0;
-        this._spiroTrail = [];
+        this._cursorPulse = 0;
+        this._spiroWriteIdx = 0;
+        this._spiroCount = 0;
 
         this._hue = hues.length > 0 ? hues[0].h : Math.floor(rng() * 360);
         this._hue2 = hues.length > 1 ? hues[1].h : (this._hue + 150) % 360;
@@ -68,11 +77,14 @@ export class MorphingGeometry {
         this._layers = 2 + Math.floor(rng() * 4);
         this._scale = 0.6 + rng() * 0.4;
 
-        // Mode 3: spirograph parameters
+        // Mode 3: spirograph parameters + ring buffer
         if (this.mode === 3) {
             this._spiroR = 80 + rng() * 100;
             this._spiroR2 = 20 + rng() * 60;
             this._spiroD = 30 + rng() * 80;
+            this._spiroTrailX = new Float32Array(this._spiroMaxTrail);
+            this._spiroTrailY = new Float32Array(this._spiroMaxTrail);
+            this._spiroTrailHue = new Float32Array(this._spiroMaxTrail);
         }
 
         const W = window.innerWidth;
@@ -100,10 +112,12 @@ export class MorphingGeometry {
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
-        // Click: advance to next form
+        // Click: advance to next form + trigger pulse
         if (clickJust) {
             this._targetForm = (this._targetForm + 1) % 6;
+            this._cursorPulse = 1;
         }
+        this._cursorPulse *= 0.95;
 
         // Morph toward target
         if (this._currentForm !== this._targetForm) {
@@ -118,8 +132,8 @@ export class MorphingGeometry {
         this._rotation += this._rotationSpeed + this._mouseSpeed * 0.0003;
         this._breathPhase += this._breathSpeed;
 
-        // Mode 3: spirograph trail
-        if (this.mode === 3) {
+        // Mode 3: spirograph trail (ring buffer — no .shift() GC pressure)
+        if (this.mode === 3 && this._spiroTrailX) {
             const t = this.tick * 0.02;
             const R = this._spiroR;
             const r = this._spiroR2;
@@ -127,17 +141,18 @@ export class MorphingGeometry {
             const cx = window.innerWidth / 2;
             const cy = window.innerHeight / 2;
 
-            // Cursor influences center
             const offX = (mx - cx) * 0.1;
             const offY = (my - cy) * 0.1;
 
             const x = cx + offX + (R - r) * Math.cos(t) + d * Math.cos((R - r) / r * t);
             const y = cy + offY + (R - r) * Math.sin(t) - d * Math.sin((R - r) / r * t);
 
-            this._spiroTrail.push({ x, y, hue: (this._hue + this.tick * 0.5) % 360 });
-            if (this._spiroTrail.length > this._spiroMaxTrail) {
-                this._spiroTrail.shift();
-            }
+            const wi = this._spiroWriteIdx;
+            this._spiroTrailX[wi] = x;
+            this._spiroTrailY[wi] = y;
+            this._spiroTrailHue[wi] = (this._hue + this.tick * 0.5) % 360;
+            this._spiroWriteIdx = (wi + 1) % this._spiroMaxTrail;
+            this._spiroCount = Math.min(this._spiroCount + 1, this._spiroMaxTrail);
         }
 
         // Trail fade
@@ -294,32 +309,45 @@ export class MorphingGeometry {
             ctx.arc(cx, cy, 20, 0, TAU);
             ctx.fill();
         } else if (this.mode === 3) {
-            // Spirograph
-            if (this._spiroTrail.length > 1) {
+            // Spirograph — batched drawing from ring buffer
+            const trailLen = this._spiroCount;
+            if (trailLen > 1 && this._spiroTrailX) {
+                const maxT = this._spiroMaxTrail;
+                const startIdx = trailLen < maxT ? 0 : this._spiroWriteIdx;
+                const xs = this._spiroTrailX;
+                const ys = this._spiroTrailY;
+                const hs = this._spiroTrailHue;
+
+                // Draw in batches of ~100 segments per color band for perf
                 ctx.lineWidth = 1.5;
                 ctx.lineCap = 'round';
-                for (let i = 1; i < this._spiroTrail.length; i++) {
-                    const p0 = this._spiroTrail[i - 1];
-                    const p1 = this._spiroTrail[i];
-                    const t = i / this._spiroTrail.length;
-                    const alpha = t * 0.25 * intensity;
-                    ctx.strokeStyle = `hsla(${p1.hue}, 70%, 60%, ${alpha})`;
+                const batchSize = 100;
+                for (let batch = 0; batch < trailLen - 1; batch += batchSize) {
+                    const batchEnd = Math.min(batch + batchSize, trailLen - 1);
+                    const midIdx = (startIdx + Math.floor((batch + batchEnd) / 2)) % maxT;
+                    const midT = (batch + batchEnd) / 2 / trailLen;
+                    const alpha = midT * 0.25 * intensity;
+                    ctx.strokeStyle = `hsla(${hs[midIdx]}, 70%, 60%, ${alpha.toFixed(3)})`;
                     ctx.beginPath();
-                    ctx.moveTo(p0.x, p0.y);
-                    ctx.lineTo(p1.x, p1.y);
+                    for (let j = batch; j < batchEnd; j++) {
+                        const i0 = (startIdx + j) % maxT;
+                        const i1 = (startIdx + j + 1) % maxT;
+                        ctx.moveTo(xs[i0], ys[i0]);
+                        ctx.lineTo(xs[i1], ys[i1]);
+                    }
                     ctx.stroke();
                 }
 
                 // Bright tip
-                const tip = this._spiroTrail[this._spiroTrail.length - 1];
-                ctx.fillStyle = `hsla(${tip.hue}, 80%, 80%, ${0.6 * intensity})`;
+                const tipIdx = (startIdx + trailLen - 1) % maxT;
+                ctx.fillStyle = `hsla(${hs[tipIdx]}, 80%, 80%, ${0.6 * intensity})`;
                 ctx.beginPath();
-                ctx.arc(tip.x, tip.y, 3, 0, TAU);
+                ctx.arc(xs[tipIdx], ys[tipIdx], 3, 0, TAU);
                 ctx.fill();
 
-                ctx.fillStyle = `hsla(${tip.hue}, 80%, 80%, ${0.1 * intensity})`;
+                ctx.fillStyle = `hsla(${hs[tipIdx]}, 80%, 80%, ${0.1 * intensity})`;
                 ctx.beginPath();
-                ctx.arc(tip.x, tip.y, 15, 0, TAU);
+                ctx.arc(xs[tipIdx], ys[tipIdx], 15, 0, TAU);
                 ctx.fill();
             }
 
@@ -405,6 +433,17 @@ export class MorphingGeometry {
             // Fractal Mandala
             const maxDepth = Math.min(4, this._layers + 1);
             this._drawMandala(ctx, cx + distX * 10, cy + distY * 10, baseSize, maxDepth, rot, hue, intensity);
+        }
+
+        // Click pulse ring (all modes)
+        if (this._cursorPulse > 0.05) {
+            const pulseRadius = (1 - this._cursorPulse) * 80 + 10;
+            const pulseAlpha = this._cursorPulse * 0.3 * intensity;
+            ctx.strokeStyle = `hsla(${hue2}, 80%, 75%, ${pulseAlpha})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(this._mx, this._my, pulseRadius, 0, TAU);
+            ctx.stroke();
         }
 
         ctx.restore();

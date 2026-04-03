@@ -15,6 +15,10 @@
 
 const TAU = Math.PI * 2;
 
+function _prand(seed) {
+    return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+}
+
 export class MirrorDimension {
     constructor() {
         this.mode = 0;
@@ -45,12 +49,14 @@ export class MirrorDimension {
 
         // Prism rays
         this._rays = [];
+        this._rayPool = [];
         this._maxRays = 30;
 
         // Mandala points
         this._mandalaPoints = [];
         this._mandalaRings = [];
         this._maxMandalaPoints = 200;
+        this._mandalaRingPool = [];
 
         // Dimensional tears
         this._tears = [];
@@ -60,6 +66,9 @@ export class MirrorDimension {
         this._centerX = 0;
         this._centerY = 0;
         this._breathe = 0;
+
+        // Spawn counter
+        this._spawnIdx = 0;
     }
 
     configure(rng, palette) {
@@ -76,20 +85,21 @@ export class MirrorDimension {
         this._mandalaRings = [];
         this._tears = [];
         this._shatterProgress = 0;
+        this._spawnIdx = 0;
 
         const W = window.innerWidth, H = window.innerHeight;
         this._centerX = W / 2;
         this._centerY = H / 2;
 
         switch (this.mode) {
-            case 0: // Kaleidoscope
-                this._segments = 4 + Math.floor(rng() * 9); // 4-12 fold symmetry
+            case 0:
+                this._segments = 4 + Math.floor(rng() * 9);
                 this._rotSpeed = 0.001 + rng() * 0.003;
                 break;
-            case 1: // Shattered Glass
+            case 1:
                 this._generateShards(rng, W, H);
                 break;
-            case 2: // Infinite Corridor
+            case 2:
                 this._corridorDepth = 6 + Math.floor(rng() * 6);
                 for (let i = 0; i < this._corridorDepth; i++) {
                     this._frames.push({
@@ -102,25 +112,23 @@ export class MirrorDimension {
                     });
                 }
                 break;
-            case 3: // Prism Split
+            case 3:
                 this._maxRays = 15 + Math.floor(rng() * 20);
                 break;
-            case 4: // Mandala Weaver
+            case 4:
                 this._segments = 6 + Math.floor(rng() * 10);
                 break;
-            case 5: // Dimensional Tear
+            case 5:
                 break;
         }
     }
 
     _generateShards(rng, W, H) {
-        // Generate Voronoi-like shards using random seed points
         const pointCount = 8 + Math.floor(rng() * 8);
         const seeds = [];
         for (let i = 0; i < pointCount; i++) {
             seeds.push({ x: rng() * W, y: rng() * H });
         }
-        // Create shards as convex regions (simplified: circles around seed points)
         for (let i = 0; i < pointCount; i++) {
             let minDist = Infinity;
             for (let j = 0; j < pointCount; j++) {
@@ -141,6 +149,10 @@ export class MirrorDimension {
         }
     }
 
+    _pr() {
+        return _prand(++this._spawnIdx * 97 + this.tick * 31);
+    }
+
     update(mx, my, isClicking) {
         this.tick++;
         this._pmx = this._mx; this._pmy = this._my;
@@ -150,13 +162,11 @@ export class MirrorDimension {
         this._breathe = Math.sin(this.tick * 0.015) * 0.5 + 0.5;
 
         if (this.mode === 0) {
-            // Kaleidoscope: rotation follows mouse angle
             const angle = Math.atan2(my - this._centerY, mx - this._centerX);
             this._targetRot = angle * 0.3;
             this._rotation += (this._targetRot - this._rotation) * 0.05;
             this._rotation += this._rotSpeed;
         } else if (this.mode === 1) {
-            // Shattered glass: shards shift based on cursor proximity
             for (const shard of this._shards) {
                 const sdx = mx - shard.cx, sdy = my - shard.cy;
                 const dist = Math.sqrt(sdx * sdx + sdy * sdy);
@@ -175,7 +185,6 @@ export class MirrorDimension {
             }
             this._shatterProgress *= 0.97;
         } else if (this.mode === 2) {
-            // Infinite corridor: frames wobble
             for (const frame of this._frames) {
                 frame.wobblePhase += frame.wobbleSpeed;
             }
@@ -183,20 +192,33 @@ export class MirrorDimension {
             // Prism: spawn rays from cursor
             if (this._mouseSpeed > 2 && this._rays.length < this._maxRays) {
                 const angle = Math.atan2(dy, dx);
-                const spread = TAU / 7; // Spectral spread
+                const spread = TAU / 7;
                 for (let i = 0; i < 7 && this._rays.length < this._maxRays; i++) {
-                    this._rays.push({
-                        x: mx, y: my,
-                        angle: angle + (i - 3) * spread * 0.15,
-                        speed: 3 + Math.random() * 4,
-                        hue: (this.hue + i * 51) % 360, // Spectral colors
-                        life: 1.0,
-                        width: 1 + Math.random() * 2,
-                        length: 20 + Math.random() * 40,
-                    });
+                    const ray = this._rayPool.length > 0 ? this._rayPool.pop() : {};
+                    ray.x = mx; ray.y = my;
+                    ray.angle = angle + (i - 3) * spread * 0.15;
+                    ray.speed = 3 + this._pr() * 4;
+                    ray.hue = (this.hue + i * 51) % 360;
+                    ray.life = 1.0;
+                    ray.width = 1 + this._pr() * 2;
+                    ray.length = 20 + this._pr() * 40;
+                    this._rays.push(ray);
                 }
             }
-            // Update rays
+            // Click: burst of spectral rays in all directions
+            if (isClicking && !this._wasClicking) {
+                for (let i = 0; i < 14 && this._rays.length < this._maxRays; i++) {
+                    const ray = this._rayPool.length > 0 ? this._rayPool.pop() : {};
+                    ray.x = mx; ray.y = my;
+                    ray.angle = (i / 14) * TAU;
+                    ray.speed = 4 + this._pr() * 5;
+                    ray.hue = (this.hue + i * 26) % 360;
+                    ray.life = 1.0;
+                    ray.width = 1.5 + this._pr() * 2;
+                    ray.length = 30 + this._pr() * 50;
+                    this._rays.push(ray);
+                }
+            }
             for (let i = this._rays.length - 1; i >= 0; i--) {
                 const r = this._rays[i];
                 r.x += Math.cos(r.angle) * r.speed;
@@ -204,12 +226,12 @@ export class MirrorDimension {
                 r.life -= 0.015;
                 if (r.life <= 0 || r.x < -50 || r.x > window.innerWidth + 50 ||
                     r.y < -50 || r.y > window.innerHeight + 50) {
+                    if (this._rayPool.length < 50) this._rayPool.push(r);
                     this._rays[i] = this._rays[this._rays.length - 1];
                     this._rays.pop();
                 }
             }
         } else if (this.mode === 4) {
-            // Mandala: record cursor positions and symmetrize
             if (this._mouseSpeed > 1 && this.tick % 2 === 0) {
                 if (this._mandalaPoints.length < this._maxMandalaPoints) {
                     this._mandalaPoints.push({
@@ -221,7 +243,6 @@ export class MirrorDimension {
                     });
                 }
             }
-            // Decay mandala points
             for (let i = this._mandalaPoints.length - 1; i >= 0; i--) {
                 this._mandalaPoints[i].life -= 0.002;
                 if (this._mandalaPoints[i].life <= 0) {
@@ -229,22 +250,34 @@ export class MirrorDimension {
                     this._mandalaPoints.pop();
                 }
             }
-            // Click creates a ring
+            // Click: create ring + burst of mandala points
             if (isClicking && !this._wasClicking) {
                 const dist = Math.sqrt((mx - this._centerX) ** 2 + (my - this._centerY) ** 2);
-                this._mandalaRings.push({
-                    radius: dist, life: 1.0, hue: (this.hue + this.tick) % 360
-                });
+                const ring = this._mandalaRingPool.length > 0 ? this._mandalaRingPool.pop() : {};
+                ring.radius = dist; ring.life = 1.0; ring.hue = (this.hue + this.tick) % 360;
+                this._mandalaRings.push(ring);
+                // Burst of symmetrical points around click
+                for (let i = 0; i < 12 && this._mandalaPoints.length < this._maxMandalaPoints; i++) {
+                    const angle = (i / 12) * TAU;
+                    const r = 20 + this._pr() * 30;
+                    this._mandalaPoints.push({
+                        dx: mx - this._centerX + Math.cos(angle) * r,
+                        dy: my - this._centerY + Math.sin(angle) * r,
+                        life: 1.0,
+                        hue: (this.hue + i * 30) % 360,
+                        size: 2 + this._pr() * 3,
+                    });
+                }
             }
             for (let i = this._mandalaRings.length - 1; i >= 0; i--) {
                 this._mandalaRings[i].life -= 0.005;
                 if (this._mandalaRings[i].life <= 0) {
+                    if (this._mandalaRingPool.length < 20) this._mandalaRingPool.push(this._mandalaRings[i]);
                     this._mandalaRings[i] = this._mandalaRings[this._mandalaRings.length - 1];
                     this._mandalaRings.pop();
                 }
             }
         } else if (this.mode === 5) {
-            // Dimensional tears
             if (this._mouseSpeed > 5 && this.tick % 8 === 0) {
                 const tear = this._tearPool.length > 0 ? this._tearPool.pop() : {};
                 tear.x = mx; tear.y = my;
@@ -252,16 +285,30 @@ export class MirrorDimension {
                 tear.width = 5 + this._mouseSpeed * 0.5;
                 tear.length = 20 + this._mouseSpeed * 2;
                 tear.life = 1.0;
-                tear.hue = (this.hue + Math.random() * 40) % 360;
+                tear.hue = (this.hue + this._pr() * 40) % 360;
                 tear.peelAmount = 0;
                 this._tears.push(tear);
+            }
+            // Click: spawn radial burst of tears
+            if (isClicking && !this._wasClicking) {
+                for (let i = 0; i < 8; i++) {
+                    const tear = this._tearPool.length > 0 ? this._tearPool.pop() : {};
+                    tear.x = mx; tear.y = my;
+                    tear.angle = (i / 8) * TAU;
+                    tear.width = 8 + this._pr() * 5;
+                    tear.length = 30 + this._pr() * 30;
+                    tear.life = 1.0;
+                    tear.hue = (this.hue + i * 45) % 360;
+                    tear.peelAmount = 0;
+                    this._tears.push(tear);
+                }
             }
             for (let i = this._tears.length - 1; i >= 0; i--) {
                 const t = this._tears[i];
                 t.peelAmount = Math.min(1, t.peelAmount + 0.03);
                 t.life -= 0.008;
                 if (t.life <= 0) {
-                    this._tearPool.push(t);
+                    if (this._tearPool.length < 30) this._tearPool.push(t);
                     this._tears[i] = this._tears[this._tears.length - 1];
                     this._tears.pop();
                 }
@@ -291,52 +338,45 @@ export class MirrorDimension {
         const maxR = Math.min(system.width, system.height) * 0.4;
         const r = Math.min(maxR, 50 + dist * 0.5 + this._breathe * 30);
         const n = this._segments;
+        const baseAlpha = (0.04 + this._breathe * 0.03) * this.intensity;
 
         for (let i = 0; i < n; i++) {
             const angle = this._rotation + (i / n) * TAU;
             const nextAngle = this._rotation + ((i + 1) / n) * TAU;
             const hue = (this.hue + i * (360 / n)) % 360;
-            const alpha = (0.04 + this._breathe * 0.03) * this.intensity;
 
             // Filled segment
-            ctx.fillStyle = `hsla(${hue}, 60%, 55%, ${alpha})`;
+            ctx.fillStyle = `hsla(${hue},60%,55%,${baseAlpha})`;
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.arc(cx, cy, r, angle, nextAngle);
             ctx.closePath();
             ctx.fill();
 
-            // Segment edge lines
-            ctx.strokeStyle = `hsla(${hue}, 70%, 70%, ${alpha * 2})`;
+            // Segment edge
+            ctx.strokeStyle = `hsla(${hue},70%,70%,${baseAlpha * 2})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
             ctx.stroke();
 
-            // Inner decorative ring
+            // Inner decorative dot
             const innerR = r * 0.6;
             const midAngle = angle + (nextAngle - angle) / 2;
-            const dotX = cx + Math.cos(midAngle) * innerR;
-            const dotY = cy + Math.sin(midAngle) * innerR;
-            ctx.fillStyle = `hsla(${(hue + 60) % 360}, 80%, 75%, ${alpha * 1.5})`;
+            ctx.fillStyle = `hsla(${(hue + 60) % 360},80%,75%,${baseAlpha * 1.5})`;
             ctx.beginPath();
-            ctx.arc(dotX, dotY, 2 + this._breathe * 2, 0, TAU);
+            ctx.arc(cx + Math.cos(midAngle) * innerR, cy + Math.sin(midAngle) * innerR,
+                2 + this._breathe * 2, 0, TAU);
             ctx.fill();
         }
 
-        // Central point
-        ctx.fillStyle = `hsla(${this.hue}, 50%, 90%, ${0.15 * this.intensity})`;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 4, 0, TAU);
-        ctx.fill();
-
-        // Outer ring
-        ctx.strokeStyle = `hsla(${this.hue}, 60%, 70%, ${0.06 * this.intensity})`;
+        // Central point + outer ring
+        ctx.fillStyle = `hsla(${this.hue},50%,90%,${0.15 * this.intensity})`;
+        ctx.beginPath(); ctx.arc(cx, cy, 4, 0, TAU); ctx.fill();
+        ctx.strokeStyle = `hsla(${this.hue},60%,70%,${0.06 * this.intensity})`;
         ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, TAU);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
     }
 
     _drawShatteredGlass(ctx, system) {
@@ -349,29 +389,27 @@ export class MirrorDimension {
             ctx.translate(shard.cx, shard.cy);
             ctx.rotate(shard.rotation);
 
-            // Shard face
-            ctx.fillStyle = `hsla(${hue}, 50%, 50%, ${alpha})`;
+            ctx.fillStyle = `hsla(${hue},50%,50%,${alpha})`;
             ctx.beginPath();
             for (let s = 0; s <= shard.sides; s++) {
                 const a = (s / shard.sides) * TAU;
-                const r = shard.radius + Math.sin(a * 3 + this.tick * 0.01) * 5;
-                const px = Math.cos(a) * (r + shatterOffset);
-                const py = Math.sin(a) * (r + shatterOffset);
+                const sr = shard.radius + Math.sin(a * 3 + this.tick * 0.01) * 5;
+                const px = Math.cos(a) * (sr + shatterOffset);
+                const py = Math.sin(a) * (sr + shatterOffset);
                 if (s === 0) ctx.moveTo(px, py);
                 else ctx.lineTo(px, py);
             }
             ctx.closePath();
             ctx.fill();
 
-            // Reflection highlight
-            ctx.strokeStyle = `hsla(${hue}, 70%, 80%, ${alpha * 2})`;
+            ctx.strokeStyle = `hsla(${hue},70%,80%,${alpha * 2})`;
             ctx.lineWidth = 1;
             ctx.stroke();
 
             // Glass reflection line
             const reflectAngle = Math.atan2(this._my - shard.cy, this._mx - shard.cx) - shard.rotation;
             const reflLen = shard.radius * 0.6;
-            ctx.strokeStyle = `hsla(${hue + 30}, 30%, 90%, ${alpha * 1.5})`;
+            ctx.strokeStyle = `hsla(${hue + 30},30%,90%,${alpha * 1.5})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
             ctx.moveTo(Math.cos(reflectAngle) * -reflLen, Math.sin(reflectAngle) * -reflLen);
@@ -399,42 +437,38 @@ export class MirrorDimension {
             ctx.translate(cx + wobX, cy + wobY);
             ctx.rotate(frame.rotation + this.tick * 0.001);
 
-            ctx.strokeStyle = `hsla(${hue}, 60%, 65%, ${alpha})`;
+            ctx.strokeStyle = `hsla(${hue},60%,65%,${alpha})`;
             ctx.lineWidth = 1 + (1 - scale) * 2;
             ctx.strokeRect(-hw, -hh, hw * 2, hh * 2);
 
             // Corner highlights
-            const cornerSize = 8 * scale;
-            ctx.fillStyle = `hsla(${hue}, 80%, 80%, ${alpha * 1.5})`;
-            ctx.fillRect(-hw, -hh, cornerSize, cornerSize);
-            ctx.fillRect(hw - cornerSize, -hh, cornerSize, cornerSize);
-            ctx.fillRect(-hw, hh - cornerSize, cornerSize, cornerSize);
-            ctx.fillRect(hw - cornerSize, hh - cornerSize, cornerSize, cornerSize);
+            const cs = 8 * scale;
+            ctx.fillStyle = `hsla(${hue},80%,80%,${alpha * 1.5})`;
+            ctx.fillRect(-hw, -hh, cs, cs);
+            ctx.fillRect(hw - cs, -hh, cs, cs);
+            ctx.fillRect(-hw, hh - cs, cs, cs);
+            ctx.fillRect(hw - cs, hh - cs, cs, cs);
 
             ctx.restore();
         }
 
         // Connecting lines between frames
         if (this._frames.length > 1) {
-            ctx.strokeStyle = `hsla(${this.hue}, 40%, 60%, 0.02)`;
+            ctx.strokeStyle = `hsla(${this.hue},40%,60%,0.02)`;
             ctx.lineWidth = 0.5;
+            ctx.beginPath();
             for (let i = 0; i < this._frames.length - 1; i++) {
                 const f1 = this._frames[i], f2 = this._frames[i + 1];
                 const w1 = system.width * f1.scale * 0.4;
                 const w2 = system.width * f2.scale * 0.4;
                 const h1 = system.height * f1.scale * 0.4;
                 const h2 = system.height * f2.scale * 0.4;
-                ctx.beginPath();
-                ctx.moveTo(cx - w1, cy - h1);
-                ctx.lineTo(cx - w2, cy - h2);
-                ctx.moveTo(cx + w1, cy - h1);
-                ctx.lineTo(cx + w2, cy - h2);
-                ctx.moveTo(cx - w1, cy + h1);
-                ctx.lineTo(cx - w2, cy + h2);
-                ctx.moveTo(cx + w1, cy + h1);
-                ctx.lineTo(cx + w2, cy + h2);
-                ctx.stroke();
+                ctx.moveTo(cx - w1, cy - h1); ctx.lineTo(cx - w2, cy - h2);
+                ctx.moveTo(cx + w1, cy - h1); ctx.lineTo(cx + w2, cy - h2);
+                ctx.moveTo(cx - w1, cy + h1); ctx.lineTo(cx - w2, cy + h2);
+                ctx.moveTo(cx + w1, cy + h1); ctx.lineTo(cx + w2, cy + h2);
             }
+            ctx.stroke();
         }
     }
 
@@ -442,39 +476,33 @@ export class MirrorDimension {
         // Draw prism at cursor
         const prismSize = 15;
         const alpha = 0.1 * this.intensity;
-        ctx.fillStyle = `hsla(${this.hue}, 30%, 80%, ${alpha})`;
+        ctx.fillStyle = `hsla(${this.hue},30%,80%,${alpha})`;
         ctx.beginPath();
         ctx.moveTo(this._mx, this._my - prismSize);
         ctx.lineTo(this._mx - prismSize, this._my + prismSize);
         ctx.lineTo(this._mx + prismSize, this._my + prismSize);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = `hsla(${this.hue}, 50%, 90%, ${alpha * 2})`;
+        ctx.strokeStyle = `hsla(${this.hue},50%,90%,${alpha * 2})`;
         ctx.lineWidth = 1;
         ctx.stroke();
 
         // Draw rays
+        ctx.lineCap = 'round';
         for (const r of this._rays) {
             const rAlpha = r.life * 0.15 * this.intensity;
             const endX = r.x + Math.cos(r.angle) * r.length;
             const endY = r.y + Math.sin(r.angle) * r.length;
 
             // Glow
-            ctx.strokeStyle = `hsla(${r.hue}, 90%, 70%, ${rAlpha * 0.3})`;
+            ctx.strokeStyle = `hsla(${r.hue},90%,70%,${rAlpha * 0.3})`;
             ctx.lineWidth = r.width * 3;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(r.x, r.y);
-            ctx.lineTo(endX, endY);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(endX, endY); ctx.stroke();
 
             // Core
-            ctx.strokeStyle = `hsla(${r.hue}, 95%, 80%, ${rAlpha})`;
+            ctx.strokeStyle = `hsla(${r.hue},95%,80%,${rAlpha})`;
             ctx.lineWidth = r.width;
-            ctx.beginPath();
-            ctx.moveTo(r.x, r.y);
-            ctx.lineTo(endX, endY);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(endX, endY); ctx.stroke();
         }
     }
 
@@ -482,38 +510,33 @@ export class MirrorDimension {
         const cx = this._centerX, cy = this._centerY;
         const n = this._segments;
 
-        // Draw mandala rings
+        // Mandala rings
         for (const ring of this._mandalaRings) {
             const alpha = ring.life * 0.08 * this.intensity;
-            ctx.strokeStyle = `hsla(${ring.hue}, 60%, 65%, ${alpha})`;
+            ctx.strokeStyle = `hsla(${ring.hue},60%,65%,${alpha})`;
             ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(cx, cy, ring.radius, 0, TAU);
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, ring.radius, 0, TAU); ctx.stroke();
         }
 
-        // Draw symmetrized mandala points
+        // Symmetrized mandala points
         for (const p of this._mandalaPoints) {
             const alpha = p.life * 0.08 * this.intensity;
             const dist = Math.sqrt(p.dx * p.dx + p.dy * p.dy);
             const baseAngle = Math.atan2(p.dy, p.dx);
 
+            ctx.fillStyle = `hsla(${p.hue},70%,65%,${alpha})`;
             for (let i = 0; i < n; i++) {
                 const angle = baseAngle + (i / n) * TAU;
-                const px = cx + Math.cos(angle) * dist;
-                const py = cy + Math.sin(angle) * dist;
-                ctx.fillStyle = `hsla(${p.hue}, 70%, 65%, ${alpha})`;
                 ctx.beginPath();
-                ctx.arc(px, py, p.size, 0, TAU);
+                ctx.arc(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, p.size, 0, TAU);
                 ctx.fill();
-
-                // Mirror reflection
+            }
+            // Mirror reflection
+            ctx.fillStyle = `hsla(${(p.hue + 30) % 360},70%,65%,${alpha * 0.6})`;
+            for (let i = 0; i < n; i++) {
                 const mirrorAngle = -baseAngle + (i / n) * TAU;
-                const mpx = cx + Math.cos(mirrorAngle) * dist;
-                const mpy = cy + Math.sin(mirrorAngle) * dist;
-                ctx.fillStyle = `hsla(${(p.hue + 30) % 360}, 70%, 65%, ${alpha * 0.6})`;
                 ctx.beginPath();
-                ctx.arc(mpx, mpy, p.size * 0.7, 0, TAU);
+                ctx.arc(cx + Math.cos(mirrorAngle) * dist, cy + Math.sin(mirrorAngle) * dist, p.size * 0.7, 0, TAU);
                 ctx.fill();
             }
         }
@@ -529,30 +552,28 @@ export class MirrorDimension {
             ctx.rotate(t.angle);
 
             // The tear line
-            ctx.strokeStyle = `hsla(${t.hue}, 80%, 85%, ${alpha})`;
+            ctx.strokeStyle = `hsla(${t.hue},80%,85%,${alpha})`;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.moveTo(-t.length / 2, 0);
-            ctx.lineTo(t.length / 2, 0);
+            ctx.moveTo(-t.length / 2, 0); ctx.lineTo(t.length / 2, 0);
             ctx.stroke();
 
-            // Peeled-back layer
+            // Peeled-back layers
             const peelH = t.width * peel;
-            ctx.fillStyle = `hsla(${(t.hue + 180) % 360}, 60%, 50%, ${alpha * 0.4})`;
+            ctx.fillStyle = `hsla(${(t.hue + 180) % 360},60%,50%,${alpha * 0.4})`;
             ctx.beginPath();
             ctx.moveTo(-t.length / 2, 0);
             ctx.quadraticCurveTo(0, -peelH, t.length / 2, 0);
             ctx.fill();
 
-            // Bottom peel
-            ctx.fillStyle = `hsla(${(t.hue + 90) % 360}, 60%, 50%, ${alpha * 0.3})`;
+            ctx.fillStyle = `hsla(${(t.hue + 90) % 360},60%,50%,${alpha * 0.3})`;
             ctx.beginPath();
             ctx.moveTo(-t.length / 2, 0);
             ctx.quadraticCurveTo(0, peelH, t.length / 2, 0);
             ctx.fill();
 
             // Bright edge glow
-            ctx.strokeStyle = `hsla(${t.hue}, 90%, 90%, ${alpha * 0.6})`;
+            ctx.strokeStyle = `hsla(${t.hue},90%,90%,${alpha * 0.6})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
             ctx.moveTo(-t.length / 2, 0);

@@ -15,6 +15,10 @@
 
 const TAU = Math.PI * 2;
 
+function _prand(seed) {
+    return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+}
+
 export class LightningGarden {
     constructor() {
         this.mode = 0;
@@ -31,10 +35,12 @@ export class LightningGarden {
 
         // Growth nodes (branch tips that are still growing)
         this._tips = [];
+        this._tipPool = [];
         this._maxTips = 80;
 
         // Completed segments (line data for drawing)
         this._segments = [];
+        this._segmentPool = [];
         this._maxSegments = 600;
 
         // Spark particles
@@ -44,6 +50,7 @@ export class LightningGarden {
 
         // Connection arcs (neural mode)
         this._connections = [];
+        this._connPool = [];
         this._maxConnections = 30;
 
         // Growth parameters
@@ -55,6 +62,9 @@ export class LightningGarden {
 
         // Circuit trace endpoints (mode 5)
         this._circuitNodes = [];
+
+        // Spawn counter for determinism
+        this._spawnIdx = 0;
     }
 
     configure(rng, palette) {
@@ -67,75 +77,79 @@ export class LightningGarden {
         this._sparks = [];
         this._connections = [];
         this._circuitNodes = [];
+        this._spawnIdx = 0;
 
         switch (this.mode) {
-            case 0: // Electric Bonsai
+            case 0:
                 this._growthSpeed = 1.5 + rng() * 2;
                 this._forkChance = 0.04 + rng() * 0.03;
                 this._maxBranchDepth = 5 + Math.floor(rng() * 3);
                 this._curviness = 0.15 + rng() * 0.15;
                 this._upwardBias = -0.6 - rng() * 0.4;
                 break;
-            case 1: // Root Network
+            case 1:
                 this._growthSpeed = 1 + rng() * 1.5;
                 this._forkChance = 0.05 + rng() * 0.04;
                 this._maxBranchDepth = 7 + Math.floor(rng() * 3);
                 this._curviness = 0.3 + rng() * 0.2;
                 this._upwardBias = 0.4 + rng() * 0.3;
                 break;
-            case 2: // Neural Garden
+            case 2:
                 this._growthSpeed = 2 + rng() * 2;
                 this._forkChance = 0.03 + rng() * 0.02;
                 this._maxBranchDepth = 4 + Math.floor(rng() * 3);
                 this._curviness = 0.4 + rng() * 0.3;
                 this._upwardBias = 0;
                 break;
-            case 3: // Coral Lightning
+            case 3:
                 this._growthSpeed = 0.8 + rng() * 1;
                 this._forkChance = 0.06 + rng() * 0.05;
                 this._maxBranchDepth = 5 + Math.floor(rng() * 4);
                 this._curviness = 0.2 + rng() * 0.15;
                 this._upwardBias = -0.2 - rng() * 0.2;
                 break;
-            case 4: // Vine Tangle
+            case 4:
                 this._growthSpeed = 1 + rng() * 1.5;
                 this._forkChance = 0.02 + rng() * 0.02;
                 this._maxBranchDepth = 6 + Math.floor(rng() * 3);
                 this._curviness = 0.5 + rng() * 0.3;
                 this._upwardBias = -0.3;
                 break;
-            case 5: // Circuit Trace
+            case 5:
                 this._growthSpeed = 3 + rng() * 3;
                 this._forkChance = 0.02 + rng() * 0.02;
                 this._maxBranchDepth = 8;
-                this._curviness = 0; // Right angles only
+                this._curviness = 0;
                 this._upwardBias = 0;
                 break;
         }
     }
 
+    _pr() {
+        return _prand(++this._spawnIdx * 97 + this.tick * 31);
+    }
+
     _seedGrowth(x, y) {
         if (this._tips.length >= this._maxTips) return;
-        const tipCount = this.mode === 5 ? 4 : 3 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < tipCount; i++) {
+        const tipCount = this.mode === 5 ? 4 : 3 + Math.floor(this._pr() * 3);
+        for (let i = 0; i < tipCount && this._tips.length < this._maxTips; i++) {
             let angle;
             if (this.mode === 5) {
-                angle = (i / 4) * TAU; // Cardinal directions
+                angle = (i / 4) * TAU;
             } else {
-                angle = (i / tipCount) * TAU + (Math.random() - 0.5) * 0.5;
+                angle = (i / tipCount) * TAU + (this._pr() - 0.5) * 0.5;
             }
-            this._tips.push({
-                x, y, angle,
-                speed: this._growthSpeed * (0.8 + Math.random() * 0.4),
-                depth: 0,
-                life: 60 + Math.floor(Math.random() * 80),
-                width: 2 + Math.random() * 2,
-                hueOffset: (Math.random() - 0.5) * 40,
-                energy: 1.0,
-                // Circuit mode: track direction changes
-                _circSteps: 0,
-                _circDir: Math.floor(Math.random() * 4),
-            });
+            const tip = this._tipPool.length > 0 ? this._tipPool.pop() : {};
+            tip.x = x; tip.y = y; tip.angle = angle;
+            tip.speed = this._growthSpeed * (0.8 + this._pr() * 0.4);
+            tip.depth = 0;
+            tip.life = 60 + Math.floor(this._pr() * 80);
+            tip.width = 2 + this._pr() * 2;
+            tip.hueOffset = (this._pr() - 0.5) * 40;
+            tip.energy = 1.0;
+            tip._circSteps = 0;
+            tip._circDir = Math.floor(this._pr() * 4);
+            this._tips.push(tip);
         }
         if (this.mode === 5) {
             this._circuitNodes.push({ x, y });
@@ -154,13 +168,18 @@ export class LightningGarden {
             this._seedGrowth(mx, my);
         }
 
-        // Click to seed
+        // Click to seed (strong burst)
         if (isClicking && !this._wasClicking) {
             this._seedGrowth(mx, my);
+            // Extra seeds for impact
+            if (this.mode !== 5) {
+                this._seedGrowth(mx + (this._pr() - 0.5) * 30, my + (this._pr() - 0.5) * 30);
+            }
         }
         this._wasClicking = isClicking;
 
         const W = window.innerWidth, H = window.innerHeight;
+        const dirs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
 
         // Grow tips
         for (let i = this._tips.length - 1; i >= 0; i--) {
@@ -169,6 +188,7 @@ export class LightningGarden {
             tip.energy *= 0.998;
 
             if (tip.life <= 0 || tip.x < -20 || tip.x > W + 20 || tip.y < -20 || tip.y > H + 20) {
+                if (this._tipPool.length < 80) this._tipPool.push(tip);
                 this._tips[i] = this._tips[this._tips.length - 1];
                 this._tips.pop();
                 continue;
@@ -178,17 +198,17 @@ export class LightningGarden {
 
             if (this.mode === 5) {
                 // Circuit: straight lines with right-angle turns
-                const dirs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
                 tip._circSteps++;
-                if (tip._circSteps > 10 + Math.floor(Math.random() * 20)) {
-                    tip._circDir = (tip._circDir + (Math.random() > 0.5 ? 1 : 3)) % 4;
+                const turnSeed = _prand(tip._circSteps * 41 + i * 73 + this.tick);
+                if (tip._circSteps > 10 + Math.floor(turnSeed * 20)) {
+                    tip._circDir = (tip._circDir + (turnSeed > 0.5 ? 1 : 3)) % 4;
                     tip._circSteps = 0;
                 }
                 tip.angle = dirs[tip._circDir];
             } else {
                 // Organic growth: curve with bias
-                tip.angle += (Math.random() - 0.5) * this._curviness;
-                // Apply directional bias
+                const curveSeed = _prand(this.tick * 13 + i * 59);
+                tip.angle += (curveSeed - 0.5) * this._curviness;
                 tip.angle += Math.sin(tip.angle - Math.PI / 2) * this._upwardBias * 0.05;
                 // Cursor attraction
                 const cdx = mx - tip.x, cdy = my - tip.y;
@@ -202,67 +222,73 @@ export class LightningGarden {
             tip.x += Math.cos(tip.angle) * tip.speed;
             tip.y += Math.sin(tip.angle) * tip.speed;
 
-            // Record segment
+            // Record segment (pooled)
             if (this._segments.length < this._maxSegments) {
-                this._segments.push({
-                    x1: prevX, y1: prevY, x2: tip.x, y2: tip.y,
-                    width: tip.width * (0.5 + tip.energy * 0.5),
-                    hue: (this.hue + tip.hueOffset + 360) % 360,
-                    energy: tip.energy,
-                    depth: tip.depth,
-                    age: 0,
-                });
+                const seg = this._segmentPool.length > 0 ? this._segmentPool.pop() : {};
+                seg.x1 = prevX; seg.y1 = prevY; seg.x2 = tip.x; seg.y2 = tip.y;
+                seg.width = tip.width * (0.5 + tip.energy * 0.5);
+                seg.hue = (this.hue + tip.hueOffset + 360) % 360;
+                seg.energy = tip.energy;
+                seg.depth = tip.depth;
+                seg.age = 0;
+                this._segments.push(seg);
             }
 
-            // Fork
-            if (Math.random() < this._forkChance && tip.depth < this._maxBranchDepth &&
+            // Fork (deterministic)
+            const forkSeed = _prand(this.tick * 37 + i * 91);
+            if (forkSeed < this._forkChance && tip.depth < this._maxBranchDepth &&
                 this._tips.length < this._maxTips) {
-                const forkAngle = tip.angle + (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.5);
-                this._tips.push({
-                    x: tip.x, y: tip.y, angle: forkAngle,
-                    speed: tip.speed * (0.7 + Math.random() * 0.2),
-                    depth: tip.depth + 1,
-                    life: tip.life * (0.5 + Math.random() * 0.3),
-                    width: tip.width * 0.7,
-                    hueOffset: tip.hueOffset + (Math.random() - 0.5) * 15,
-                    energy: tip.energy * 0.8,
-                    _circSteps: 0, _circDir: Math.floor(Math.random() * 4),
-                });
+                const forkAngle = tip.angle + (forkSeed > this._forkChance * 0.5 ? 1 : -1) * (0.3 + this._pr() * 0.5);
+                const newTip = this._tipPool.length > 0 ? this._tipPool.pop() : {};
+                newTip.x = tip.x; newTip.y = tip.y; newTip.angle = forkAngle;
+                newTip.speed = tip.speed * (0.7 + this._pr() * 0.2);
+                newTip.depth = tip.depth + 1;
+                newTip.life = Math.floor(tip.life * (0.5 + this._pr() * 0.3));
+                newTip.width = tip.width * 0.7;
+                newTip.hueOffset = tip.hueOffset + (this._pr() - 0.5) * 15;
+                newTip.energy = tip.energy * 0.8;
+                newTip._circSteps = 0;
+                newTip._circDir = Math.floor(this._pr() * 4);
+                this._tips.push(newTip);
             }
 
             // Neural connections (mode 2)
-            if (this.mode === 2 && this._segments.length > 20 && Math.random() < 0.005 &&
-                this._connections.length < this._maxConnections) {
-                const target = this._segments[Math.floor(Math.random() * this._segments.length)];
-                const tdx = target.x2 - tip.x, tdy = target.y2 - tip.y;
-                const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
-                if (tdist < 150 && tdist > 30) {
-                    this._connections.push({
-                        x1: tip.x, y1: tip.y,
-                        x2: target.x2, y2: target.y2,
-                        life: 1.0,
-                        hue: (this.hue + tip.hueOffset) % 360,
-                    });
-                    // Spawn synapse spark
-                    if (this._sparks.length < this._maxSparks) {
-                        const spark = this._sparkPool.length > 0 ? this._sparkPool.pop() : {};
-                        spark.x = (tip.x + target.x2) / 2;
-                        spark.y = (tip.y + target.y2) / 2;
-                        spark.life = 15;
-                        spark.maxLife = 15;
-                        spark.size = 3 + Math.random() * 4;
-                        spark.hue = (this.hue + tip.hueOffset) % 360;
-                        this._sparks.push(spark);
+            if (this.mode === 2 && this._segments.length > 20) {
+                const connSeed = _prand(this.tick * 23 + i * 67);
+                if (connSeed < 0.005 && this._connections.length < this._maxConnections) {
+                    const targetIdx = Math.floor(connSeed * 200) % this._segments.length;
+                    const target = this._segments[targetIdx];
+                    const tdx = target.x2 - tip.x, tdy = target.y2 - tip.y;
+                    const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+                    if (tdist < 150 && tdist > 30) {
+                        const conn = this._connPool.length > 0 ? this._connPool.pop() : {};
+                        conn.x1 = tip.x; conn.y1 = tip.y;
+                        conn.x2 = target.x2; conn.y2 = target.y2;
+                        conn.life = 1.0;
+                        conn.hue = (this.hue + tip.hueOffset) % 360;
+                        this._connections.push(conn);
+                        // Synapse spark
+                        if (this._sparks.length < this._maxSparks) {
+                            const spark = this._sparkPool.length > 0 ? this._sparkPool.pop() : {};
+                            spark.x = (tip.x + target.x2) / 2;
+                            spark.y = (tip.y + target.y2) / 2;
+                            spark.life = 15; spark.maxLife = 15;
+                            spark.size = 3 + this._pr() * 4;
+                            spark.hue = conn.hue;
+                            this._sparks.push(spark);
+                        }
                     }
                 }
             }
         }
 
-        // Age segments and remove old ones
+        // Age and cull segments
         for (let i = this._segments.length - 1; i >= 0; i--) {
-            this._segments[i].age++;
-            this._segments[i].energy *= 0.9995;
-            if (this._segments[i].energy < 0.01) {
+            const seg = this._segments[i];
+            seg.age++;
+            seg.energy *= 0.9995;
+            if (seg.energy < 0.01) {
+                if (this._segmentPool.length < 600) this._segmentPool.push(seg);
                 this._segments[i] = this._segments[this._segments.length - 1];
                 this._segments.pop();
             }
@@ -272,6 +298,7 @@ export class LightningGarden {
         for (let i = this._connections.length - 1; i >= 0; i--) {
             this._connections[i].life -= 0.01;
             if (this._connections[i].life <= 0) {
+                if (this._connPool.length < 30) this._connPool.push(this._connections[i]);
                 this._connections[i] = this._connections[this._connections.length - 1];
                 this._connections.pop();
             }
@@ -281,7 +308,7 @@ export class LightningGarden {
         for (let i = this._sparks.length - 1; i >= 0; i--) {
             this._sparks[i].life--;
             if (this._sparks[i].life <= 0) {
-                this._sparkPool.push(this._sparks[i]);
+                if (this._sparkPool.length < 50) this._sparkPool.push(this._sparks[i]);
                 this._sparks[i] = this._sparks[this._sparks.length - 1];
                 this._sparks.pop();
             }
@@ -289,7 +316,7 @@ export class LightningGarden {
 
         // Pulse energy along segments periodically
         if (this.tick % 30 === 0 && this._segments.length > 0) {
-            const pulseIdx = Math.floor(Math.random() * this._segments.length);
+            const pulseIdx = Math.floor(_prand(this.tick * 47) * this._segments.length);
             this._segments[pulseIdx].energy = Math.min(1, this._segments[pulseIdx].energy + 0.5);
         }
     }
@@ -299,61 +326,54 @@ export class LightningGarden {
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineCap = 'round';
 
-        // Draw segments
+        // Segments — batch glow pass then core pass for fewer state changes
+        // Glow pass (only for high-energy segments)
+        for (const seg of this._segments) {
+            if (seg.energy <= 0.3) continue;
+            const alpha = seg.energy * 0.06 * this.intensity;
+            ctx.strokeStyle = `hsla(${seg.hue},70%,60%,${alpha})`;
+            ctx.lineWidth = seg.width * 3;
+            ctx.beginPath();
+            ctx.moveTo(seg.x1, seg.y1); ctx.lineTo(seg.x2, seg.y2);
+            ctx.stroke();
+        }
+
+        // Core pass
         for (const seg of this._segments) {
             const alpha = seg.energy * 0.2 * this.intensity;
             if (alpha < 0.005) continue;
-
-            // Outer glow
-            if (seg.energy > 0.3) {
-                ctx.strokeStyle = `hsla(${seg.hue}, 70%, 60%, ${alpha * 0.3})`;
-                ctx.lineWidth = seg.width * 3;
-                ctx.beginPath();
-                ctx.moveTo(seg.x1, seg.y1);
-                ctx.lineTo(seg.x2, seg.y2);
-                ctx.stroke();
-            }
-
-            // Core line
-            const lightness = 50 + seg.energy * 30;
-            ctx.strokeStyle = `hsla(${seg.hue}, 80%, ${lightness}%, ${alpha})`;
+            const lightness = 50 + Math.floor(seg.energy * 30);
+            ctx.strokeStyle = `hsla(${seg.hue},80%,${lightness}%,${alpha})`;
             ctx.lineWidth = seg.width;
             ctx.beginPath();
-            ctx.moveTo(seg.x1, seg.y1);
-            ctx.lineTo(seg.x2, seg.y2);
+            ctx.moveTo(seg.x1, seg.y1); ctx.lineTo(seg.x2, seg.y2);
             ctx.stroke();
         }
 
         // Neural connections (mode 2)
-        if (this.mode === 2) {
+        if (this.mode === 2 && this._connections.length > 0) {
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([3, 4]);
             for (const conn of this._connections) {
                 const alpha = conn.life * 0.1 * this.intensity;
-                ctx.strokeStyle = `hsla(${conn.hue}, 60%, 70%, ${alpha})`;
-                ctx.lineWidth = 0.5;
-                ctx.setLineDash([3, 4]);
+                ctx.strokeStyle = `hsla(${conn.hue},60%,70%,${alpha})`;
                 ctx.beginPath();
-                ctx.moveTo(conn.x1, conn.y1);
-                ctx.lineTo(conn.x2, conn.y2);
+                ctx.moveTo(conn.x1, conn.y1); ctx.lineTo(conn.x2, conn.y2);
                 ctx.stroke();
-                ctx.setLineDash([]);
             }
+            ctx.setLineDash([]);
         }
 
         // Circuit nodes (mode 5)
         if (this.mode === 5) {
+            const pulse = (Math.sin(this.tick * 0.05) + 1) / 2;
             for (const node of this._circuitNodes) {
-                const pulse = (Math.sin(this.tick * 0.05) + 1) / 2;
                 const alpha = (0.1 + pulse * 0.08) * this.intensity;
-                ctx.fillStyle = `hsla(${this.hue}, 80%, 70%, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, 4, 0, TAU);
-                ctx.fill();
-                // Outer ring
-                ctx.strokeStyle = `hsla(${this.hue}, 60%, 60%, ${alpha * 0.5})`;
+                ctx.fillStyle = `hsla(${this.hue},80%,70%,${alpha})`;
+                ctx.beginPath(); ctx.arc(node.x, node.y, 4, 0, TAU); ctx.fill();
+                ctx.strokeStyle = `hsla(${this.hue},60%,60%,${alpha * 0.5})`;
                 ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, 8 + pulse * 3, 0, TAU);
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(node.x, node.y, 8 + pulse * 3, 0, TAU); ctx.stroke();
             }
         }
 
@@ -361,29 +381,21 @@ export class LightningGarden {
         for (const tip of this._tips) {
             const alpha = tip.energy * 0.3 * this.intensity;
             const hue = (this.hue + tip.hueOffset + 360) % 360;
-            // Glow
-            ctx.fillStyle = `hsla(${hue}, 80%, 80%, ${alpha * 0.4})`;
-            ctx.beginPath();
-            ctx.arc(tip.x, tip.y, tip.width * 3, 0, TAU);
-            ctx.fill();
-            // Core
-            ctx.fillStyle = `hsla(${hue}, 90%, 90%, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(tip.x, tip.y, tip.width, 0, TAU);
-            ctx.fill();
+            ctx.fillStyle = `hsla(${hue},80%,80%,${alpha * 0.4})`;
+            ctx.beginPath(); ctx.arc(tip.x, tip.y, tip.width * 3, 0, TAU); ctx.fill();
+            ctx.fillStyle = `hsla(${hue},90%,90%,${alpha})`;
+            ctx.beginPath(); ctx.arc(tip.x, tip.y, tip.width, 0, TAU); ctx.fill();
         }
 
         // Synapse sparks
         for (const spark of this._sparks) {
             const lifeRatio = spark.life / spark.maxLife;
             const alpha = lifeRatio * 0.4 * this.intensity;
-            ctx.fillStyle = `hsla(${spark.hue}, 90%, 85%, ${alpha})`;
-            ctx.beginPath();
-            ctx.arc(spark.x, spark.y, spark.size * lifeRatio, 0, TAU);
-            ctx.fill();
+            ctx.fillStyle = `hsla(${spark.hue},90%,85%,${alpha})`;
+            ctx.beginPath(); ctx.arc(spark.x, spark.y, spark.size * lifeRatio, 0, TAU); ctx.fill();
         }
 
-        // Vine leaves (mode 4)
+        // Vine leaves (mode 4) — drawn every 12th segment for performance
         if (this.mode === 4 && this._segments.length > 10) {
             for (let i = 0; i < this._segments.length; i += 12) {
                 const seg = this._segments[i];
@@ -395,7 +407,7 @@ export class LightningGarden {
                 ctx.save();
                 ctx.translate(seg.x2, seg.y2);
                 ctx.rotate(angle + Math.PI / 4);
-                ctx.fillStyle = `hsla(${leafHue}, 60%, 45%, ${alpha})`;
+                ctx.fillStyle = `hsla(${leafHue},60%,45%,${alpha})`;
                 ctx.beginPath();
                 ctx.ellipse(0, 0, leafSize, leafSize * 0.4, 0, 0, TAU);
                 ctx.fill();

@@ -203,7 +203,7 @@ export class SoundWaveSculptor {
                 click: isClicking,
             });
             if (this.scopeHistory.length > this.scopeMax) {
-                this.scopeHistory = this.scopeHistory.slice(-this.scopeMax);
+                this.scopeHistory.splice(0, this.scopeHistory.length - this.scopeMax);
             }
         }
 

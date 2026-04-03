@@ -89,6 +89,11 @@ import { NeonSpiderweb } from './neon_spiderweb_effects.js';
 import { TrailBlossom } from './trail_blossom_effects.js';
 import { GravityWeb } from './gravity_web_effects.js';
 import { EchoRipple } from './echo_ripple_effects.js';
+import { GravityEcosystem } from './gravity_ecosystem_effects.js';
+import { DimensionalFabric } from './dimensional_fabric_effects.js';
+import { SynapticStorm } from './synaptic_storm_effects.js';
+import { TimeLapsePainter } from './time_lapse_painter_effects.js';
+import { MagneticOrigami } from './magnetic_origami_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -221,6 +226,11 @@ export const EFFECT_REGISTRY = [
     { instance: new TrailBlossom(),      tags: ['organic', 'painterly', 'light'],           minQuality: 0.25, drawOrder: 78 },
     { instance: new GravityWeb(),        tags: ['organic', 'dark', 'geometric'],            minQuality: 0.25, drawOrder: 79 },
     { instance: new EchoRipple(),        tags: ['harmonic', 'physics', 'ethereal'],         minQuality: 0.25, drawOrder: 80 },
+    { instance: new GravityEcosystem(),  tags: ['organic', 'swarm', 'bio'],                 minQuality: 0.25, drawOrder: 81 },
+    { instance: new DimensionalFabric(), tags: ['geometric', 'physics', 'ethereal'],        minQuality: 0.25, drawOrder: 82 },
+    { instance: new SynapticStorm(),     tags: ['tech', 'bio', 'light'],                    minQuality: 0.25, drawOrder: 83 },
+    { instance: new TimeLapsePainter(),  tags: ['painterly', 'fluid', 'light'],             minQuality: 0.3,  drawOrder: 84 },
+    { instance: new MagneticOrigami(),   tags: ['geometric', 'crystal', 'ethereal'],        minQuality: 0.3,  drawOrder: 85 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

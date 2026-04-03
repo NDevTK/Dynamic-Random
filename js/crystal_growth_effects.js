@@ -83,12 +83,13 @@ export class CrystalGrowth {
 
     _addSeed(x, y) {
         if (this._seeds.length >= this._maxSeeds) return;
+        const seed = this.tick * 29 + this._seeds.length * 67;
         this._seeds.push({
             x, y,
             crystalCount: 0,
-            maxCrystals: this.mode === 1 ? 1 : 5 + Math.floor(Math.random() * 8),
-            growthRate: 0.5 + Math.random() * 1,
-            angle: Math.random() * TAU,
+            maxCrystals: this.mode === 1 ? 1 : 5 + Math.floor(this._prand(seed) * 8),
+            growthRate: 0.5 + this._prand(seed + 1) * 1,
+            angle: this._prand(seed + 2) * TAU,
             symmetry: this.mode === 1 ? 6 : this.mode === 5 ? 4 : 0,
         });
     }
@@ -104,6 +105,17 @@ export class CrystalGrowth {
         this._mx = mx;
         this._my = my;
         this._mouseSpeed = Math.sqrt((mx - this._pmx) ** 2 + (my - this._pmy) ** 2);
+
+        // Resize handling for persistent canvas
+        const newW = Math.ceil(window.innerWidth / 2);
+        const newH = Math.ceil(window.innerHeight / 2);
+        if (newW !== this._crystalW || newH !== this._crystalH) {
+            this._crystalW = newW;
+            this._crystalH = newH;
+            this._crystalCanvas.width = newW;
+            this._crystalCanvas.height = newH;
+            this._crystalCtx = this._crystalCanvas.getContext('2d', { alpha: true });
+        }
 
         if (isClicking && !this._wasClicking) {
             this._addSeed(mx, my);
@@ -151,12 +163,13 @@ export class CrystalGrowth {
                 const dx = mx - c.x, dy = my - c.y;
                 if (dx * dx + dy * dy < 22500 && this._sparkles.length < this._maxSparkles) {
                     const sparkle = this._sparklePool.length > 0 ? this._sparklePool.pop() : {};
-                    sparkle.x = c.x + (Math.random() - 0.5) * c.size * 2;
-                    sparkle.y = c.y + (Math.random() - 0.5) * c.size * 2;
-                    sparkle.life = 10 + Math.random() * 15;
+                    const ss = this.tick * 23 + this._sparkles.length * 47;
+                    sparkle.x = c.x + (this._prand(ss) - 0.5) * c.size * 2;
+                    sparkle.y = c.y + (this._prand(ss + 1) - 0.5) * c.size * 2;
+                    sparkle.life = 10 + this._prand(ss + 2) * 15;
                     sparkle.maxLife = sparkle.life;
-                    sparkle.hue = (c.hue + Math.random() * 30) % 360;
-                    sparkle.size = 1 + Math.random() * 2;
+                    sparkle.hue = (c.hue + this._prand(ss + 3) * 30) % 360;
+                    sparkle.size = 1 + this._prand(ss + 4) * 2;
                     this._sparkles.push(sparkle);
                 }
             }
@@ -181,18 +194,19 @@ export class CrystalGrowth {
     }
 
     _growPrismatic(seed) {
+        const gs = this.tick * 13 + seed.crystalCount * 41;
         const angle = seed.angle + (this._prand(this.tick + seed.x) - 0.5) * 1.2;
-        seed.angle += 0.3 + Math.random() * 0.5;
-        const dist = 5 + seed.crystalCount * (3 + Math.random() * 5);
+        seed.angle += 0.3 + this._prand(gs) * 0.5;
+        const dist = 5 + seed.crystalCount * (3 + this._prand(gs + 1) * 5);
         this.crystals.push({
             x: seed.x + Math.cos(angle) * dist,
             y: seed.y + Math.sin(angle) * dist,
-            angle: angle + Math.PI / 2 + (Math.random() - 0.5) * 0.5,
-            size: 8 + Math.random() * 20,
-            width: 3 + Math.random() * 8,
-            hue: (this.hue + (Math.random() - 0.5) * 20 + 360) % 360,
+            angle: angle + Math.PI / 2 + (this._prand(gs + 2) - 0.5) * 0.5,
+            size: 8 + this._prand(gs + 3) * 20,
+            width: 3 + this._prand(gs + 4) * 8,
+            hue: (this.hue + (this._prand(gs + 5) - 0.5) * 20 + 360) % 360,
             growthProgress: 0,
-            growthSpeed: seed.growthRate * (0.5 + Math.random()),
+            growthSpeed: seed.growthRate * (0.5 + this._prand(gs + 6)),
             glow: 0,
             facets: this.mode === 5 ? 4 : 6,
         });
@@ -206,13 +220,14 @@ export class CrystalGrowth {
             const baseAngle = (arm / 6) * TAU;
             const x = seed.x + Math.cos(baseAngle) * branchLen;
             const y = seed.y + Math.sin(baseAngle) * branchLen;
+            const gs = this.tick * 17 + arm * 53 + seed.crystalCount * 31;
 
             this.crystals.push({
                 x, y,
                 angle: baseAngle,
-                size: 5 + Math.random() * 10,
-                width: 1 + Math.random() * 2,
-                hue: (this.hue + Math.random() * 10 + 360) % 360,
+                size: 5 + this._prand(gs) * 10,
+                width: 1 + this._prand(gs + 1) * 2,
+                hue: (this.hue + this._prand(gs + 2) * 10 + 360) % 360,
                 growthProgress: 0,
                 growthSpeed: seed.growthRate,
                 glow: 0,
@@ -223,18 +238,19 @@ export class CrystalGrowth {
             });
 
             // Sub-branches
-            if (branchLen > 20 && Math.random() > 0.4) {
+            if (branchLen > 20 && this._prand(gs + 3) > 0.4) {
                 for (let sub = -1; sub <= 1; sub += 2) {
                     if (this.crystals.length >= this.maxCrystals) break;
                     const subAngle = baseAngle + sub * Math.PI / 3;
                     const subLen = branchLen * 0.5;
+                    const sgs = gs + 10 + sub * 7;
                     this.crystals.push({
                         x: x + Math.cos(subAngle) * subLen * 0.5,
                         y: y + Math.sin(subAngle) * subLen * 0.5,
                         angle: subAngle,
                         size: subLen * 0.4,
-                        width: 0.5 + Math.random(),
-                        hue: (this.hue + Math.random() * 15 + 360) % 360,
+                        width: 0.5 + this._prand(sgs),
+                        hue: (this.hue + this._prand(sgs + 1) * 15 + 360) % 360,
                         growthProgress: 0,
                         growthSpeed: seed.growthRate * 0.8,
                         glow: 0,
@@ -249,17 +265,18 @@ export class CrystalGrowth {
     }
 
     _growGeode(seed) {
+        const gs = this.tick * 11 + seed.crystalCount * 37;
         const angle = seed.angle;
-        seed.angle += TAU / (seed.maxCrystals + 1) + (Math.random() - 0.5) * 0.2;
-        const dist = 15 + Math.random() * 10;
+        seed.angle += TAU / (seed.maxCrystals + 1) + (this._prand(gs) - 0.5) * 0.2;
+        const dist = 15 + this._prand(gs + 1) * 10;
 
         this.crystals.push({
             x: seed.x + Math.cos(angle) * dist,
             y: seed.y + Math.sin(angle) * dist,
             angle: angle, // Point outward from center
-            size: 6 + Math.random() * 15,
-            width: 2 + Math.random() * 4,
-            hue: (this.hue + (Math.random() - 0.5) * 30 + 360) % 360,
+            size: 6 + this._prand(gs + 2) * 15,
+            width: 2 + this._prand(gs + 3) * 4,
+            hue: (this.hue + (this._prand(gs + 4) - 0.5) * 30 + 360) % 360,
             growthProgress: 0,
             growthSpeed: seed.growthRate,
             glow: 0,
@@ -277,12 +294,13 @@ export class CrystalGrowth {
         const dist = 5 + step * 6;
         const x = seed.x + Math.cos(spiralAngle) * dist;
         const y = seed.y + Math.sin(spiralAngle) * dist;
+        const gs = this.tick * 19 + step * 43;
 
         this.crystals.push({
             x, y,
             angle: spiralAngle,
-            size: 8 + Math.random() * 12,
-            width: 6 + Math.random() * 8,
+            size: 8 + this._prand(gs) * 12,
+            width: 6 + this._prand(gs + 1) * 8,
             hue: (step * 40 + this.hue) % 360, // Iridescent color change
             growthProgress: 0,
             growthSpeed: seed.growthRate,

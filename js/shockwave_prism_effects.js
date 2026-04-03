@@ -46,6 +46,10 @@ export class ShockwavePrism {
         this._gratingLines = [];
     }
 
+    _prand(seed) {
+        return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+    }
+
     configure(rng, palette) {
         this.mode = Math.floor(rng() * 6);
         this.tick = 0;
@@ -80,23 +84,24 @@ export class ShockwavePrism {
         w.life = 1;
         w.power = power;
         w.birthTick = this.tick;
-        w.facets = this.mode === 1 ? 6 + Math.floor(Math.random() * 3) : 0;
+        w.facets = this.mode === 1 ? 6 + Math.floor(this._prand(this.tick * 7 + x) * 3) : 0;
         this.waves.push(w);
     }
 
     _spawnDebris(x, y, count) {
         for (let i = 0; i < count && this.debris.length < this.maxDebris; i++) {
             const d = this.debrisPool.length > 0 ? this.debrisPool.pop() : {};
-            const angle = Math.random() * TAU;
-            const speed = 1 + Math.random() * 6;
+            const seed = this.tick * 31 + i * 97;
+            const angle = this._prand(seed) * TAU;
+            const speed = 1 + this._prand(seed + 1) * 6;
             d.x = x;
             d.y = y;
             d.vx = Math.cos(angle) * speed;
             d.vy = Math.sin(angle) * speed;
-            d.life = 40 + Math.random() * 80;
+            d.life = 40 + this._prand(seed + 2) * 80;
             d.maxLife = d.life;
-            d.hue = SPECTRUM[Math.floor(Math.random() * SPECTRUM.length)];
-            d.size = 1 + Math.random() * 3;
+            d.hue = SPECTRUM[Math.floor(this._prand(seed + 3) * SPECTRUM.length)];
+            d.size = 1 + this._prand(seed + 4) * 3;
             d.trail = [];
             this.debris.push(d);
         }
@@ -119,10 +124,11 @@ export class ShockwavePrism {
             if (this.mode === 2) {
                 // Soap bubble: spawn cluster
                 for (let i = 0; i < 3; i++) {
+                    const seed = this.tick * 13 + i * 41;
                     this._spawnWave(
-                        mx + (Math.random() - 0.5) * 40,
-                        my + (Math.random() - 0.5) * 40,
-                        power * (0.5 + Math.random() * 0.5)
+                        mx + (this._prand(seed) - 0.5) * 40,
+                        my + (this._prand(seed + 1) - 0.5) * 40,
+                        power * (0.5 + this._prand(seed + 2) * 0.5)
                     );
                 }
             }

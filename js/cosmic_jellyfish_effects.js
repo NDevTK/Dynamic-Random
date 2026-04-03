@@ -16,6 +16,10 @@
 
 const TAU = Math.PI * 2;
 
+function _prand(seed) {
+    return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+}
+
 export class CosmicJellyfish {
     constructor() {
         this.mode = 0;
@@ -88,24 +92,27 @@ export class CosmicJellyfish {
         this._my = my;
         this._mouseSpeed = Math.sqrt((mx - this._pmx) ** 2 + (my - this._pmy) ** 2);
 
-        // Click flash
+        // Click flash - always spawn bioluminescent burst, plus disturb nearby jellies
         if (isClicking && !this._wasClicking) {
+            let hitAny = false;
             for (const j of this.jellies) {
                 const dx = mx - j.x, dy = my - j.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < j.size * 3 + 100) {
                     j.glow = 1;
-                    // Spawn flash particles
+                    hitAny = true;
+                    // Spawn flash particles from jellyfish
                     for (let f = 0; f < 8; f++) {
+                        const seed = this.tick * 31 + f * 97;
                         const flash = this._flashPool.length > 0 ? this._flashPool.pop() : {};
-                        const angle = Math.random() * TAU;
+                        const angle = _prand(seed) * TAU;
                         flash.x = j.x;
                         flash.y = j.y;
-                        flash.vx = Math.cos(angle) * (1 + Math.random() * 3);
-                        flash.vy = Math.sin(angle) * (1 + Math.random() * 3);
-                        flash.life = 20 + Math.random() * 20;
+                        flash.vx = Math.cos(angle) * (1 + _prand(seed + 1) * 3);
+                        flash.vy = Math.sin(angle) * (1 + _prand(seed + 2) * 3);
+                        flash.life = 20 + _prand(seed + 3) * 20;
                         flash.maxLife = flash.life;
-                        flash.hue = (this.hue + j.hueOffset + Math.random() * 30) % 360;
+                        flash.hue = (this.hue + j.hueOffset + _prand(seed + 4) * 30) % 360;
                         this._flashes.push(flash);
                     }
                     // Push away from click
@@ -113,6 +120,22 @@ export class CosmicJellyfish {
                         j.vx -= (dx / dist) * 3;
                         j.vy -= (dy / dist) * 3;
                     }
+                }
+            }
+            // Always spawn click-point flash even if no jelly was hit
+            if (!hitAny) {
+                for (let f = 0; f < 6; f++) {
+                    const seed = this.tick * 19 + f * 61;
+                    const flash = this._flashPool.length > 0 ? this._flashPool.pop() : {};
+                    const angle = _prand(seed) * TAU;
+                    flash.x = mx;
+                    flash.y = my;
+                    flash.vx = Math.cos(angle) * (0.5 + _prand(seed + 1) * 2);
+                    flash.vy = Math.sin(angle) * (0.5 + _prand(seed + 2) * 2);
+                    flash.life = 15 + _prand(seed + 3) * 15;
+                    flash.maxLife = flash.life;
+                    flash.hue = (this.hue + _prand(seed + 4) * 40) % 360;
+                    this._flashes.push(flash);
                 }
             }
         }
@@ -174,7 +197,7 @@ export class CosmicJellyfish {
             if (j.y > H + j.size * 2) j.y = -j.size;
             if (this.mode === 2 && j.y < -j.size * 2) {
                 j.y = H + j.size;
-                j.x = Math.random() * W;
+                j.x = _prand(this.tick * 7 + j.bellPhase * 100) * W;
             }
 
             // Store position history for tentacle dynamics
@@ -413,19 +436,43 @@ export class CosmicJellyfish {
         // Stinging tentacles (longer, more menacing)
         this._drawTentacles(ctx, j, hue, alpha * 1.2, j.tentacleCount, j.tentacleLength * 1.5);
 
-        // Electric sting near cursor
+        // Electric sting near cursor - multiple crackling arcs
         const dx = this._mx - j.x, dy = this._my - j.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < r * 4 && dist > 0) {
-            const stingAlpha = (1 - dist / (r * 4)) * 0.2 * this.intensity;
-            ctx.strokeStyle = `hsla(${hue + 30}, 90%, 80%, ${stingAlpha})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(j.x, j.y + r * 0.3);
-            const midX = (j.x + this._mx) / 2 + Math.sin(this.tick * 0.3) * 20;
-            const midY = (j.y + this._my) / 2 + Math.cos(this.tick * 0.4) * 20;
-            ctx.quadraticCurveTo(midX, midY, this._mx, this._my);
-            ctx.stroke();
+            const proximity = 1 - dist / (r * 4);
+            const stingCount = 1 + Math.floor(proximity * 3);
+            for (let s = 0; s < stingCount; s++) {
+                const stingAlpha = proximity * 0.15 * this.intensity / stingCount;
+                ctx.strokeStyle = `hsla(${(hue + 30 + s * 15) % 360}, 90%, 80%, ${stingAlpha})`;
+                ctx.lineWidth = 0.8 + proximity;
+                ctx.beginPath();
+                // Start from different tentacle tips
+                const startAngle = (s / stingCount) * Math.PI * 0.6 - Math.PI * 0.3;
+                const sx = j.x + Math.cos(startAngle + j.tentaclePhase) * r * 0.8;
+                const sy = j.y + r * 0.3 + Math.sin(startAngle + j.tentaclePhase) * r * 0.3;
+                ctx.moveTo(sx, sy);
+                // Jagged path with jitter
+                const segments = 4;
+                for (let seg = 1; seg <= segments; seg++) {
+                    const t = seg / segments;
+                    const bx = sx + (this._mx - sx) * t;
+                    const by = sy + (this._my - sy) * t;
+                    const jitter = (1 - t) * 15 * proximity;
+                    const jx = bx + Math.sin(this.tick * 0.5 + s * 2.1 + seg * 1.7) * jitter;
+                    const jy = by + Math.cos(this.tick * 0.4 + s * 1.9 + seg * 2.3) * jitter;
+                    ctx.lineTo(jx, jy);
+                }
+                ctx.stroke();
+            }
+            // Impact glow at cursor
+            if (proximity > 0.3) {
+                const impactAlpha = (proximity - 0.3) * 0.15 * this.intensity;
+                ctx.fillStyle = `hsla(${hue + 30}, 90%, 85%, ${impactAlpha})`;
+                ctx.beginPath();
+                ctx.arc(this._mx, this._my, 4 + proximity * 6, 0, TAU);
+                ctx.fill();
+            }
         }
     }
 

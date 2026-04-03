@@ -180,12 +180,13 @@ export class QuantumEntanglement {
                 pair.bvx += (cx + Math.cos(pair.phase + Math.PI) * pair.orbitR - pair.bx) * 0.01;
                 pair.bvy += (cy + Math.sin(pair.phase + Math.PI) * pair.orbitR - pair.by) * 0.01;
             } else if (this.mode === 1) {
-                // Mirror across center
+                // Mirror across vertical center line
                 const cx = W / 2;
+                const cy = H / 2;
                 pair.bx = cx + (cx - pair.ax);
-                pair.by = pair.ay;
+                pair.by = cy + (cy - pair.ay);
                 pair.bvx = -pair.avx;
-                pair.bvy = pair.avy;
+                pair.bvy = -pair.avy;
             }
 
             // Apply velocity

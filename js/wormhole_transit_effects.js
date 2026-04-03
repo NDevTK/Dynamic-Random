@@ -78,23 +78,31 @@ export class WormholeTransit {
         }
     }
 
+    _prand(seed) {
+        return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+    }
+
     _spawnVortexPair(x1, y1, x2, y2, rng) {
         if (this.vortexes.length >= this.maxVortexes) return;
+        const r = rng || ((s) => this._prand(this.tick * 13 + s));
         const base = {
-            radius: 30 + (rng ? rng() : Math.random()) * 40,
+            radius: 30 + r(0) * 40,
             rotation: 0,
-            rotSpeed: 0.02 + (rng ? rng() : Math.random()) * 0.04,
-            hueShift: ((rng ? rng() : Math.random()) - 0.5) * 40,
-            pullStrength: 0.3 + (rng ? rng() : Math.random()) * 0.5,
-            spawnRate: 0.1 + (rng ? rng() : Math.random()) * 0.2,
-            life: 600 + Math.floor((rng ? rng() : Math.random()) * 400),
+            rotSpeed: 0.02 + r(1) * 0.04,
+            hueShift: (r(2) - 0.5) * 40,
+            pullStrength: 0.3 + r(3) * 0.5,
+            spawnRate: 0.1 + r(4) * 0.2,
+            life: 600 + Math.floor(r(5) * 400),
             maxLife: 1000,
-            spiralArms: 2 + Math.floor((rng ? rng() : Math.random()) * 3),
+            spiralArms: 2 + Math.floor(r(6) * 3),
         };
 
-        const v1 = { ...base, x: x1, y: y1, isEntry: true, partner: this.vortexes.length + 1 };
-        const v2 = { ...base, x: x2, y: y2, isEntry: false, partner: this.vortexes.length,
+        // Use object references instead of indices for partner tracking
+        const v1 = { ...base, x: x1, y: y1, isEntry: true, partner: null };
+        const v2 = { ...base, x: x2, y: y2, isEntry: false, partner: null,
             hueShift: base.hueShift + 60, rotSpeed: -base.rotSpeed };
+        v1.partner = v2;
+        v2.partner = v1;
         v1.maxLife = v1.life;
         v2.life = v1.life;
         v2.maxLife = v1.life;
@@ -132,35 +140,31 @@ export class WormholeTransit {
             v.life--;
 
             if (v.life <= 0) {
-                // Remove pair
-                const partnerIdx = v.partner;
-                if (partnerIdx < this.vortexes.length && partnerIdx >= 0) {
-                    // Mark partner for removal too
-                    this.vortexes[partnerIdx].life = 0;
+                // Mark partner for removal too
+                if (v.partner && v.partner.life > 0) {
+                    v.partner.life = 0;
                 }
-                this.vortexes.splice(i, 1);
-                // Fix partner references
-                for (const vx of this.vortexes) {
-                    if (vx.partner > i) vx.partner--;
-                }
+                this.vortexes[i] = this.vortexes[this.vortexes.length - 1];
+                this.vortexes.pop();
                 continue;
             }
 
             // Entry vortex: pull ambient particles and transit them
             if (v.isEntry && this.tick % 3 === 0) {
-                const partner = this.vortexes[v.partner];
+                const partner = v.partner;
                 if (!partner) continue;
 
                 // Spawn transit particle from absorbed ambient
-                if (Math.random() < v.spawnRate && this.transitParticles.length < this.maxTransit) {
+                const spawnSeed = this.tick * 17 + i * 41;
+                if (this._prand(spawnSeed) < v.spawnRate && this.transitParticles.length < this.maxTransit) {
                     const tp = this.transitPool.length > 0 ? this.transitPool.pop() : {};
                     tp.fromX = v.x; tp.fromY = v.y;
                     tp.toX = partner.x; tp.toY = partner.y;
                     tp.progress = 0;
-                    tp.speed = 0.02 + Math.random() * 0.03;
-                    tp.offset = (Math.random() - 0.5) * v.radius;
-                    tp.hue = (this.hue + v.hueShift + Math.random() * 20) % 360;
-                    tp.size = 1 + Math.random() * 2;
+                    tp.speed = 0.02 + this._prand(spawnSeed + 1) * 0.03;
+                    tp.offset = (this._prand(spawnSeed + 2) - 0.5) * v.radius;
+                    tp.hue = (this.hue + v.hueShift + this._prand(spawnSeed + 3) * 20) % 360;
+                    tp.size = 1 + this._prand(spawnSeed + 4) * 2;
                     this.transitParticles.push(tp);
                 }
             }
@@ -192,10 +196,11 @@ export class WormholeTransit {
                 }
                 // Absorption: reset to random position
                 if (dist < v.radius * 0.5) {
-                    p.x = Math.random() * W;
-                    p.y = Math.random() * H;
-                    p.vx = (Math.random() - 0.5) * 0.5;
-                    p.vy = (Math.random() - 0.5) * 0.5;
+                    const rseed = this.tick * 29 + i * 61;
+                    p.x = this._prand(rseed) * W;
+                    p.y = this._prand(rseed + 1) * H;
+                    p.vx = (this._prand(rseed + 2) - 0.5) * 0.5;
+                    p.vy = (this._prand(rseed + 3) - 0.5) * 0.5;
                 }
             }
 

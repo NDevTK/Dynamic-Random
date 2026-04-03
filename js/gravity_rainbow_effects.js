@@ -16,6 +16,10 @@
 const TAU = Math.PI * 2;
 const RAINBOW = [0, 25, 50, 60, 120, 180, 220, 270, 310];
 
+function _prand(seed) {
+    return (((seed * 2654435761) ^ (seed * 2246822519)) >>> 0) / 4294967296;
+}
+
 export class GravityRainbow {
     constructor() {
         this.mode = 0;
@@ -82,12 +86,13 @@ export class GravityRainbow {
 
     _spawnParticle(x, y, vx, vy, hueIdx) {
         if (this.particles.length >= this.maxParticles) return;
+        const seed = this.tick * 11 + this.particles.length * 37;
         this.particles.push({
             x, y, vx, vy,
             hue: RAINBOW[hueIdx % RAINBOW.length],
-            life: 80 + Math.random() * 80,
+            life: 80 + _prand(seed) * 80,
             maxLife: 160,
-            size: 1.2 + Math.random() * 2,
+            size: 1.2 + _prand(seed + 1) * 2,
             bounces: 0,
             maxBounces: this.mode === 2 ? 3 : 0
         });
@@ -101,8 +106,19 @@ export class GravityRainbow {
         this._my = my;
         this._mouseSpeed = Math.sqrt((mx - this._pmx) ** 2 + (my - this._pmy) ** 2);
 
+        // Resize handling for trail canvas
+        const newW = Math.ceil(window.innerWidth / 2);
+        const newH = Math.ceil(window.innerHeight / 2);
+        if (newW !== this._trailW || newH !== this._trailH) {
+            this._trailW = newW;
+            this._trailH = newH;
+            this._trailCanvas.width = newW;
+            this._trailCanvas.height = newH;
+            this._trailCtx = this._trailCanvas.getContext('2d', { alpha: true });
+        }
+
         // Wind from mouse horizontal movement
-        this._wind = (mx - this._pmx) * 0.002;
+        this._wind = (mx - this._pmx) * 0.01;
 
         if (isClicking && !this._wasClicking) {
             if (this.mode === 0) this._spawnFountain(mx, my);
@@ -117,15 +133,17 @@ export class GravityRainbow {
         if (this.mode === 2 && this.tick % 2 === 0) {
             const W = window.innerWidth;
             for (let i = 0; i < 3; i++) {
-                const x = Math.random() * W;
-                const hueIdx = Math.floor(Math.random() * RAINBOW.length);
-                this._spawnParticle(x, -5, (Math.random() - 0.5) * 0.5, 1 + Math.random() * 2, hueIdx);
+                const seed = this.tick * 17 + i * 53;
+                const x = _prand(seed) * W;
+                const hueIdx = Math.floor(_prand(seed + 1) * RAINBOW.length);
+                this._spawnParticle(x, -5, (_prand(seed + 2) - 0.5) * 0.5, 1 + _prand(seed + 3) * 2, hueIdx);
             }
         }
 
         if (this.mode === 3) this._updateTornado();
         if (this.mode === 4) this._updateComet();
-        if (this.mode === 5 && (isClicking || this._mouseSpeed > 2)) this._updateWaterfall();
+        // Waterfall: always active (cascades from cursor), intensifies with movement
+        if (this.mode === 5) this._updateWaterfall();
 
         // Update particles
         const H = window.innerHeight;
@@ -173,12 +191,13 @@ export class GravityRainbow {
     }
 
     _spawnFountain(x, y) {
-        const count = 30 + Math.floor(Math.random() * 20);
+        const count = 30 + Math.floor(_prand(this.tick * 3) * 20);
         for (let i = 0; i < count; i++) {
-            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
-            const speed = 3 + Math.random() * 6;
+            const seed = this.tick * 29 + i * 43;
+            const angle = -Math.PI / 2 + (_prand(seed) - 0.5) * 1.2;
+            const speed = 3 + _prand(seed + 1) * 6;
             this._spawnParticle(
-                x + (Math.random() - 0.5) * 10,
+                x + (_prand(seed + 2) - 0.5) * 10,
                 y,
                 Math.cos(angle) * speed,
                 Math.sin(angle) * speed,
@@ -228,14 +247,15 @@ export class GravityRainbow {
     _updateTornado() {
         this._tornadoAngle += 0.08;
         if (this.tick % 2 === 0) {
-            const r = 20 + Math.random() * 60;
-            const angle = this._tornadoAngle + Math.random() * 0.5;
+            const seed = this.tick * 41;
+            const r = 20 + _prand(seed) * 60;
+            const angle = this._tornadoAngle + _prand(seed + 1) * 0.5;
             const x = this._mx + Math.cos(angle) * r;
             const y = this._my + Math.sin(angle) * r * 0.3;
             const hueIdx = Math.floor(this._tornadoAngle / 0.5) % RAINBOW.length;
             this._spawnParticle(x, y,
                 Math.cos(angle + Math.PI / 2) * 2,
-                -2 - Math.random() * 3,
+                -2 - _prand(seed + 2) * 3,
                 hueIdx
             );
         }
@@ -260,15 +280,20 @@ export class GravityRainbow {
     }
 
     _updateWaterfall() {
-        const count = Math.min(5, Math.floor(this._mouseSpeed / 3) + 1);
+        // Always emit 1-2 particles, more with movement or clicking
+        const baseCount = this._isClicking ? 4 : 1;
+        const moveCount = Math.min(4, Math.floor(this._mouseSpeed / 5));
+        const count = baseCount + moveCount;
         for (let i = 0; i < count; i++) {
-            const spread = (Math.random() - 0.5) * 30;
+            const seed = this.tick * 23 + i * 67;
+            const spread = (_prand(seed) - 0.5) * 40;
+            // Waterfall always falls DOWN from cursor (unlike fountain which arcs up)
             this._spawnParticle(
                 this._mx + spread,
                 this._my,
-                spread * 0.05 + (this._mx - this._pmx) * 0.1,
-                1 + Math.random() * 2,
-                Math.floor(Math.random() * RAINBOW.length)
+                spread * 0.03 + (this._mx - this._pmx) * 0.05,
+                0.5 + _prand(seed + 1) * 3,
+                (Math.floor(this.tick / 3) + i) % RAINBOW.length
             );
         }
     }

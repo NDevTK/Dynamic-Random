@@ -240,7 +240,8 @@ export class ElectricOcean {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        if (this.mode === 2) this._drawEqualizer(ctx, system);
+        if (this.mode === 1) this._drawLavaFlow(ctx, system);
+        else if (this.mode === 2) this._drawEqualizer(ctx, system);
         else if (this.mode === 4) this._drawTectonic(ctx, system);
         else if (this.mode === 5) this._drawDigitalWaveform(ctx, system);
         else this._drawWaveSurface(ctx, system);
@@ -339,6 +340,61 @@ export class ElectricOcean {
                     ctx.arc(x, y, 3 + dy, 0, TAU);
                     ctx.fill();
                 }
+            }
+        }
+    }
+
+    _drawLavaFlow(ctx, system) {
+        const H = system.height || window.innerHeight;
+        const W = system.width || window.innerWidth;
+
+        for (let li = this._layers.length - 1; li >= 0; li--) {
+            const layer = this._layers[li];
+            const baseY = this._waveBaseY + layer.yOffset;
+            const hue = (this.hue + layer.hueShift + 360) % 360;
+            const alpha = layer.alpha * this.intensity;
+
+            // Darker, more viscous fill
+            const grad = ctx.createLinearGradient(0, baseY - 30, 0, H);
+            grad.addColorStop(0, `hsla(${hue}, 90%, 50%, ${alpha * 1.2})`);
+            grad.addColorStop(0.15, `hsla(${(hue + 10) % 360}, 80%, 35%, ${alpha * 0.8})`);
+            grad.addColorStop(0.4, `hsla(${hue}, 70%, 15%, ${alpha * 0.6})`);
+            grad.addColorStop(1, `hsla(${hue}, 60%, 5%, ${alpha * 0.3})`);
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(0, H);
+            for (let i = 0; i < this._waveCount; i++) {
+                ctx.lineTo(i * 4, baseY + this._wavePoints[i]);
+            }
+            ctx.lineTo(W, H);
+            ctx.closePath();
+            ctx.fill();
+
+            // Hot crest glow (embers)
+            ctx.strokeStyle = `hsla(${(hue + 30) % 360}, 95%, 65%, ${alpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < this._waveCount; i++) {
+                const px = i * 4;
+                const py = baseY + this._wavePoints[i];
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+
+        // Glowing cracks between layers
+        for (let i = 4; i < this._waveCount - 4; i += 3) {
+            const x = i * 4;
+            const y = this._waveBaseY + this._wavePoints[i];
+            const crackIntensity = Math.abs(this._wavePoints[i] - this._wavePoints[i - 2]) / 10;
+            if (crackIntensity > 0.3) {
+                const crackAlpha = Math.min(crackIntensity, 1) * 0.12 * this.intensity;
+                ctx.fillStyle = `hsla(${(this.hue + 40) % 360}, 100%, 70%, ${crackAlpha})`;
+                ctx.beginPath();
+                ctx.arc(x, y + 5, 2 + crackIntensity * 3, 0, TAU);
+                ctx.fill();
             }
         }
     }

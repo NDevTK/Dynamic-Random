@@ -84,35 +84,37 @@ export class InkSplatter {
     _spawnSplatter(x, y, size, velocity) {
         if (this._blooms.length >= this._maxBlooms) return;
         const bloom = this._bloomPool.length > 0 ? this._bloomPool.pop() : {};
+        const seed = this.tick * 31 + this._blooms.length * 67;
         bloom.x = x;
         bloom.y = y;
         bloom.radius = 2;
         bloom.maxRadius = size;
-        bloom.speed = 0.5 + Math.random() * 1.5;
+        bloom.speed = 0.5 + this._prand(seed) * 1.5;
         bloom.life = 1;
-        bloom.hueOffset = (Math.random() - 0.5) * 20;
+        bloom.hueOffset = (this._prand(seed + 1) - 0.5) * 20;
         bloom.vx = velocity ? velocity.x * 0.5 : 0;
         bloom.vy = velocity ? velocity.y * 0.5 : 0;
-        // Fractal edge seed
-        bloom.edgeSeed = Math.floor(Math.random() * 10000);
-        bloom.blobCount = 3 + Math.floor(Math.random() * 5);
+        bloom.edgeSeed = Math.floor(this._prand(seed + 2) * 10000);
+        bloom.blobCount = 3 + Math.floor(this._prand(seed + 3) * 5);
+        bloom._rendered = false;
         this._blooms.push(bloom);
 
         // Spawn satellite drips
         if (this.mode === 1 || this.mode === 3) {
-            const dripCount = 2 + Math.floor(Math.random() * 4);
+            const dripCount = 2 + Math.floor(this._prand(seed + 4) * 4);
             for (let d = 0; d < dripCount && this._drips.length < this._maxDrips; d++) {
-                const angle = Math.random() * TAU;
-                const dist = size * (0.3 + Math.random() * 0.7);
+                const ds = seed + 10 + d * 7;
+                const angle = this._prand(ds) * TAU;
+                const dist = size * (0.3 + this._prand(ds + 1) * 0.7);
                 const drip = this._dripPool.length > 0 ? this._dripPool.pop() : {};
                 drip.x = x + Math.cos(angle) * dist;
                 drip.y = y + Math.sin(angle) * dist;
                 drip.vx = Math.cos(angle) * 0.5 + (velocity ? velocity.x * 0.3 : 0);
-                drip.vy = 0.5 + Math.random() * 1.5;
-                drip.size = 1 + Math.random() * 3;
-                drip.life = 60 + Math.random() * 60;
+                drip.vy = 0.5 + this._prand(ds + 2) * 1.5;
+                drip.size = 1 + this._prand(ds + 3) * 3;
+                drip.life = 60 + this._prand(ds + 4) * 60;
                 drip.maxLife = drip.life;
-                drip.hue = (this.hue + bloom.hueOffset + Math.random() * 10) % 360;
+                drip.hue = (this.hue + bloom.hueOffset + this._prand(ds + 5) * 10) % 360;
                 drip.trail = [];
                 this._drips.push(drip);
             }
@@ -129,9 +131,20 @@ export class InkSplatter {
         const dy = my - this._pmy;
         this._mouseSpeed = Math.sqrt(dx * dx + dy * dy);
 
+        // Resize handling for persistent canvas
+        const newW = Math.ceil(window.innerWidth / 2);
+        const newH = Math.ceil(window.innerHeight / 2);
+        if (newW !== this._splatW || newH !== this._splatH) {
+            this._splatW = newW;
+            this._splatH = newH;
+            this._splatCanvas.width = newW;
+            this._splatCanvas.height = newH;
+            this._splatCtx = this._splatCanvas.getContext('2d', { alpha: true });
+        }
+
         // Click spawns splatter
         if (isClicking && !this._wasClicking) {
-            const size = 20 + this._mouseSpeed * 2 + Math.random() * 30;
+            const size = 20 + this._mouseSpeed * 2 + this._prand(this.tick * 7) * 30;
             this._spawnSplatter(mx, my, size, { x: dx, y: dy });
         }
 
@@ -144,9 +157,10 @@ export class InkSplatter {
             // Small spray particles while dragging
             if (this.mode === 2 && this.tick % 2 === 0) {
                 for (let i = 0; i < 3; i++) {
-                    const angle = Math.random() * TAU;
-                    const dist = Math.random() * 15;
-                    this._spawnSplatter(mx + Math.cos(angle) * dist, my + Math.sin(angle) * dist, 3 + Math.random() * 5, null);
+                    const ss = this.tick * 19 + i * 47;
+                    const angle = this._prand(ss) * TAU;
+                    const dist = this._prand(ss + 1) * 15;
+                    this._spawnSplatter(mx + Math.cos(angle) * dist, my + Math.sin(angle) * dist, 3 + this._prand(ss + 2) * 5, null);
                 }
             }
         } else if (!isClicking) {
@@ -169,8 +183,8 @@ export class InkSplatter {
             b.vy *= 0.95;
             b.life = Math.max(0, 1 - b.radius / b.maxRadius);
 
-            // Render to persistent canvas when mature
-            if (b.radius >= b.maxRadius * 0.8 && !b._rendered) {
+            // Render to persistent canvas when fully grown
+            if (b.radius >= b.maxRadius && !b._rendered) {
                 b._rendered = true;
                 this._renderSplatToCanvas(b);
             }

@@ -107,13 +107,14 @@ export class FungalNetwork {
 
     _addTip(nodeIdx, angle) {
         if (this.tips.length >= this.maxTips) return;
+        const seed = this.tick * 23 + nodeIdx * 59 + this.tips.length * 37;
         this.tips.push({
             nodeIdx,
             angle,
-            speed: 1.5 + Math.random() * 2,
-            branchProb: 0.02 + Math.random() * 0.03,
+            speed: 1.5 + this._prand(seed) * 2,
+            branchProb: 0.02 + this._prand(seed + 1) * 0.03,
             stepCount: 0,
-            maxSteps: 20 + Math.floor(Math.random() * 40)
+            maxSteps: 20 + Math.floor(this._prand(seed + 2) * 40)
         });
     }
 
@@ -147,9 +148,10 @@ export class FungalNetwork {
         if (isClicking && !this._wasClicking) {
             const ni = this._addNode(mx, my);
             if (ni >= 0) {
-                const branches = 2 + Math.floor(Math.random() * 3);
+                const cseed = this.tick * 17;
+                const branches = 2 + Math.floor(this._prand(cseed) * 3);
                 for (let b = 0; b < branches; b++) {
-                    this._addTip(ni, (b / branches) * TAU + Math.random() * 0.5);
+                    this._addTip(ni, (b / branches) * TAU + this._prand(cseed + b + 1) * 0.5);
                 }
                 // Connect to nearest existing node
                 const nearest = this._findNearestNode(mx, my, 150);
@@ -194,8 +196,12 @@ export class FungalNetwork {
             let angleWander = (this._prand(this.tick * 7 + i * 31) - 0.5) * 0.8;
 
             if (this.mode === 4) {
-                // Circuit: snap to 90-degree increments
-                angleWander = Math.round(angleWander * 2 / Math.PI) * (Math.PI / 2);
+                // Circuit: snap the accumulated angle to 90-degree grid, apply small random turns
+                tip.angle = Math.round(tip.angle * 2 / Math.PI) * (Math.PI / 2);
+                if (this._prand(this.tick * 11 + i * 53) < 0.2) {
+                    tip.angle += (this._prand(this.tick * 13 + i * 67) > 0.5 ? 1 : -1) * (Math.PI / 2);
+                }
+                angleWander = 0;
             }
 
             if (this.mode === 5) {
@@ -238,7 +244,7 @@ export class FungalNetwork {
 
             // Branch
             if (this._prand(this.tick * 13 + i * 41) < tip.branchProb) {
-                const branchAngle = tip.angle + (this._prand(this.tick + i * 97) > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.8);
+                const branchAngle = tip.angle + (this._prand(this.tick + i * 97) > 0.5 ? 1 : -1) * (0.5 + this._prand(this.tick * 19 + i * 71) * 0.8);
                 this._addTip(tip.nodeIdx, branchAngle);
             }
         }
@@ -252,14 +258,22 @@ export class FungalNetwork {
                 const dest = this.nodes[p.toNode];
                 if (dest) {
                     dest.nutrient = Math.min(1, dest.nutrient + 0.3);
-                    // Continue to connected edge
-                    const nextEdges = this.edges.filter(
-                        e => (e.from === p.toNode || e.to === p.toNode) && e !== p.edge
-                    );
-                    if (nextEdges.length > 0 && this.pulses.length < this.maxPulses) {
-                        const next = nextEdges[Math.floor(this._prand(this.tick + i) * nextEdges.length)];
-                        const nextTo = next.from === p.toNode ? next.to : next.from;
-                        this._spawnPulseOnEdge(next, p.toNode, nextTo);
+                    // Continue to a connected edge (avoid filter allocation)
+                    let nextCount = 0;
+                    let picked = null;
+                    for (let ei = 0; ei < this.edges.length; ei++) {
+                        const e = this.edges[ei];
+                        if (e !== p.edge && (e.from === p.toNode || e.to === p.toNode)) {
+                            nextCount++;
+                            // Reservoir sampling: pick uniformly at random without array
+                            if (this._prand(this.tick * 7 + i * 13 + ei) * nextCount < 1) {
+                                picked = e;
+                            }
+                        }
+                    }
+                    if (picked && this.pulses.length < this.maxPulses) {
+                        const nextTo = picked.from === p.toNode ? picked.to : picked.from;
+                        this._spawnPulseOnEdge(picked, p.toNode, nextTo);
                     }
                 }
                 this.pulsePool.push(p);
@@ -301,7 +315,7 @@ export class FungalNetwork {
         p.fromNode = fromNode;
         p.toNode = toNode;
         p.progress = 0;
-        p.hueOffset = Math.random() * 30 - 15;
+        p.hueOffset = this._prand(this.tick * 41 + fromNode * 13) * 30 - 15;
         this.pulses.push(p);
     }
 

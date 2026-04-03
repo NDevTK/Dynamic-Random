@@ -274,7 +274,7 @@ export const ALL_ARCHITECTURES = [
 ];
 
 // Display-friendly names derived from constructor names
-const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
+export const ARCH_CONSTRUCTOR_NAMES = ALL_ARCHITECTURES.map(fn => {
     const match = fn.toString().match(/new\s+(\w+)/);
     return match ? match[1] : 'Unknown';
 });

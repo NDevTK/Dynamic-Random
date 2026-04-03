@@ -73,6 +73,11 @@ import { OrbitPlayground } from './orbit_playground_effects.js';
 import { SmokeWisps } from './smoke_wisps_effects.js';
 import { BouncyGeometry } from './bouncy_geometry_effects.js';
 import { LaserLightShow } from './laser_light_show_effects.js';
+import { GravityPainting } from './gravity_painting_effects.js';
+import { MirrorDimension } from './mirror_dimension_effects.js';
+import { LightningGarden } from './lightning_garden_effects.js';
+import { DepthField } from './depth_field_effects.js';
+import { WaveInterference } from './wave_interference_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -189,6 +194,11 @@ export const EFFECT_REGISTRY = [
     { instance: new SmokeWisps(),        tags: ['fluid', 'ethereal', 'dark'],              minQuality: 0.3,  drawOrder: 62 },
     { instance: new BouncyGeometry(),    tags: ['physics', 'geometric', 'light'],          minQuality: 0.25, drawOrder: 63 },
     { instance: new LaserLightShow(),    tags: ['tech', 'digital', 'light'],               minQuality: 0.25, drawOrder: 64 },
+    { instance: new GravityPainting(),   tags: ['fluid', 'painterly', 'organic'],           minQuality: 0.3,  drawOrder: 65 },
+    { instance: new MirrorDimension(),   tags: ['geometric', 'crystal', 'light'],           minQuality: 0.25, drawOrder: 66 },
+    { instance: new LightningGarden(),   tags: ['organic', 'bio', 'cosmic'],                minQuality: 0.3,  drawOrder: 67 },
+    { instance: new DepthField(),        tags: ['cosmic', 'ethereal', 'dark'],              minQuality: 0.25, drawOrder: 68 },
+    { instance: new WaveInterference(),  tags: ['physics', 'harmonic', 'quantum'],          minQuality: 0.25, drawOrder: 69 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

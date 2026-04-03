@@ -402,11 +402,16 @@ function drawSmoke(sys) {
             continue;
         }
         const r = p.size * p.life;
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-        g.addColorStop(0, withAlpha(p.color, p.life * 0.15));
-        g.addColorStop(0.6, withAlpha(p.color, p.life * 0.05));
-        g.addColorStop(1, 'transparent');
-        ctx.fillStyle = g;
+        // Use simple filled circle for small smoke; gradient only for large visible puffs
+        if (r > 15) {
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+            g.addColorStop(0, withAlpha(p.color, p.life * 0.15));
+            g.addColorStop(0.6, withAlpha(p.color, p.life * 0.05));
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+        } else {
+            ctx.fillStyle = withAlpha(p.color, p.life * 0.1);
+        }
         ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';

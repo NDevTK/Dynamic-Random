@@ -83,6 +83,9 @@ import { FireworkOrchestra } from './firework_orchestra_effects.js';
 import { PixelSortGlitch } from './pixel_sort_glitch_effects.js';
 import { PortalVortex } from './portal_vortex_effects.js';
 import { AsciiRain } from './ascii_rain_effects.js';
+import { HolographicFoil } from './holographic_foil_effects.js';
+import { GravitySymphony } from './gravity_symphony_effects.js';
+import { NeonSpiderweb } from './neon_spiderweb_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -209,6 +212,9 @@ export const EFFECT_REGISTRY = [
     { instance: new PixelSortGlitch(),   tags: ['glitch', 'digital', 'tech'],               minQuality: 0.25, drawOrder: 72 },
     { instance: new PortalVortex(),      tags: ['void', 'cosmic', 'dark'],                  minQuality: 0.3,  drawOrder: 73 },
     { instance: new AsciiRain(),         tags: ['digital', 'tech', 'dark'],                 minQuality: 0.25, drawOrder: 74 },
+    { instance: new HolographicFoil(),   tags: ['light', 'crystal', 'ethereal'],            minQuality: 0.25, drawOrder: 75 },
+    { instance: new GravitySymphony(),   tags: ['harmonic', 'cosmic', 'geometric'],         minQuality: 0.25, drawOrder: 76 },
+    { instance: new NeonSpiderweb(),     tags: ['organic', 'dark', 'ethereal'],             minQuality: 0.25, drawOrder: 77 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

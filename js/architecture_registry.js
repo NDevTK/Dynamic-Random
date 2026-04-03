@@ -88,6 +88,8 @@ import { PortalArchitecture } from './portal_architecture.js';
 import { TimeWarpArchitecture } from './time_warp_architecture.js';
 import { DreamWeaverArchitecture } from './dream_weaver_architecture.js';
 import { ChaosMosaicArchitecture } from './chaos_mosaic_architecture.js';
+import { UnderwaterCausticsArchitecture } from './underwater_caustics_architecture.js';
+import { ParticleTornadoArchitecture } from './particle_tornado_architecture.js';
 
 /**
  * Architecture registry. Each entry maps a factory to the blueprints it pairs well with.
@@ -152,6 +154,8 @@ export const ARCHITECTURE_REGISTRY = [
     { factory: () => new TimeWarpArchitecture(), blueprints: ['ChronoVerse', 'PhantomEcho', 'VoidTouched', 'QuantumFoam', 'Eldritch', 'StarForged', 'CelestialForge'], weight: 1 },
     { factory: () => new DreamWeaverArchitecture(), blueprints: ['Aetherial', 'Painterly', 'PhantomEcho', 'HauntedRealm', 'LivingInk', 'VoidTouched', 'GlacialDrift', 'Classical'], weight: 1 },
     { factory: () => new ChaosMosaicArchitecture(), blueprints: ['QuantumFoam', 'Digital', 'ArcaneCodex', 'Eldritch', 'NeonCyber', 'TechnoUtopia', 'SentientSwarm'], weight: 1 },
+    { factory: () => new UnderwaterCausticsArchitecture(), blueprints: ['AbyssalZone', 'CoralReef', 'GlassySea', 'AbyssalHorror', 'GlacialDrift', 'Aetherial', 'MoltenHeart', 'VolcanicForge'], weight: 1 },
+    { factory: () => new ParticleTornadoArchitecture(), blueprints: ['VoidTouched', 'StarForged', 'CelestialForge', 'StellarNursery', 'VolcanicForge', 'MoltenHeart', 'Aetherial', 'GlacialDrift', 'HauntedRealm'], weight: 1 },
     { factory: () => new ReactionDiffusionArchitecture(), blueprints: ['Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'QuantumFoam', 'SentientSwarm', 'GooeyMess'], weight: 1 },
     { factory: () => new VoronoiArchitecture(), blueprints: ['Crystalline', 'GlassySea', 'ArcaneCodex', 'Papercraft', 'Eldritch', 'AbyssalZone'], weight: 1 },
     { factory: () => new MagneticFieldArchitecture(), blueprints: ['StarForged', 'CelestialForge', 'StellarNursery', 'VolcanicForge', 'MoltenHeart', 'SonicScapes'], weight: 1 },
@@ -270,7 +274,9 @@ export const ALL_ARCHITECTURES = [
     () => new PortalArchitecture(),
     () => new TimeWarpArchitecture(),
     () => new DreamWeaverArchitecture(),
-    () => new ChaosMosaicArchitecture()
+    () => new ChaosMosaicArchitecture(),
+    () => new UnderwaterCausticsArchitecture(),
+    () => new ParticleTornadoArchitecture()
 ];
 
 // Display-friendly names derived from constructor names

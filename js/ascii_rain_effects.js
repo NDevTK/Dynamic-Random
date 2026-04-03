@@ -125,39 +125,49 @@ export class AsciiRain {
         const chars = CHAR_SETS[this.mode];
 
         for (const col of this.columns) {
-            // Speed varies near cursor
+            // Speed varies near cursor - proximity measured to full column position
             const dx = mx - col.x;
+            const dy = my - col.y;
             const proximity = Math.abs(dx);
+            // Click boosts nearby columns much more than distant ones
+            const clickBoost = isClicking ? Math.max(0, 1 - proximity / 200) * 3 : 0;
             const speedBoost = proximity < 100 ? (1 - proximity / 100) * 2 : 0;
-            const currentSpeed = col.speed + speedBoost + (isClicking ? 1 : 0);
+            const currentSpeed = col.speed + speedBoost + clickBoost;
 
             col.y += currentSpeed;
 
-            // Reset when fully below screen
+            // Track how far into viewport the column is (for fade-in)
+            if (col._fadeIn === undefined) col._fadeIn = 0;
+            col._fadeIn = Math.min(1, col._fadeIn + 0.03);
+
+            // Reset when fully below screen (with smooth fade reset)
             if (col.y - col.length * this.fontSize > H) {
                 col.y = -(col.length * this.fontSize + _prand(this.tick * 7 + col.x) * H * 0.5);
+                col._fadeIn = 0; // restart fade-in
             }
 
-            // Randomly mutate characters
-            if (_prand(this.tick * 11 + col.x * 3) < col.changeRate) {
+            // Randomly mutate characters (capped at one mutation per tick per column)
+            const mutChance = Math.min(0.06, col.changeRate);
+            if (_prand(this.tick * 11 + col.x * 3) < mutChance) {
                 const idx = Math.floor(_prand(this.tick * 13 + col.x * 7) * col.chars.length);
                 col.chars[idx] = chars[Math.floor(_prand(this.tick * 17 + col.x * 11 + idx) * chars.length)];
             }
 
-            // Mouse proximity makes characters change faster
-            if (proximity < 60) {
+            // Mouse proximity makes characters change faster (only one char per tick)
+            if (proximity < 60 && this.tick % 2 === 0) {
                 const idx = Math.floor(_prand(this.tick * 19 + col.x) * col.chars.length);
                 col.chars[idx] = chars[Math.floor(_prand(this.tick * 23 + col.x + idx * 3) * chars.length)];
             }
         }
 
-        // Update splashes
+        // Update splashes with stronger gravity
         for (let i = this._splashes.length - 1; i >= 0; i--) {
             const s = this._splashes[i];
             s.x += s.vx;
             s.y += s.vy;
-            s.vy += 0.15;
-            s.vx *= 0.98;
+            s.vy += 0.25; // stronger downward pull
+            s.vx *= 0.96;
+            s.vy *= 0.99;
             s.life--;
             if (s.life <= 0) {
                 this._splashPool.push(s);
@@ -196,9 +206,17 @@ export class AsciiRain {
         ctx.textBaseline = 'top';
 
         const fs = this.fontSize;
+        // Cache font string (avoid per-character string construction)
+        if (!this._cachedFont || this._cachedFontSize !== fs) {
+            this._cachedFont = `${fs}px monospace`;
+            this._cachedFontSize = fs;
+        }
+        ctx.font = this._cachedFont;
 
         for (const col of this.columns) {
             const charCount = col.chars.length;
+            // Apply column fade-in multiplier
+            const fadeIn = col._fadeIn !== undefined ? col._fadeIn : 1;
 
             for (let i = 0; i < charCount; i++) {
                 const cy = col.y + i * fs;
@@ -229,11 +247,12 @@ export class AsciiRain {
                     l = isHead ? 80 : (50 + tailFade * 15);
                     alpha = (isHead ? 0.45 : tailFade * 0.18) * this.intensity;
                 } else if (this.mode === 3) {
-                    // Colorful symbols
-                    h = (this.hue + i * 30 + col.phase * 57.3) % 360;
-                    s = 80;
-                    l = isHead ? 80 : (55 + tailFade * 15);
-                    alpha = (isHead ? 0.4 : tailFade * 0.2) * this.intensity;
+                    // Colorful symbols - each character gets unique color from char code
+                    const charCode = col.chars[i].codePointAt(0) || 0;
+                    h = (charCode * 37 + i * 25 + col.phase * 57.3 + this.tick * 0.5) % 360;
+                    s = 75 + (charCode % 20);
+                    l = isHead ? 85 : (55 + tailFade * 20);
+                    alpha = (isHead ? 0.45 : tailFade * 0.22) * this.intensity;
                 } else if (this.mode === 4) {
                     // Code leak - dripping effect
                     h = this.hue;
@@ -249,9 +268,10 @@ export class AsciiRain {
                     alpha = (isHead ? 0.4 : tailFade * 0.15 + (signal > 0.5 ? 0.1 : 0)) * this.intensity;
                 }
 
+                // Apply column fade-in
+                alpha *= fadeIn;
                 if (alpha < 0.01) continue;
 
-                ctx.font = `${fs}px monospace`;
                 ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${alpha})`;
                 ctx.fillText(col.chars[i], col.x + fs / 2, cy);
             }

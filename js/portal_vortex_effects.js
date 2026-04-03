@@ -113,15 +113,19 @@ export class PortalVortex {
 
     _spawnOrbiter(rng) {
         if (this._orbiters.length >= this.maxOrbiters) return;
-        const angle = (rng ? rng() : _prand(this.tick * 37)) * TAU;
-        const dist = this._targetRadius * (0.5 + (rng ? rng() : _prand(this.tick * 53)) * 2);
+        // Use deterministic _prand when no seeded rng is provided (runtime spawns)
+        const _r = (offset) => rng ? rng() : _prand(this.tick * 37 + offset + this._orbiters.length * 13);
+        const angle = _r(0) * TAU;
+        const dist = this._targetRadius * (0.5 + _r(1) * 2);
         const o = {};
         o.angle = angle;
         o.dist = dist;
-        o.speed = 0.01 + (rng ? rng() : _prand(this.tick * 71)) * 0.04;
-        o.size = 1 + (rng ? rng() : _prand(this.tick * 91)) * 3;
-        o.hueOffset = ((rng ? rng() : _prand(this.tick * 97)) - 0.5) * 40;
-        o.life = 60 + (rng ? rng() : _prand(this.tick * 101)) * 100;
+        // Mode-specific orbit speed: Black Hole faster, Whirlpool fastest, others moderate
+        const baseSpeed = this.mode === 0 ? 0.03 : (this.mode === 3 ? 0.04 : 0.015);
+        o.speed = baseSpeed + _r(2) * 0.03;
+        o.size = 1 + _r(3) * 3;
+        o.hueOffset = (_r(4) - 0.5) * 40;
+        o.life = 60 + _r(5) * 100;
         o.maxLife = o.life;
         o.driftIn = this.mode === 0 || this.mode === 3; // spiral inward
         this._orbiters.push(o);
@@ -153,8 +157,9 @@ export class PortalVortex {
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
-        // Animate openness and radius
-        this._openness += (this._targetOpenness - this._openness) * 0.05;
+        // Animate openness with cubic ease for dramatic effect
+        const openDiff = this._targetOpenness - this._openness;
+        this._openness += openDiff * 0.05 * (1 + Math.abs(openDiff) * 2);
         this._portalRadius += (this._targetRadius * this._openness - this._portalRadius) * 0.08;
         this._rotation += this._rotSpeed * (1 + this._mouseSpeed * 0.01);
 
@@ -177,8 +182,8 @@ export class PortalVortex {
             }
         }
 
-        // Replenish orbiters
-        if (this._orbiters.length < this.maxOrbiters * 0.6 && this.tick % 3 === 0) {
+        // Replenish orbiters (only when below 40% to prevent constant spawning)
+        if (this._orbiters.length < this.maxOrbiters * 0.4 && this.tick % 4 === 0) {
             this._spawnOrbiter(null);
         }
 
@@ -263,17 +268,32 @@ export class PortalVortex {
         ctx.fill();
         ctx.globalCompositeOperation = 'lighter';
 
-        // Accretion disk rings
-        for (let ring = 0; ring < 3; ring++) {
-            const ringR = r * (0.5 + ring * 0.3);
-            const alpha = (0.1 - ring * 0.025) * this.intensity;
-            const h = (this.hue + ring * 20) % 360;
-            ctx.strokeStyle = `hsla(${h}, 80%, 60%, ${alpha})`;
-            ctx.lineWidth = 2 + (2 - ring);
+        // Animated accretion disk rings with rotating bright spots
+        for (let ring = 0; ring < 4; ring++) {
+            const ringR = r * (0.5 + ring * 0.25);
+            const baseAlpha = (0.12 - ring * 0.02) * this.intensity;
+            const h = (this.hue + ring * 25 + this.tick * 0.3) % 360;
+            const ringRot = this._rotation * (1 + ring * 0.3) + ring * 0.5;
+
+            // Main ring stroke
+            ctx.strokeStyle = `hsla(${h}, 80%, 60%, ${baseAlpha})`;
+            ctx.lineWidth = 2.5 - ring * 0.4;
             ctx.beginPath();
-            ctx.ellipse(px, py, ringR, ringR * 0.3,
-                this._rotation + ring * 0.5, 0, TAU);
+            ctx.ellipse(px, py, ringR, ringR * 0.3, ringRot, 0, TAU);
             ctx.stroke();
+
+            // Bright hotspots orbiting in disk
+            const spotCount = 2 + ring;
+            for (let s = 0; s < spotCount; s++) {
+                const spotAngle = ringRot + (s / spotCount) * TAU;
+                const spotX = px + Math.cos(spotAngle) * ringR;
+                const spotY = py + Math.sin(spotAngle) * ringR * 0.3;
+                const spotAlpha = baseAlpha * (0.5 + Math.sin(this.tick * 0.1 + s * 2 + ring) * 0.3);
+                ctx.fillStyle = `hsla(${(h + 30) % 360}, 90%, 80%, ${spotAlpha})`;
+                ctx.beginPath();
+                ctx.arc(spotX, spotY, 1.5 + (3 - ring) * 0.5, 0, TAU);
+                ctx.fill();
+            }
         }
 
         // Event horizon glow
@@ -467,9 +487,15 @@ export class PortalVortex {
             ctx.stroke();
         }
 
-        // Pupil (follows cursor slightly)
-        const pdx = (this._mx - px) * 0.05;
-        const pdy = (this._my - py) * 0.05;
+        // Pupil (follows cursor slightly, clamped to stay within iris)
+        const maxPupilOffset = pupilR * 0.6;
+        let pdx = (this._mx - px) * 0.05;
+        let pdy = (this._my - py) * 0.05;
+        const pupilDist = Math.sqrt(pdx * pdx + pdy * pdy);
+        if (pupilDist > maxPupilOffset) {
+            pdx = (pdx / pupilDist) * maxPupilOffset;
+            pdy = (pdy / pupilDist) * maxPupilOffset;
+        }
         const pupilGrad = ctx.createRadialGradient(px + pdx, py + pdy, 0, px + pdx, py + pdy, pupilR);
         pupilGrad.addColorStop(0, `rgba(0, 0, 0, ${0.2 * this.intensity})`);
         pupilGrad.addColorStop(1, `rgba(0, 0, 0, ${0.05 * this.intensity})`);
@@ -519,28 +545,47 @@ export class PortalVortex {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Energy leak lines
-        for (let i = 0; i < this._tearPoints.length; i += 2) {
+        // Energy leak lines - more visible with glow and flicker
+        for (let i = 0; i < this._tearPoints.length; i++) {
             const tp = this._tearPoints[i];
             const angle = tp.angle + this._rotation * 0.2;
             const tr = r * tp.radius;
             const sx = px + Math.cos(angle) * tr;
             const sy = py + Math.sin(angle) * tr;
-            const leakLen = 20 + Math.sin(this.tick * 0.08 + i) * 15;
+            const leakLen = 25 + Math.sin(this.tick * 0.08 + i) * 20;
+            const flicker = (Math.sin(this.tick * 0.5 + i * 3.7) + 1) / 2;
+            if (flicker < 0.3) continue; // intermittent leaks
+
             const ex = sx + Math.cos(angle) * leakLen;
             const ey = sy + Math.sin(angle) * leakLen;
 
-            const alpha = (0.05 + Math.sin(this.tick * 0.1 + i * 2) * 0.05) * this.intensity;
-            ctx.strokeStyle = `hsla(${(this.hue + i * 15) % 360}, 85%, 70%, ${alpha})`;
-            ctx.lineWidth = 0.8;
+            const alpha = (0.08 + flicker * 0.12) * this.intensity;
+            const h = (this.hue + i * 15) % 360;
+
+            // Glow around leak
+            ctx.strokeStyle = `hsla(${h}, 85%, 70%, ${alpha})`;
+            ctx.lineWidth = 1.5 + flicker;
             ctx.beginPath();
             ctx.moveTo(sx, sy);
-            // Jagged path
-            const mid1x = (sx + ex) / 2 + Math.sin(this.tick * 0.3 + i) * 8;
-            const mid1y = (sy + ey) / 2 + Math.cos(this.tick * 0.25 + i) * 8;
-            ctx.lineTo(mid1x, mid1y);
-            ctx.lineTo(ex, ey);
+            // Jagged lightning-like path
+            const segments = 3;
+            let cx = sx, cy = sy;
+            for (let s = 1; s <= segments; s++) {
+                const t = s / segments;
+                const jx = (sx + (ex - sx) * t) + Math.sin(this.tick * 0.4 + i * 1.7 + s * 2.3) * 12;
+                const jy = (sy + (ey - sy) * t) + Math.cos(this.tick * 0.35 + i * 2.1 + s * 1.9) * 12;
+                ctx.lineTo(jx, jy);
+                cx = jx; cy = jy;
+            }
             ctx.stroke();
+
+            // Bright endpoint spark
+            if (flicker > 0.6) {
+                ctx.fillStyle = `hsla(${h}, 90%, 85%, ${(flicker - 0.6) * 0.3 * this.intensity})`;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 2 + flicker * 2, 0, TAU);
+                ctx.fill();
+            }
         }
     }
 }

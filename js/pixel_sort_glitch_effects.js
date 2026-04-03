@@ -175,9 +175,10 @@ export class PixelSortGlitch {
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
-        // Auto-spawn based on mouse movement
+        // Auto-spawn based on mouse movement (respect maxStrips strictly)
         this._spawnTimer++;
-        if (this._spawnTimer >= this._spawnInterval || this._mouseSpeed > 10) {
+        if ((this._spawnTimer >= this._spawnInterval || this._mouseSpeed > 10)
+            && this.strips.length < this.maxStrips) {
             this._spawnTimer = 0;
             if (this._mouseSpeed > 3) {
                 this._spawnStrip(mx, my, this.tick * 13);
@@ -191,6 +192,14 @@ export class PixelSortGlitch {
         // Update strips
         for (let i = this.strips.length - 1; i >= 0; i--) {
             const s = this.strips[i];
+            // Mode 1 (Horizontal Tear): cursor proximity bends strips
+            if (this.mode === 1) {
+                const dy = my - s.y;
+                if (Math.abs(dy) < 80) {
+                    const bend = (1 - Math.abs(dy) / 80) * 3;
+                    s.vx += (mx > s.x + s.w / 2 ? bend : -bend) * 0.1;
+                }
+            }
             s.x += s.vx || 0;
             s.y += s.vy || 0;
             s.life--;
@@ -225,28 +234,39 @@ export class PixelSortGlitch {
         ctx.globalCompositeOperation = 'lighter';
         for (const s of this.strips) {
             const ratio = s.life / s.maxLife;
-            const alpha = ratio * 0.2 * this.intensity;
+            const alpha = ratio * 0.35 * this.intensity;
 
             // Gradient strip going downward
             const grad = ctx.createLinearGradient(s.x, s.y, s.x, s.y + s.h);
             grad.addColorStop(0, `hsla(${s.hue}, 70%, 60%, ${alpha})`);
-            grad.addColorStop(0.5, `hsla(${(s.hue + 20) % 360}, 80%, 70%, ${alpha * 1.5})`);
+            grad.addColorStop(0.4, `hsla(${(s.hue + 20) % 360}, 80%, 70%, ${alpha * 1.5})`);
             grad.addColorStop(1, `hsla(${s.hue}, 60%, 50%, 0)`);
 
             ctx.fillStyle = grad;
             ctx.fillRect(s.x, s.y, s.w, s.h);
+
+            // Bright leading edge
+            ctx.fillStyle = `hsla(${s.hue}, 80%, 85%, ${alpha * 0.6})`;
+            ctx.fillRect(s.x, s.y, s.w, 2);
         }
     }
 
     _drawHorizontalTear(ctx) {
+        ctx.globalCompositeOperation = 'lighter';
         for (const s of this.strips) {
             const ratio = s.life / s.maxLife;
-            const alpha = ratio * 0.15 * this.intensity;
+            const alpha = ratio * 0.28 * this.intensity;
 
-            // Displacement: draw a colored rectangle with slight offset
-            ctx.globalCompositeOperation = 'lighter';
+            // Displacement: colored rectangle with chromatic offset
             ctx.fillStyle = `hsla(${s.hue}, 80%, 55%, ${alpha})`;
             ctx.fillRect(s.x, s.y, s.w, s.h);
+
+            // Chromatic split - red/blue channel offsets
+            const splitOffset = Math.sin(this.tick * 0.2 + s.y * 0.01) * 4;
+            ctx.fillStyle = `hsla(${(s.hue + 120) % 360}, 90%, 60%, ${alpha * 0.3})`;
+            ctx.fillRect(s.x + splitOffset, s.y - 1, s.w, s.h);
+            ctx.fillStyle = `hsla(${(s.hue + 240) % 360}, 90%, 60%, ${alpha * 0.25})`;
+            ctx.fillRect(s.x - splitOffset, s.y + 1, s.w, s.h);
 
             // Scan line accent
             ctx.fillStyle = `hsla(${(s.hue + 180) % 360}, 90%, 85%, ${alpha * 0.5})`;
@@ -274,28 +294,29 @@ export class PixelSortGlitch {
     }
 
     _drawBlockShuffle(ctx) {
+        ctx.globalCompositeOperation = 'lighter';
         for (const s of this.strips) {
             const ratio = s.life / s.maxLife;
-            const alpha = ratio * 0.12 * this.intensity;
+            const alpha = ratio * 0.2 * this.intensity;
 
-            // Glitchy block outline
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = `hsla(${s.hue}, 80%, 65%, ${alpha * 2})`;
-            ctx.lineWidth = 1;
+            // Glitchy block outline with thickness pulsing
+            const pulseWidth = 1 + Math.sin(this.tick * 0.3 + s.seed) * 0.5;
+            ctx.strokeStyle = `hsla(${s.hue}, 80%, 65%, ${alpha * 2.5})`;
+            ctx.lineWidth = pulseWidth;
             ctx.strokeRect(s.x, s.y, s.w, s.h);
 
             // Fill with semi-transparent color
-            ctx.fillStyle = `hsla(${s.hue}, 60%, 50%, ${alpha * 0.5})`;
+            ctx.fillStyle = `hsla(${s.hue}, 60%, 50%, ${alpha * 0.6})`;
             ctx.fillRect(s.x, s.y, s.w, s.h);
 
-            // Horizontal scan artifacts inside block
-            const scanCount = Math.floor(s.h / 4);
-            for (let j = 0; j < scanCount; j++) {
-                const scanY = s.y + j * 4;
-                const scanAlpha = _prand(s.seed + j * 7) * alpha * 0.8;
-                if (scanAlpha > 0.01) {
-                    ctx.fillStyle = `hsla(${(s.hue + j * 5) % 360}, 70%, 70%, ${scanAlpha})`;
-                    ctx.fillRect(s.x, scanY, s.w, 2);
+            // Horizontal scan artifacts inside block (batched per band)
+            const bandCount = 3;
+            for (let b = 0; b < bandCount; b++) {
+                const bandY = s.y + (s.h / bandCount) * b;
+                const bandAlpha = _prand(s.seed + b * 7) * alpha;
+                if (bandAlpha > 0.01) {
+                    ctx.fillStyle = `hsla(${(s.hue + b * 40) % 360}, 70%, 70%, ${bandAlpha})`;
+                    ctx.fillRect(s.x, bandY, s.w, s.h / bandCount * 0.4);
                 }
             }
         }
@@ -305,51 +326,60 @@ export class PixelSortGlitch {
         ctx.globalCompositeOperation = 'lighter';
         for (const s of this.strips) {
             const ratio = s.life / s.maxLife;
-            const alpha = ratio * 0.25 * this.intensity;
+            const alpha = ratio * 0.35 * this.intensity;
             const angle = s.angle || 0;
+            const len = s.len || 100;
 
             ctx.save();
             ctx.translate(s.x, s.y);
             ctx.rotate(angle);
 
-            const grad = ctx.createLinearGradient(0, 0, s.len || 100, 0);
-            grad.addColorStop(0, `hsla(${s.hue}, 85%, 70%, ${alpha})`);
-            grad.addColorStop(0.3, `hsla(${(s.hue + 15) % 360}, 80%, 65%, ${alpha * 0.7})`);
+            const grad = ctx.createLinearGradient(0, 0, len, 0);
+            grad.addColorStop(0, `hsla(${s.hue}, 90%, 75%, ${alpha * 1.2})`);
+            grad.addColorStop(0.2, `hsla(${(s.hue + 15) % 360}, 85%, 65%, ${alpha})`);
             grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
-            ctx.fillRect(0, -s.w / 2, s.len || 100, s.w);
+            ctx.fillRect(0, -s.w / 2, len, s.w);
+
+            // Sharp bright leading edge
+            ctx.fillStyle = `hsla(${s.hue}, 95%, 90%, ${alpha * 0.7})`;
+            ctx.fillRect(0, -s.w / 2, 3, s.w);
 
             ctx.restore();
         }
     }
 
     _drawDataCorrupt(ctx) {
+        ctx.globalCompositeOperation = 'lighter';
         for (const s of this.strips) {
             const ratio = s.life / s.maxLife;
-            const alpha = ratio * 0.2 * this.intensity;
+            const alpha = ratio * 0.3 * this.intensity;
             const ch = this._channels[s.channel || 0];
-
-            // Color channel separated block
-            ctx.globalCompositeOperation = 'lighter';
 
             // Main channel
             ctx.fillStyle = `hsla(${ch.h}, ${ch.s}%, ${ch.l}%, ${alpha})`;
             ctx.fillRect(s.x, s.y, s.w, s.h);
 
-            // Offset "ghost" of another channel
-            const offset = Math.sin(this.tick * 0.3 + s.seed) * 5;
-            const ghost = this._channels[(s.channel + 1) % 3];
-            ctx.fillStyle = `hsla(${ghost.h}, ${ghost.s}%, ${ghost.l}%, ${alpha * 0.3})`;
-            ctx.fillRect(s.x + offset, s.y - 2, s.w, s.h);
+            // Offset "ghost" channels with larger displacement for visible separation
+            const offset1 = Math.sin(this.tick * 0.3 + s.seed) * 12 + 4;
+            const offset2 = -Math.sin(this.tick * 0.25 + s.seed * 1.3) * 10 - 3;
+            const ghost1 = this._channels[(s.channel + 1) % 3];
+            const ghost2 = this._channels[(s.channel + 2) % 3];
+            ctx.fillStyle = `hsla(${ghost1.h}, ${ghost1.s}%, ${ghost1.l}%, ${alpha * 0.35})`;
+            ctx.fillRect(s.x + offset1, s.y - 2, s.w, s.h);
+            ctx.fillStyle = `hsla(${ghost2.h}, ${ghost2.s}%, ${ghost2.l}%, ${alpha * 0.25})`;
+            ctx.fillRect(s.x + offset2, s.y + 2, s.w, s.h);
 
-            // Binary noise pattern
-            const noiseCount = Math.floor(s.w / 3);
+            // Binary noise pattern (sample every other to reduce fill calls)
+            const noiseCount = Math.floor(s.w / 4);
+            ctx.fillStyle = `hsla(${ch.h}, 90%, 90%, ${alpha * 0.4})`;
+            ctx.beginPath();
             for (let n = 0; n < noiseCount; n++) {
-                if (_prand(s.seed + n * 3 + this.tick) > 0.6) {
-                    ctx.fillStyle = `hsla(${ch.h}, 90%, 90%, ${alpha * 0.4})`;
-                    ctx.fillRect(s.x + n * 3, s.y, 2, s.h);
+                if (_prand(s.seed + n * 3 + this.tick) > 0.55) {
+                    ctx.rect(s.x + n * 4, s.y, 2, s.h);
                 }
             }
+            ctx.fill();
         }
     }
 }

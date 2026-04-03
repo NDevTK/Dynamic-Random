@@ -197,23 +197,26 @@ export class FireworkOrchestra {
         }
     }
 
-    _burstCrossette(x, y, seed, color) {
+    _burstCrossette(x, y, seed, color, depth) {
+        if (depth === undefined) depth = 0;
+        if (depth >= 2) return; // Cap recursion at 2 levels
         const arms = 4 + Math.floor(_prand(seed) * 4);
         for (let i = 0; i < arms; i++) {
             const angle = (i / arms) * TAU + _prand(seed + 10) * 0.5;
-            const speed = 5 + _prand(seed + i + 100) * 3;
+            const speed = (5 - depth * 1.5) + _prand(seed + i + 100) * 3;
             const b = {};
             b.x = x; b.y = y;
             b.vx = Math.cos(angle) * speed;
             b.vy = Math.sin(angle) * speed;
-            b.life = 20;
-            b.maxLife = 20;
+            b.life = 18 - depth * 4;
+            b.maxLife = b.life;
             b.h = color.h; b.s = color.s; b.l = color.l;
-            b.size = 2;
+            b.size = 2 - depth * 0.5;
             b.type = 'crossette';
             b.trail = [];
             b.maxTrail = 6;
             b._seed = seed + i * 31;
+            b._depth = depth;
             if (this.bursts.length < this.maxBursts) this.bursts.push(b);
         }
     }
@@ -221,13 +224,17 @@ export class FireworkOrchestra {
     _burstKamuro(x, y, seed, color) {
         const count = 80 + Math.floor(_prand(seed) * 40);
         const gold = { h: 45, s: 95, l: 65 };
+        const silver = { h: 45, s: 20, l: 85 };
         for (let i = 0; i < count; i++) {
             const angle = (i / count) * TAU + _prand(seed + i) * 0.25;
-            const speed = 1 + _prand(seed + i + 100) * 3.5;
-            const life = 90 + _prand(seed + i + 200) * 60;
+            // Higher initial speed for dramatic cascade arc
+            const speed = 2 + _prand(seed + i + 100) * 5;
+            // Very long life for the cascading waterfall effect
+            const life = 120 + _prand(seed + i + 200) * 80;
+            const particleColor = _prand(seed + i + 400) > 0.15 ? gold : silver;
             this._spawnBurst(x, y,
-                Math.cos(angle) * speed, Math.sin(angle) * speed - 0.5,
-                life, gold, 1 + _prand(seed + i + 300) * 1.5, 'streak');
+                Math.cos(angle) * speed, Math.sin(angle) * speed - 1.5,
+                life, particleColor, 1 + _prand(seed + i + 300) * 1.5, 'streak');
         }
     }
 
@@ -236,9 +243,10 @@ export class FireworkOrchestra {
         this._mx = mx;
         this._my = my;
 
-        // Click launches
+        // Click launches - target height fully deterministic from tick seed
         if (isClicking && !this._wasClicking) {
-            this._launchRocket(mx, my * 0.3 + _prand(this.tick * 19) * window.innerHeight * 0.3);
+            const targetY = window.innerHeight * (0.1 + _prand(this.tick * 19) * 0.4);
+            this._launchRocket(mx, targetY);
         }
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
@@ -269,6 +277,11 @@ export class FireworkOrchestra {
 
             if (r.y <= r.targetY || r.vy >= 0) {
                 this._explode(r.x, r.y, r.seed);
+                // Store explosion flash for visual impact
+                if (!this._flashes) this._flashes = [];
+                if (this._flashes.length < 10) {
+                    this._flashes.push({ x: r.x, y: r.y, life: 8, maxLife: 8, hue: r.hue });
+                }
                 this._rocketPool.push(r);
                 this.rockets[i] = this.rockets[this.rockets.length - 1];
                 this.rockets.pop();
@@ -298,17 +311,25 @@ export class FireworkOrchestra {
                 }
             }
 
-            // Crossette re-explosion
+            // Crossette re-explosion with depth limit
             if (b.type === 'crossette' && b.life <= 0) {
-                const seed = b._seed || this.tick;
-                const subCount = 4;
-                for (let j = 0; j < subCount; j++) {
-                    const angle = (j / subCount) * TAU + _prand(seed + j) * 0.5;
-                    const speed = 2 + _prand(seed + j + 10) * 2;
-                    this._spawnBurst(b.x, b.y,
-                        Math.cos(angle) * speed, Math.sin(angle) * speed,
-                        20 + _prand(seed + j + 20) * 15,
-                        { h: b.h, s: b.s, l: b.l }, 1.5, 'dot');
+                const depth = (b._depth || 0) + 1;
+                if (depth < 2) {
+                    // Re-explode into smaller crossettes
+                    this._burstCrossette(b.x, b.y, b._seed || this.tick,
+                        { h: b.h, s: b.s, l: Math.min(100, b.l + 10) }, depth);
+                } else {
+                    // Final level: small dot burst
+                    const seed = b._seed || this.tick;
+                    const subCount = 4;
+                    for (let j = 0; j < subCount; j++) {
+                        const angle = (j / subCount) * TAU + _prand(seed + j) * 0.5;
+                        const speed = 1.5 + _prand(seed + j + 10) * 1.5;
+                        this._spawnBurst(b.x, b.y,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            15 + _prand(seed + j + 20) * 10,
+                            { h: b.h, s: b.s, l: Math.min(100, b.l + 15) }, 1, 'dot');
+                    }
                 }
             }
 
@@ -316,6 +337,17 @@ export class FireworkOrchestra {
                 this._burstPool.push(b);
                 this.bursts[i] = this.bursts[this.bursts.length - 1];
                 this.bursts.pop();
+            }
+        }
+
+        // Update explosion flashes
+        if (this._flashes) {
+            for (let i = this._flashes.length - 1; i >= 0; i--) {
+                this._flashes[i].life--;
+                if (this._flashes[i].life <= 0) {
+                    this._flashes[i] = this._flashes[this._flashes.length - 1];
+                    this._flashes.pop();
+                }
             }
         }
     }
@@ -351,8 +383,9 @@ export class FireworkOrchestra {
             const alpha = ratio * 0.7 * this.intensity;
 
             if (b.type === 'glitter') {
-                // Twinkling glitter
-                const twinkle = Math.sin(this.tick * 0.8 + b.x * 0.1) > 0 ? 1 : 0.3;
+                // Twinkling glitter - twinkle faster near end of life for sparkle effect
+                const twinkleSpeed = 0.5 + (1 - ratio) * 2; // faster as it dies
+                const twinkle = Math.sin(this.tick * twinkleSpeed + b.x * 0.1 + b.y * 0.07) > 0 ? 1 : 0.2;
                 ctx.fillStyle = `hsla(${b.h}, ${b.s}%, ${b.l}%, ${alpha * twinkle})`;
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, b.size * ratio, 0, TAU);
@@ -378,6 +411,22 @@ export class FireworkOrchestra {
                 ctx.fillStyle = `hsla(${b.h}, ${b.s}%, ${b.l}%, ${alpha})`;
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, b.size * ratio, 0, TAU);
+                ctx.fill();
+            }
+        }
+
+        // Draw explosion flashes (bright burst at detonation point)
+        if (this._flashes) {
+            for (const f of this._flashes) {
+                const ratio = f.life / f.maxLife;
+                const flashR = (1 - ratio) * 40 + 5;
+                const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, flashR);
+                grad.addColorStop(0, `hsla(${f.hue}, 80%, 95%, ${ratio * 0.5 * this.intensity})`);
+                grad.addColorStop(0.4, `hsla(${f.hue}, 70%, 70%, ${ratio * 0.2 * this.intensity})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, flashR, 0, TAU);
                 ctx.fill();
             }
         }

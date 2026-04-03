@@ -171,7 +171,7 @@ export class ShockwavePrism {
             if (this.tick % 2 === 0) {
                 d.trail.push(d.x, d.y);
                 if (d.trail.length > 12) {
-                    d.trail.splice(0, 2);
+                    d.trail.copyWithin(0, 2); d.trail.length -= 2;
                 }
             }
 

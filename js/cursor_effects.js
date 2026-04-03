@@ -1123,7 +1123,11 @@ function drawTimeCrystal(sys) {
     // Record echo positions
     if (sys.tick % state.echoInterval === 0) {
         state.echoes.push({ x: mx, y: my, tick: sys.tick, alpha: 1.0 });
-        if (state.echoes.length > state.maxEchoes) state.echoes.shift();
+        if (state.echoes.length > state.maxEchoes) {
+            // Swap-remove oldest to avoid O(n) shift
+            state.echoes[0] = state.echoes[state.echoes.length - 1];
+            state.echoes.pop();
+        }
     }
 
     ctx.globalCompositeOperation = 'lighter';
@@ -1384,8 +1388,15 @@ function drawVortex(sys) {
         const y = my + Math.sin(spiralAngle) * p.dist;
 
         // Store trail
-        p.trail.push({ x, y });
-        if (p.trail.length > p.trailMax) p.trail.shift();
+        if (p.trail.length < p.trailMax) {
+            p.trail.push({ x, y });
+        } else {
+            // Ring-buffer overwrite to avoid O(n) shift
+            if (p._trailIdx === undefined) p._trailIdx = 0;
+            p.trail[p._trailIdx].x = x;
+            p.trail[p._trailIdx].y = y;
+            p._trailIdx = (p._trailIdx + 1) % p.trailMax;
+        }
 
         // Draw trail
         if (p.trail.length > 1) {
@@ -1547,8 +1558,14 @@ function drawParticlePhysics(sys) {
         p.angle += sys.state.orbitSpeedA;
         const x = mx + Math.cos(p.angle) * p.radius;
         const y = my + Math.sin(p.angle) * p.radius;
-        p.trail.push({ x, y });
-        if (p.trail.length > 4) p.trail.shift();
+        if (p.trail.length < 4) {
+            p.trail.push({ x, y });
+        } else {
+            if (p._trailIdx === undefined) p._trailIdx = 0;
+            p.trail[p._trailIdx].x = x;
+            p.trail[p._trailIdx].y = y;
+            p._trailIdx = (p._trailIdx + 1) % 4;
+        }
 
         // Draw trail
         for (let t = 0; t < p.trail.length; t++) {
@@ -1572,8 +1589,14 @@ function drawParticlePhysics(sys) {
         p.angle -= sys.state.orbitSpeedB;
         const x = mx + Math.cos(p.angle) * p.radius;
         const y = my + Math.sin(p.angle) * p.radius;
-        p.trail.push({ x, y });
-        if (p.trail.length > 4) p.trail.shift();
+        if (p.trail.length < 4) {
+            p.trail.push({ x, y });
+        } else {
+            if (p._trailIdx === undefined) p._trailIdx = 0;
+            p.trail[p._trailIdx].x = x;
+            p.trail[p._trailIdx].y = y;
+            p._trailIdx = (p._trailIdx + 1) % 4;
+        }
 
         for (let t = 0; t < p.trail.length; t++) {
             const alpha = (t / p.trail.length) * 0.4;
@@ -1619,7 +1642,9 @@ function drawParticlePhysics(sys) {
         d.life -= d.decay;
 
         if (d.life <= 0) {
-            sys.state.decayProducts.splice(i, 1);
+            // Swap-and-pop instead of splice for O(1) removal
+            sys.state.decayProducts[i] = sys.state.decayProducts[sys.state.decayProducts.length - 1];
+            sys.state.decayProducts.pop();
             continue;
         }
 
@@ -1631,7 +1656,7 @@ function drawParticlePhysics(sys) {
 
     // Keep decay products list from growing unbounded
     if (sys.state.decayProducts.length > 150) {
-        sys.state.decayProducts.splice(0, sys.state.decayProducts.length - 150);
+        sys.state.decayProducts.length = 150;
     }
 
     ctx.globalCompositeOperation = 'source-over';
@@ -1662,8 +1687,15 @@ function drawInkBrush(sys) {
     const speed = sys.mouseSpeed;
 
     // Track positions
-    state.positions.push({ x: mx, y: my });
-    if (state.positions.length > 20) state.positions.shift();
+    if (state.positions.length < 20) {
+        state.positions.push({ x: mx, y: my });
+    } else {
+        // Overwrite oldest in ring-buffer fashion
+        if (state._posIdx === undefined) state._posIdx = 0;
+        state.positions[state._posIdx].x = mx;
+        state.positions[state._posIdx].y = my;
+        state._posIdx = (state._posIdx + 1) % 20;
+    }
 
     // Ink color: dark with slight palette hue tint
     const baseColor = palette.primary[0];
@@ -1735,7 +1767,8 @@ function drawInkBrush(sys) {
         const s = state.splatters[i];
         s.life -= s.decay;
         if (s.life <= 0) {
-            state.splatters.splice(i, 1);
+            state.splatters[i] = state.splatters[state.splatters.length - 1];
+            state.splatters.pop();
             continue;
         }
         ctx.fillStyle = withAlpha(baseColor, s.life * 0.5);
@@ -1746,7 +1779,7 @@ function drawInkBrush(sys) {
 
     // Keep splatters bounded
     if (state.splatters.length > 60) {
-        state.splatters.splice(0, state.splatters.length - 60);
+        state.splatters.length = 60;
     }
 
     // Dripping effect when stationary

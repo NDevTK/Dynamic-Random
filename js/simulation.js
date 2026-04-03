@@ -48,10 +48,11 @@ function prepareCanvas(pJS) {
 }
 
 function applyOngoingEffects(p, i, pJS) {
-    if (p.unravelling > 0) { p.unravelling--; p.radius *= 0.98; if (p.unravelling <= 0) { pJS.particles.array.splice(i, 1); return true; } }
+    const arr = pJS.particles.array;
+    if (p.unravelling > 0) { p.unravelling--; p.radius *= 0.98; if (p.unravelling <= 0) { arr[i] = arr[arr.length - 1]; arr.pop(); return true; } }
     if (p.isCrystalized || p.isCoral) { p.vx = 0; p.vy = 0; }
-    if (p.fading > 0) { p.fading--; p.opacity.value = Math.max(0, p.opacity.value - 0.01); if (p.opacity.value <= 0) { pJS.particles.array.splice(i, 1); return true; } }
-    if (p.isConsumed > 0) { p.radius *= 0.97; p.isConsumed--; if (p.isConsumed <= 0) { pJS.particles.array.splice(i, 1); return true; } }
+    if (p.fading > 0) { p.fading--; p.opacity.value = Math.max(0, p.opacity.value - 0.01); if (p.opacity.value <= 0) { arr[i] = arr[arr.length - 1]; arr.pop(); return true; } }
+    if (p.isConsumed > 0) { p.radius *= 0.97; p.isConsumed--; if (p.isConsumed <= 0) { arr[i] = arr[arr.length - 1]; arr.pop(); return true; } }
     return false;
 }
 
@@ -85,9 +86,10 @@ function applyPulsarForce(p) {
 }
 
 function applyBlackHoleForce(p, i, pJS) {
+    const arr = pJS.particles.array;
     for (const hole of activeEffects.blackHoles) {
         const dx = hole.x - p.x, dy = hole.y - p.y, distSq = dx * dx + dy * dy;
-        if (distSq < hole.eventHorizon * hole.eventHorizon) { pJS.particles.array.splice(i, 1); return true; }
+        if (distSq < hole.eventHorizon * hole.eventHorizon) { arr[i] = arr[arr.length - 1]; arr.pop(); return true; }
         if (distSq < 40000) { const force = hole.mass / distSq; p.vx += dx * force; p.vy += dy * force; }
     }
     return false;
@@ -206,11 +208,12 @@ function applyCrystallineFieldForce(p) {
 }
 
 function applyNegativeSpaceForce(p, i, pJS) {
+    const arr = pJS.particles.array;
     for (const space of activeEffects.negativeSpaces) {
         const dx = p.x - space.x;
         const dy = p.y - space.y;
         if (dx * dx + dy * dy < space.radius * space.radius) {
-            pJS.particles.array.splice(i, 1);
+            arr[i] = arr[arr.length - 1]; arr.pop();
             return true;
         }
     }
@@ -262,7 +265,8 @@ function applyEchoingVoidForce(p) {
         const dSq = dx * dx + dy * dy;
         if (dSq < evoid.radius * evoid.radius) {
             evoid.history.push({ x: p.x, y: p.y, color: p.color.rgb });
-            if (evoid.history.length > 200) evoid.history.shift();
+            // Use truncation instead of shift() to avoid O(n) element copying
+            if (evoid.history.length > 200) evoid.history.length = 200;
         }
     }
 }
@@ -302,7 +306,8 @@ function applyUnstableParticles(p, i, pJS) {
         if (seededRandom() > 0.5 && pJS.particles.array.length < pJS.particles.number.value_max) {
             pJS.fn.modes.pushParticles(1, { x: p.x, y: p.y });
         } else {
-            pJS.particles.array.splice(i, 1);
+            const arr = pJS.particles.array;
+            arr[i] = arr[arr.length - 1]; arr.pop();
             return true;
         }
     }
@@ -381,7 +386,8 @@ function applyParticleDecay(p, i, pJS) {
     if (_activeMutators.has('Particle Decay')) {
         p.opacity.value = Math.max(0, p.opacity.value - 0.0005);
         if (p.opacity.value === 0) {
-            pJS.particles.array.splice(i, 1);
+            const arr = pJS.particles.array;
+            arr[i] = arr[arr.length - 1]; arr.pop();
             return true;
         }
     }
@@ -702,7 +708,8 @@ function applyPlayerAndGlobalForces(p, i, pJS, isPhased, isStasis, worldMouse) {
         for (const p2 of nearby) {
             if (p === p2 || p2.isInfected) continue;
             const dx = p.x - p2.x, dy = p.y - p2.y, dSq = dx * dx + dy * dy;
-            if (dSq < Math.pow(p.radius + p2.radius + 2, 2)) {
+            const threshold = p.radius + p2.radius + 2;
+            if (dSq < threshold * threshold) {
                 p2.isInfected = true;
                 p2.color = { rgb: { r: 255, g: 50, b: 50 } };
             }
@@ -748,7 +755,8 @@ function handleBoundaryConditions(p, i, pJS) {
         if (p.y < 0) p.y = pJS.canvas.h; if (p.y > pJS.canvas.h) p.y = 0;
     } else if (_activeMutators.has('Event Horizon')) {
         if (p.x < 0 || p.x > pJS.canvas.w || p.y < 0 || p.y > pJS.canvas.h) {
-            pJS.particles.array.splice(i, 1);
+            const arr = pJS.particles.array;
+            arr[i] = arr[arr.length - 1]; arr.pop();
             return true;
         }
     }
@@ -837,9 +845,9 @@ function updateAnomalies(pJS) {
     activeEffects.magneticStorms.forEach(s => { s.lastFlip++; if (s.lastFlip > s.period) { s.lastFlip = 0; s.attract = !s.attract; pJS.particles.move.attract.enable = s.attract; } });
     activeEffects.supergiantStars.forEach(s => { s.lastSpawn++; if (s.lastSpawn > s.period && pJS.particles.array.length < pJS.particles.number.value_max) { s.lastSpawn = 0; const newP = safePush(pJS, 1, { x: s.x, y: s.y }); if (newP) { newP.vx = (seededRandom() - 0.5) * 5; newP.vy = (seededRandom() - 0.5) * 5; tagParticles([newP], universeProfile, false, seededRandom); } } });
     activeEffects.cosmicGeysers.forEach(g => { g.tick++; if (g.tick > g.period && pJS.particles.array.length < pJS.particles.number.value_max) { g.tick = 0; const newP = safePush(pJS, 1, { x: g.x + (seededRandom() - 0.5) * g.width, y: g.y }); if (newP) { newP.vy = -g.strength; tagParticles([newP], universeProfile, false, seededRandom); } } });
-    activeEffects.temporalRifts.forEach((r, i) => { r.life--; if (r.life <= 0) { activeEffects.temporalRifts.splice(i, 1); return; } if (seededRandom() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = safePush(pJS, 1, { x: r.x, y: r.y }); if (newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP], universeProfile, false, seededRandom); } } });
+    for (let i = activeEffects.temporalRifts.length - 1; i >= 0; i--) { const r = activeEffects.temporalRifts[i]; r.life--; if (r.life <= 0) { activeEffects.temporalRifts[i] = activeEffects.temporalRifts[activeEffects.temporalRifts.length - 1]; activeEffects.temporalRifts.pop(); continue; } if (seededRandom() < 0.01 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = safePush(pJS, 1, { x: r.x, y: r.y }); if (newP) { newP.opacity.value = 0.5; newP.fading = 50; tagParticles([newP], universeProfile, false, seededRandom); } } }
     activeEffects.solarFlares.forEach(f => { f.tick++; if (f.tick > f.period) { f.tick = 0; for (let i = 0; i < 30; i++) { if (pJS.particles.array.length < pJS.particles.number.value_max) { const newP = safePush(pJS, 1, { x: pJS.canvas.w / 2, y: pJS.canvas.h / 2 }); if (newP) { newP.vx = Math.cos(f.angle) * f.strength; newP.vy = Math.sin(f.angle) * f.strength; tagParticles([newP], universeProfile, false, seededRandom); } } } } });
-    activeEffects.spacetimeFoam.forEach((f, i) => { f.life--; if (f.life <= 0) activeEffects.spacetimeFoam.splice(i, 1); });
+    for (let i = activeEffects.spacetimeFoam.length - 1; i >= 0; i--) { const f = activeEffects.spacetimeFoam[i]; f.life--; if (f.life <= 0) { activeEffects.spacetimeFoam[i] = activeEffects.spacetimeFoam[activeEffects.spacetimeFoam.length - 1]; activeEffects.spacetimeFoam.pop(); } }
     activeEffects.cosmicNurseries.forEach(n => { n.tick++; if (n.tick > n.period && pJS.particles.array.length < pJS.particles.number.value_max) { n.tick = 0; const newP = safePush(pJS, 1, { x: n.x + (seededRandom() - 0.5) * n.radius, y: n.y + (seededRandom() - 0.5) * n.radius }); if (newP) { newP.vx = (seededRandom() - 0.5) * 2; newP.vy = (seededRandom() - 0.5) * 2; tagParticles([newP], universeProfile, false, seededRandom); } } });
 }
 

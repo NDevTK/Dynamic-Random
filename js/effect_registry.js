@@ -48,6 +48,12 @@ import { Ferrofluid } from './ferrofluid_effects.js';
 import { CellularAutomata } from './cellular_automata_effects.js';
 import { InkDiffusion } from './ink_diffusion_effects.js';
 import { TerrainErosion } from './terrain_erosion_effects.js';
+import { MagneticCompassField } from './magnetic_compass_field_effects.js';
+import { PendulumWave } from './pendulum_wave_effects.js';
+import { DNAHelix } from './dna_helix_effects.js';
+import { ParticleEcology } from './particle_ecology_effects.js';
+import { MorphingGeometry } from './morphing_geometry_effects.js';
+import { SonicTerrain } from './sonic_terrain_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -139,6 +145,12 @@ export const EFFECT_REGISTRY = [
     { instance: new CellularAutomata(),      tags: ['digital', 'geometric', 'bio'],         minQuality: 0.25, drawOrder: 37 },
     { instance: new InkDiffusion(),          tags: ['fluid', 'painterly', 'organic'],       minQuality: 0.3,  drawOrder: 38 },
     { instance: new TerrainErosion(),        tags: ['cosmic', 'geometric', 'physics'],      minQuality: 0.25, drawOrder: 39 },
+    { instance: new MagneticCompassField(),  tags: ['physics', 'geometric', 'cosmic'],       minQuality: 0.25, drawOrder: 40 },
+    { instance: new PendulumWave(),          tags: ['physics', 'harmonic', 'geometric'],     minQuality: 0.3,  drawOrder: 41 },
+    { instance: new DNAHelix(),              tags: ['organic', 'bio', 'light'],              minQuality: 0.3,  drawOrder: 42 },
+    { instance: new ParticleEcology(),       tags: ['organic', 'swarm', 'bio'],              minQuality: 0.25, drawOrder: 43 },
+    { instance: new MorphingGeometry(),      tags: ['geometric', 'crystal', 'ethereal'],     minQuality: 0.3,  drawOrder: 44 },
+    { instance: new SonicTerrain(),          tags: ['sonic', 'physics', 'cosmic'],            minQuality: 0.25, drawOrder: 45 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

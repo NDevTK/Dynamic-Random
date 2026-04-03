@@ -92,7 +92,7 @@ export class TimeLapsePainter {
     }
 
     _makeAutoStroke(rng, W, H) {
-        return {
+        const base = {
             x: rng() * W,
             y: rng() * H,
             vx: (rng() - 0.5) * 2,
@@ -103,6 +103,38 @@ export class TimeLapsePainter {
             wobble: rng() * 0.1,
             wobblePhase: rng() * TAU,
         };
+        // Mode-specific behaviors
+        switch (this.mode) {
+            case 0: // Impressionist: longer arcs, bigger strokes
+                base.vx *= 1.5;
+                base.vy *= 0.3;
+                base.size *= 1.5;
+                base.life = 200 + Math.floor(rng() * 300);
+                break;
+            case 1: // Pointillist: jittery small dots
+                base.vx = (rng() - 0.5) * 0.5;
+                base.vy = (rng() - 0.5) * 0.5;
+                base.size *= 0.3;
+                base.wobble = 0.2 + rng() * 0.3;
+                break;
+            case 2: // Drip: downward bias
+                base.vy = 0.5 + rng() * 1.5;
+                base.vx *= 0.2;
+                break;
+            case 3: // Ink wash: slow spreading blobs
+                base.vx *= 0.3;
+                base.vy *= 0.3;
+                base.size *= 2;
+                base.life = 300 + Math.floor(rng() * 200);
+                break;
+            case 4: // Geometric: straight lines
+                const angle = rng() * TAU;
+                base.vx = Math.cos(angle) * 1.5;
+                base.vy = Math.sin(angle) * 1.5;
+                base.wobble = 0;
+                break;
+        }
+        return base;
     }
 
     update(mx, my, isClicking) {
@@ -117,6 +149,26 @@ export class TimeLapsePainter {
 
         if (isClicking && !this._wasClicking) {
             this._colorIndex = (this._colorIndex + 1) % this._palette.length;
+
+            // Ink wash: splash effect on click
+            if (this.mode === 3 && pCtx) {
+                const splashColor = this._palette[this._colorIndex];
+                pCtx.globalCompositeOperation = 'source-over';
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * TAU + this._pr(i + 200) * 0.5;
+                    const r = 20 + this._pr(i + 210) * 40;
+                    const sz = 5 + this._pr(i + 220) * 15;
+                    pCtx.fillStyle = `hsla(${splashColor.h}, ${splashColor.s}%, ${splashColor.l}%, ${this._opacity * 0.25})`;
+                    pCtx.beginPath();
+                    pCtx.arc(mx + Math.cos(a) * r, my + Math.sin(a) * r, sz, 0, TAU);
+                    pCtx.fill();
+                }
+                // Central splash
+                pCtx.fillStyle = `hsla(${splashColor.h}, ${splashColor.s}%, ${splashColor.l}%, ${this._opacity * 0.4})`;
+                pCtx.beginPath();
+                pCtx.arc(mx, my, 12 + this._pr(230) * 10, 0, TAU);
+                pCtx.fill();
+            }
 
             if (this.mode === 2) {
                 // Drip mode: spawn drips from click
@@ -171,7 +223,7 @@ export class TimeLapsePainter {
                 case 1: this._paintPointillist(pCtx, mx, my, color); break;
                 case 2: this._paintDripSource(pCtx, mx, my, color); break;
                 case 3: this._paintInkWash(pCtx, mx, my, color); break;
-                case 4: break; // Geometric uses click shapes
+                case 4: this._paintGeometric(pCtx, mx, my, color); break;
             }
         }
 
@@ -254,6 +306,11 @@ export class TimeLapsePainter {
         }
     }
 
+    // Tick-based pseudo-random to avoid advancing universe-level seeded RNG
+    _pr(offset) {
+        return ((this.tick * 2654435761 + offset * 284837) >>> 0) / 4294967296;
+    }
+
     _paintImpressionist(pCtx, mx, my, color) {
         const size = this._brushSize * (0.5 + this._mouseSpeed * 0.05);
         pCtx.save();
@@ -273,8 +330,23 @@ export class TimeLapsePainter {
         for (let i = -2; i <= 2; i++) {
             pCtx.beginPath();
             pCtx.moveTo(-size, i * size * 0.15);
-            pCtx.lineTo(size, i * size * 0.15 + (this._rng() - 0.5) * 2);
+            pCtx.lineTo(size, i * size * 0.15 + (this._pr(i + 50) - 0.5) * 2);
             pCtx.stroke();
+        }
+
+        // Secondary cross-hatch strokes for more painterly texture
+        if (this._mouseSpeed > 4) {
+            pCtx.globalAlpha = 0.3;
+            const crossColor = this._palette[(this._colorIndex + 1) % this._palette.length];
+            pCtx.strokeStyle = `hsla(${crossColor.h}, ${crossColor.s}%, ${crossColor.l}%, ${this._opacity * 0.2})`;
+            pCtx.lineWidth = 0.3;
+            for (let i = -1; i <= 1; i++) {
+                pCtx.beginPath();
+                pCtx.moveTo(i * size * 0.3, -size * 0.3);
+                pCtx.lineTo(i * size * 0.3 + size * 0.1, size * 0.3);
+                pCtx.stroke();
+            }
+            pCtx.globalAlpha = 1;
         }
 
         pCtx.restore();
@@ -284,10 +356,10 @@ export class TimeLapsePainter {
         pCtx.globalCompositeOperation = 'source-over';
         const dotCount = 3 + Math.floor(this._mouseSpeed * 0.3);
         for (let i = 0; i < dotCount; i++) {
-            const angle = this._rng() * TAU;
-            const dist = this._rng() * this._brushSize * 2;
-            const dotColor = this._palette[Math.floor(this._rng() * this._palette.length)];
-            const size = 1 + this._rng() * 2;
+            const angle = this._pr(i * 3) * TAU;
+            const dist = this._pr(i * 3 + 1) * this._brushSize * 2;
+            const dotColor = this._palette[Math.floor(this._pr(i * 3 + 2) * this._palette.length)];
+            const size = 1 + this._pr(i * 3 + 3) * 2;
 
             pCtx.fillStyle = `hsla(${dotColor.h}, ${dotColor.s}%, ${dotColor.l}%, ${this._opacity * 0.6})`;
             pCtx.beginPath();
@@ -310,12 +382,12 @@ export class TimeLapsePainter {
         // Spawn small drips from cursor
         if (this._mouseSpeed > 2 && this._drips.length < this._maxDrips) {
             this._drips.push({
-                x: mx + (this._rng() - 0.5) * 10,
+                x: mx + (this._pr(100) - 0.5) * 10,
                 y: my,
-                vy: 0.3 + this._rng() * 0.8,
-                size: 1 + this._rng() * 2,
+                vy: 0.3 + this._pr(101) * 0.8,
+                size: 1 + this._pr(102) * 2,
                 color: color,
-                life: 100 + Math.floor(this._rng() * 100),
+                life: 100 + Math.floor(this._pr(103) * 100),
             });
         }
     }
@@ -326,9 +398,9 @@ export class TimeLapsePainter {
         // Watercolor blob: multiple overlapping transparent circles
         const blobCount = 3 + Math.floor(this._mouseSpeed * 0.2);
         for (let i = 0; i < blobCount; i++) {
-            const angle = this._rng() * TAU;
-            const dist = this._rng() * this._brushSize;
-            const blobSize = this._brushSize * (0.5 + this._rng() * 1);
+            const angle = this._pr(i * 4) * TAU;
+            const dist = this._pr(i * 4 + 1) * this._brushSize;
+            const blobSize = this._brushSize * (0.5 + this._pr(i * 4 + 2) * 1);
             const alpha = this._opacity * 0.15;
 
             pCtx.fillStyle = `hsla(${color.h}, ${color.s}%, ${color.l}%, ${alpha})`;
@@ -340,6 +412,36 @@ export class TimeLapsePainter {
             );
             pCtx.fill();
         }
+
+        // Ink bleed: color spreads outward from recent strokes
+        if (this._mouseSpeed > 3) {
+            const bleedAlpha = this._opacity * 0.05;
+            pCtx.fillStyle = `hsla(${color.h}, ${color.s - 10}%, ${color.l + 10}%, ${bleedAlpha})`;
+            pCtx.beginPath();
+            pCtx.arc(mx, my, this._brushSize * 2, 0, TAU);
+            pCtx.fill();
+        }
+    }
+
+    _paintGeometric(pCtx, mx, my, color) {
+        if (this._mouseSpeed < 2) return;
+        // Draw small geometric shapes along cursor path
+        pCtx.globalCompositeOperation = 'source-over';
+        const sides = 3 + (Math.floor(this.tick / 30) % 5);
+        const size = 3 + this._mouseSpeed * 0.5;
+        const rotation = this.tick * 0.05;
+
+        pCtx.strokeStyle = `hsla(${color.h}, ${color.s}%, ${color.l}%, ${this._opacity * 0.5})`;
+        pCtx.lineWidth = 0.5;
+        pCtx.beginPath();
+        for (let s = 0; s <= sides; s++) {
+            const a = rotation + (s / sides) * TAU;
+            const px = mx + Math.cos(a) * size;
+            const py = my + Math.sin(a) * size;
+            if (s === 0) pCtx.moveTo(px, py);
+            else pCtx.lineTo(px, py);
+        }
+        pCtx.stroke();
     }
 
     draw(ctx, system) {

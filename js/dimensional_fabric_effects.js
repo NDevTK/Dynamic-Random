@@ -147,7 +147,23 @@ export class DimensionalFabric {
         this._mouseY = my;
 
         if (isClicking && !this._wasClicking && this._tears.length < this._maxTears) {
-            this._tears.push({ x: mx, y: my, radius: 0, maxRadius: 60 + Math.random() * 40, life: 120 });
+            const pr = ((this.tick * 2654435761) >>> 0) / 4294967296;
+            this._tears.push({ x: mx, y: my, radius: 0, maxRadius: 60 + pr * 40, life: 120 });
+        }
+        // Continuous click: sustained force (mouse held down pushes harder)
+        if (isClicking) {
+            const holdForce = this._mouseForce * 0.3;
+            for (let i = 0; i < this.cols * this.rows; i++) {
+                const px = this.points[i * 2], py = this.points[i * 2 + 1];
+                const pdx = px - mx, pdy = py - my;
+                const distSq = pdx * pdx + pdy * pdy;
+                if (distSq < this._mouseRadius * this._mouseRadius * 0.5 && distSq > 0) {
+                    const dist = Math.sqrt(distSq);
+                    const f = (1 - dist / (this._mouseRadius * 0.7)) * holdForce;
+                    this.velX[i] += (pdx / dist) * f;
+                    this.velY[i] += (pdy / dist) * f;
+                }
+            }
         }
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
@@ -348,16 +364,18 @@ export class DimensionalFabric {
     _drawRubber(ctx) {
         const cols = this.cols, rows = this.rows;
 
-        // Draw filled quads with displacement-based coloring
+        // Draw filled quads (both triangles per cell for complete coverage)
         for (let r = 0; r < rows - 1; r++) {
             for (let c = 0; c < cols - 1; c++) {
                 const i00 = r * cols + c;
                 const i10 = r * cols + c + 1;
                 const i01 = (r + 1) * cols + c;
+                const i11 = (r + 1) * cols + c + 1;
 
                 const x0 = this.points[i00 * 2], y0 = this.points[i00 * 2 + 1];
                 const x1 = this.points[i10 * 2], y1 = this.points[i10 * 2 + 1];
                 const x2 = this.points[i01 * 2], y2 = this.points[i01 * 2 + 1];
+                const x3 = this.points[i11 * 2], y3 = this.points[i11 * 2 + 1];
 
                 const stretch = Math.sqrt(
                     (x1 - x0 - this.spacing) ** 2 + (y1 - y0) ** 2 +
@@ -367,10 +385,13 @@ export class DimensionalFabric {
                 const alpha = 0.03 + Math.min(0.12, stretch * 0.01);
                 const lightness = 40 + Math.min(30, stretch * 3);
                 ctx.fillStyle = `hsla(${(this.hue + stretch * 5) % 360}, ${this.saturation}%, ${lightness}%, ${alpha})`;
+                // Full quad as two triangles
                 ctx.beginPath();
                 ctx.moveTo(x0, y0);
                 ctx.lineTo(x1, y1);
+                ctx.lineTo(x3, y3);
                 ctx.lineTo(x2, y2);
+                ctx.closePath();
                 ctx.fill();
             }
         }
@@ -387,6 +408,12 @@ export class DimensionalFabric {
             }
             ctx.stroke();
         }
+
+        // Mouse proximity glow on rubber surface
+        ctx.fillStyle = `hsla(${this.hue}, 80%, 70%, 0.04)`;
+        ctx.beginPath();
+        ctx.arc(this._mouseX, this._mouseY, this._mouseRadius * 0.5, 0, TAU);
+        ctx.fill();
     }
 
     _drawPatchwork(ctx) {
@@ -428,47 +455,64 @@ export class DimensionalFabric {
     _drawCrystalline(ctx) {
         const cols = this.cols, rows = this.rows;
 
-        // Draw crystalline fracture lines
+        // Batch lines into alpha bands to reduce fillStyle/strokeStyle changes
+        const bands = [
+            { lo: 0, hi: 0.06, alpha: 0.04 },
+            { lo: 0.06, hi: 0.12, alpha: 0.09 },
+            { lo: 0.12, hi: 1, alpha: 0.18 },
+        ];
+
         ctx.lineWidth = 0.8;
+        for (const band of bands) {
+            ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 65%, ${band.alpha})`;
+            ctx.beginPath();
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const i = r * cols + c;
+                    const x = this.points[i * 2], y = this.points[i * 2 + 1];
+                    const dx = x - this.restX[i], dy = y - this.restY[i];
+                    const displacement = Math.sqrt(dx * dx + dy * dy);
+                    const alpha = 0.03 + Math.min(0.2, displacement * 0.03);
+
+                    if (alpha < band.lo || alpha >= band.hi) continue;
+
+                    if (c < cols - 1) {
+                        const j = i + 1;
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(this.points[j * 2], this.points[j * 2 + 1]);
+                    }
+                    if (r < rows - 1) {
+                        const j = i + cols;
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(this.points[j * 2], this.points[j * 2 + 1]);
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+
+        // Fracture node glow — batch into single path
+        ctx.fillStyle = `hsla(${this.hue}, 80%, 80%, 0.1)`;
+        ctx.beginPath();
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 const i = r * cols + c;
-                const x = this.points[i * 2], y = this.points[i * 2 + 1];
-                const displacement = Math.sqrt(
-                    (x - this.restX[i]) ** 2 + (y - this.restY[i]) ** 2
-                );
-
-                // Brighter when displaced (fracturing)
-                const alpha = 0.03 + Math.min(0.2, displacement * 0.03);
-                const hueShift = displacement * 10;
-
-                // Connect to right and bottom neighbors
-                if (c < cols - 1) {
-                    const j = i + 1;
-                    ctx.strokeStyle = `hsla(${(this.hue + hueShift) % 360}, ${this.saturation}%, 65%, ${alpha})`;
-                    ctx.beginPath();
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(this.points[j * 2], this.points[j * 2 + 1]);
-                    ctx.stroke();
-                }
-                if (r < rows - 1) {
-                    const j = i + cols;
-                    ctx.strokeStyle = `hsla(${(this.hue + hueShift + 60) % 360}, ${this.saturation}%, 60%, ${alpha})`;
-                    ctx.beginPath();
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(this.points[j * 2], this.points[j * 2 + 1]);
-                    ctx.stroke();
-                }
-
-                // Node glow at fracture points
-                if (displacement > 3) {
-                    ctx.fillStyle = `hsla(${(this.hue + hueShift * 2) % 360}, 80%, 80%, ${alpha * 0.5})`;
-                    ctx.beginPath();
-                    ctx.arc(x, y, 1.5, 0, TAU);
-                    ctx.fill();
+                const dx = this.points[i * 2] - this.restX[i];
+                const dy = this.points[i * 2 + 1] - this.restY[i];
+                if (dx * dx + dy * dy > 9) { // displacement > 3
+                    ctx.moveTo(this.points[i * 2] + 1.5, this.points[i * 2 + 1]);
+                    ctx.arc(this.points[i * 2], this.points[i * 2 + 1], 1.5, 0, TAU);
                 }
             }
         }
+        ctx.fill();
+
+        // Prismatic highlight near mouse
+        const mdx = this._mouseX, mdy = this._mouseY;
+        ctx.fillStyle = `hsla(${(this.hue + 90) % 360}, 80%, 75%, 0.03)`;
+        ctx.beginPath();
+        ctx.arc(mdx, mdy, this._mouseRadius * 0.6, 0, TAU);
+        ctx.fill();
     }
 
     _getRowDisplacement(row) {

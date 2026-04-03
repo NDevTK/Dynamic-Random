@@ -69,6 +69,13 @@ export class SynapticStorm {
             case 4: this._buildTree(rng, W, H); break;
         }
 
+        // Pre-build adjacency list for O(1) outgoing-edge lookup during firing
+        this._adjacency = new Array(this.nodes.length);
+        for (let i = 0; i < this.nodes.length; i++) this._adjacency[i] = [];
+        for (const conn of this.connections) {
+            this._adjacency[conn.from].push(conn.to);
+        }
+
         // Initialize node state
         for (const node of this.nodes) {
             node.charge = 0;
@@ -77,6 +84,10 @@ export class SynapticStorm {
             node.lastFire = -999;
             node.pulseSize = 0;
         }
+
+        // Cascade glow tracker (recent chain reaction intensity)
+        this._cascadeIntensity = 0;
+        this._recentFires = 0;
     }
 
     _buildHubSpoke(rng, W, H) {
@@ -284,15 +295,21 @@ export class SynapticStorm {
             }
         }
 
-        // Random spontaneous firing
-        if (this.tick % 60 === 0) {
-            const idx = Math.floor(this._rng() * this.nodes.length);
-            if (this.nodes[idx].refractory <= 0) {
-                this.nodes[idx].charge = this._fireThreshold + 1;
+        // Spontaneous firing: more frequent, multiple possible per interval
+        const spontInterval = 20 + Math.floor(this.nodes.length * 0.3);
+        if (this.tick % spontInterval === 0) {
+            // Fire 1-2 random nodes
+            const count = 1 + (this.tick % (spontInterval * 3) === 0 ? 1 : 0);
+            for (let s = 0; s < count; s++) {
+                const idx = Math.floor(((this.tick * 2654435761 + s * 284837) >>> 0) / 4294967296 * this.nodes.length);
+                if (this.nodes[idx] && this.nodes[idx].refractory <= 0) {
+                    this.nodes[idx].charge = this._fireThreshold + 1;
+                }
             }
         }
 
-        // Process firing
+        // Process firing using pre-built adjacency list
+        this._recentFires = 0;
         for (let ni = 0; ni < this.nodes.length; ni++) {
             const node = this.nodes[ni];
             if (node.refractory > 0) {
@@ -306,25 +323,29 @@ export class SynapticStorm {
                 node.lastFire = this.tick;
                 node.pulseSize = node.size * 3;
                 node.refractory = this._refractoryPeriod;
+                this._recentFires++;
 
-                // Send signals along connections
-                for (const conn of this.connections) {
-                    if (conn.from !== ni) continue;
-                    if (this.signals.length >= this.maxSignals) break;
-                    const target = this.nodes[conn.to];
-                    const dx = target.x - node.x;
-                    const dy = target.y - node.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-                    this.signals.push({
-                        x: node.x,
-                        y: node.y,
-                        tx: target.x,
-                        ty: target.y,
-                        progress: 0,
-                        speed: this._signalSpeed / dist,
-                        targetIdx: conn.to,
-                        hue: node.hue || this._signalHue,
-                    });
+                // Send signals via adjacency list (O(degree) instead of O(connections))
+                const neighbors = this._adjacency[ni];
+                if (neighbors) {
+                    for (let k = 0; k < neighbors.length; k++) {
+                        if (this.signals.length >= this.maxSignals) break;
+                        const targetIdx = neighbors[k];
+                        const target = this.nodes[targetIdx];
+                        const dx = target.x - node.x;
+                        const dy = target.y - node.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        this.signals.push({
+                            x: node.x,
+                            y: node.y,
+                            tx: target.x,
+                            ty: target.y,
+                            progress: 0,
+                            speed: this._signalSpeed / dist,
+                            targetIdx,
+                            hue: node.hue || this._signalHue,
+                        });
+                    }
                 }
 
                 node.charge = 0;
@@ -334,6 +355,9 @@ export class SynapticStorm {
                 node.pulseSize *= 0.95;
             }
         }
+
+        // Cascade intensity tracker (smoothed)
+        this._cascadeIntensity = this._cascadeIntensity * 0.92 + this._recentFires * 0.08;
 
         // Update signals
         for (let i = this.signals.length - 1; i >= 0; i--) {
@@ -356,21 +380,52 @@ export class SynapticStorm {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        // Draw connections (dim)
+        // Cascade glow: global screen tint when chain reactions are intense
+        if (this._cascadeIntensity > 1.5) {
+            const glowAlpha = Math.min(0.04, (this._cascadeIntensity - 1.5) * 0.01);
+            ctx.fillStyle = `hsla(${this._signalHue}, 60%, 50%, ${glowAlpha})`;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        }
+
+        // Mouse charge influence radius visual
+        ctx.strokeStyle = `hsla(${this._signalHue}, 50%, 60%, 0.03)`;
         ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(this._mouseX, this._mouseY, 200, 0, TAU);
+        ctx.stroke();
+        // Inner charge glow
+        ctx.fillStyle = `hsla(${this._signalHue}, 60%, 60%, 0.015)`;
+        ctx.beginPath();
+        ctx.arc(this._mouseX, this._mouseY, 100, 0, TAU);
+        ctx.fill();
+
+        // Draw connections (dim) — batch by firing state
+        ctx.lineWidth = 0.5;
+        // Dim connections first
+        ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 50%, 0.03)`;
+        ctx.beginPath();
+        for (const conn of this.connections) {
+            const from = this.nodes[conn.from];
+            const to = this.nodes[conn.to];
+            if (!from || !to) continue;
+            if (this.tick - from.lastFire < 10) continue; // Skip firing ones for batch
+            ctx.moveTo(from.x, from.y);
+            ctx.lineTo(to.x, to.y);
+        }
+        ctx.stroke();
+        // Active connections (brighter)
+        ctx.strokeStyle = `hsla(${this.hue}, ${this.saturation}%, 55%, 0.12)`;
+        ctx.beginPath();
         for (const conn of this.connections) {
             const from = this.nodes[conn.from];
             const to = this.nodes[conn.to];
             if (!from || !to) continue;
 
-            const fromFiring = this.tick - from.lastFire < 10;
-            const alpha = fromFiring ? 0.12 : 0.03;
-            ctx.strokeStyle = `hsla(${from.hue || this.hue}, ${this.saturation}%, 50%, ${alpha})`;
-            ctx.beginPath();
+            if (this.tick - from.lastFire >= 10) continue; // Only firing ones
             ctx.moveTo(from.x, from.y);
             ctx.lineTo(to.x, to.y);
-            ctx.stroke();
         }
+        ctx.stroke();
 
         // Draw signals (traveling pulses)
         for (const sig of this.signals) {

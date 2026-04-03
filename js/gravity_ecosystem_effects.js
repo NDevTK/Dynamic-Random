@@ -58,6 +58,12 @@ export class GravityEcosystem {
         // Population tracking for visual indicators
         this._predatorPop = 0;
         this._preyPop = 0;
+
+        // Mode-specific: pheromone trails (insect), mycelium links (fungal)
+        this._pheromones = [];
+        this._maxPheromones = 200;
+        this._myceliumLinks = [];
+        this._wateringHoles = [];
     }
 
     configure(rng, palette) {
@@ -69,6 +75,9 @@ export class GravityEcosystem {
         this.creatures = [];
         this.plants = [];
         this.trails = [];
+        this._pheromones = [];
+        this._myceliumLinks = [];
+        this._wateringHoles = [];
 
         // Species traits driven by seed
         this._predatorSpeed = 1.2 + rng() * 2;
@@ -149,12 +158,13 @@ export class GravityEcosystem {
         this._mouseX = mx;
         this._mouseY = my;
 
-        // Click: spawn food bloom / extinction pulse
+        // Click: spawn food bloom
         if (isClicking && !this._wasClicking) {
-            // Spawn food bloom near click
+            // Use tick-based pseudo-random instead of Math.random for determinism
             for (let i = 0; i < 5; i++) {
                 const angle = (i / 5) * TAU;
-                const dist = 30 + Math.random() * 40;
+                const pr = ((this.tick * 2654435761 + i * 284837) >>> 0) / 4294967296;
+                const dist = 30 + pr * 40;
                 if (this.plants.length < this.maxPlants * 2) {
                     this.plants.push({
                         x: mx + Math.cos(angle) * dist,
@@ -162,9 +172,18 @@ export class GravityEcosystem {
                         size: 3,
                         growth: 0.5,
                         maxSize: 6,
-                        hue: (this._plantHue + Math.random() * 40) % 360,
-                        pulse: Math.random() * TAU,
+                        hue: (this._plantHue + pr * 40 + 360) % 360,
+                        pulse: pr * TAU,
                     });
+                }
+            }
+            // Insect mode: click also emits strong pheromone burst
+            if (this.mode === 3) {
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * TAU;
+                    if (this._pheromones.length < this._maxPheromones) {
+                        this._pheromones.push({ x: mx + Math.cos(a) * 15, y: my + Math.sin(a) * 15, strength: 1, life: 120 });
+                    }
                 }
             }
         }
@@ -263,6 +282,46 @@ export class GravityEcosystem {
                 this.trails.pop();
             }
         }
+
+        // Mode-specific: Insect pheromone trails
+        if (this.mode === 3) {
+            // Predators leave pheromone breadcrumbs
+            for (const c of this.creatures) {
+                if (c.type === 'predator' && this.tick % 8 === 0 && this._pheromones.length < this._maxPheromones) {
+                    this._pheromones.push({ x: c.x, y: c.y, strength: 0.5, life: 80 });
+                }
+            }
+            for (let i = this._pheromones.length - 1; i >= 0; i--) {
+                this._pheromones[i].life--;
+                this._pheromones[i].strength *= 0.995;
+                if (this._pheromones[i].life <= 0) {
+                    this._pheromones[i] = this._pheromones[this._pheromones.length - 1];
+                    this._pheromones.pop();
+                }
+            }
+        }
+
+        // Mode-specific: Fungal mycelium connections between nearby plants
+        if (this.mode === 2 && this.tick % 20 === 0) {
+            this._myceliumLinks = [];
+            for (let i = 0; i < this.plants.length; i++) {
+                for (let j = i + 1; j < this.plants.length; j++) {
+                    const dx = this.plants[j].x - this.plants[i].x;
+                    const dy = this.plants[j].y - this.plants[i].y;
+                    if (dx * dx + dy * dy < 25000) { // ~158px
+                        this._myceliumLinks.push({ a: i, b: j });
+                    }
+                }
+            }
+        }
+
+        // Mode-specific: Savanna watering holes (attract prey periodically)
+        if (this.mode === 1 && this._wateringHoles.length === 0) {
+            const rng = this._rng;
+            for (let i = 0; i < 2; i++) {
+                this._wateringHoles.push({ x: rng() * W, y: rng() * H, radius: 60 + rng() * 40 });
+            }
+        }
     }
 
     _updatePredator(c, idx) {
@@ -358,6 +417,34 @@ export class GravityEcosystem {
             }
         }
 
+        // Savanna: prey attracted to watering holes
+        if (this.mode === 1) {
+            for (const wh of this._wateringHoles) {
+                const whDx = wh.x - c.x, whDy = wh.y - c.y;
+                const whD = Math.sqrt(whDx * whDx + whDy * whDy) || 1;
+                if (whD < wh.radius * 2) {
+                    c.vx += (whDx / whD) * 0.03;
+                    c.vy += (whDy / whD) * 0.03;
+                }
+            }
+        }
+        // Insect: prey follows pheromone trails (swarm toward them)
+        if (this.mode === 3) {
+            let phX = 0, phY = 0, phN = 0;
+            for (const ph of this._pheromones) {
+                const pdx = ph.x - c.x, pdy = ph.y - c.y;
+                if (Math.abs(pdx) < 60 && Math.abs(pdy) < 60) {
+                    phX += pdx * ph.strength;
+                    phY += pdy * ph.strength;
+                    phN++;
+                }
+            }
+            if (phN > 0) {
+                c.vx += (phX / phN) * 0.003;
+                c.vy += (phY / phN) * 0.003;
+            }
+        }
+
         // Mild flocking with nearby prey
         let fCohX = 0, fCohY = 0, fSepX = 0, fSepY = 0, fN = 0;
         const step = Math.max(1, Math.floor(this.creatures.length / 20));
@@ -393,6 +480,63 @@ export class GravityEcosystem {
             ctx.fill();
         }
 
+        // Mode-specific: draw pheromone trails (insect)
+        if (this.mode === 3) {
+            ctx.fillStyle = `hsla(${this._predatorHue}, 40%, 60%, 0.04)`;
+            ctx.beginPath();
+            for (const ph of this._pheromones) {
+                ctx.moveTo(ph.x + 3, ph.y);
+                ctx.arc(ph.x, ph.y, 3 * ph.strength, 0, TAU);
+            }
+            ctx.fill();
+        }
+
+        // Mode-specific: draw mycelium network (fungal)
+        if (this.mode === 2) {
+            ctx.strokeStyle = `hsla(${this._plantHue}, 40%, 55%, 0.06)`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            for (const link of this._myceliumLinks) {
+                const a = this.plants[link.a], b = this.plants[link.b];
+                if (!a || !b) continue;
+                ctx.moveTo(a.x, a.y);
+                // Wavy connection
+                const mx2 = (a.x + b.x) / 2 + Math.sin(this.tick * 0.01 + link.a) * 8;
+                const my2 = (a.y + b.y) / 2 + Math.cos(this.tick * 0.013 + link.b) * 8;
+                ctx.quadraticCurveTo(mx2, my2, b.x, b.y);
+            }
+            ctx.stroke();
+            // Nutrient pulses along mycelium
+            if (this.tick % 3 === 0) {
+                const pulseAlpha = 0.12;
+                ctx.fillStyle = `hsla(${this._plantHue}, 60%, 70%, ${pulseAlpha})`;
+                for (const link of this._myceliumLinks) {
+                    const a = this.plants[link.a], b = this.plants[link.b];
+                    if (!a || !b) continue;
+                    const t = (Math.sin(this.tick * 0.03 + link.a * 0.5) + 1) * 0.5;
+                    const px = a.x + (b.x - a.x) * t;
+                    const py = a.y + (b.y - a.y) * t;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 2, 0, TAU);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Mode-specific: draw watering holes (savanna)
+        if (this.mode === 1) {
+            for (const wh of this._wateringHoles) {
+                const wobble = Math.sin(this.tick * 0.02) * 3;
+                ctx.strokeStyle = `hsla(${200}, 50%, 55%, 0.06)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.ellipse(wh.x, wh.y, wh.radius + wobble, wh.radius * 0.6 + wobble, 0, 0, TAU);
+                ctx.stroke();
+                ctx.fillStyle = `hsla(${200}, 40%, 50%, 0.02)`;
+                ctx.fill();
+            }
+        }
+
         // Draw plants
         for (const p of this.plants) {
             const pulseSize = p.size + Math.sin(p.pulse) * 0.5;
@@ -413,7 +557,7 @@ export class GravityEcosystem {
                 ctx.strokeStyle = `hsla(${p.hue}, 60%, 45%, ${alpha})`;
                 ctx.stroke();
             } else if (this.mode === 2) {
-                // Fungal: radial spore pattern
+                // Fungal: radial spore pattern (cap + radiating hyphae)
                 for (let a = 0; a < TAU; a += TAU / 5) {
                     const r = pulseSize * 1.5;
                     ctx.moveTo(p.x, p.y);
@@ -426,8 +570,45 @@ export class GravityEcosystem {
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, pulseSize * 0.8, 0, TAU);
                 ctx.fill();
+            } else if (this.mode === 1) {
+                // Savanna: grass tufts (short lines radiating upward)
+                ctx.strokeStyle = `hsla(${p.hue}, 55%, 50%, ${alpha})`;
+                ctx.lineWidth = 0.8;
+                for (let g = 0; g < 3; g++) {
+                    const gAngle = -Math.PI / 2 + (g - 1) * 0.4 + Math.sin(this.tick * 0.02 + p.pulse + g) * 0.15;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + (g - 1) * 2, p.y);
+                    ctx.lineTo(p.x + (g - 1) * 2 + Math.cos(gAngle) * pulseSize * 2,
+                              p.y + Math.sin(gAngle) * pulseSize * 2);
+                    ctx.stroke();
+                }
+            } else if (this.mode === 3) {
+                // Insect: hexagonal food deposits
+                ctx.beginPath();
+                for (let h = 0; h < 6; h++) {
+                    const hAngle = (h / 6) * TAU;
+                    const hx = p.x + Math.cos(hAngle) * pulseSize;
+                    const hy = p.y + Math.sin(hAngle) * pulseSize;
+                    if (h === 0) ctx.moveTo(hx, hy);
+                    else ctx.lineTo(hx, hy);
+                }
+                ctx.closePath();
+                ctx.fill();
+            } else if (this.mode === 4) {
+                // Microscopic: cell-like blobs with membrane
+                ctx.arc(p.x, p.y, pulseSize, 0, TAU);
+                ctx.fill();
+                ctx.strokeStyle = `hsla(${p.hue}, 50%, 60%, ${alpha * 0.5})`;
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, pulseSize * 1.2, 0, TAU);
+                ctx.stroke();
+                // Nucleus
+                ctx.fillStyle = `hsla(${p.hue}, 70%, 60%, ${alpha * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(p.x + Math.sin(p.pulse) * pulseSize * 0.2, p.y + Math.cos(p.pulse) * pulseSize * 0.2, pulseSize * 0.3, 0, TAU);
+                ctx.fill();
             } else {
-                // Default: pulsing circles
                 ctx.arc(p.x, p.y, pulseSize, 0, TAU);
                 ctx.fill();
             }
@@ -464,6 +645,37 @@ export class GravityEcosystem {
                 ctx.moveTo(c.x, c.y);
                 ctx.lineTo(c.x - c.vx * 3, c.y - c.vy * 3);
                 ctx.stroke();
+            }
+
+            // Ocean mode: jellyfish tentacles on predators
+            if (this.mode === 0 && c.type === 'predator') {
+                ctx.strokeStyle = `hsla(${c.hue}, ${this.saturation}%, ${lightness}%, ${alpha * 0.25})`;
+                ctx.lineWidth = 0.5;
+                for (let t = 0; t < 4; t++) {
+                    const ta = c.angle + Math.PI + (t - 1.5) * 0.4;
+                    ctx.beginPath();
+                    ctx.moveTo(c.x, c.y);
+                    const tx = c.x + Math.cos(ta) * c.size * 2 + Math.sin(this.tick * 0.08 + t) * 3;
+                    const ty = c.y + Math.sin(ta) * c.size * 2 + Math.cos(this.tick * 0.06 + t) * 3;
+                    ctx.quadraticCurveTo(
+                        (c.x + tx) / 2 + Math.sin(this.tick * 0.1 + t * 2) * 4,
+                        (c.y + ty) / 2 + Math.cos(this.tick * 0.08 + t * 2) * 4,
+                        tx, ty
+                    );
+                    ctx.stroke();
+                }
+            }
+
+            // Microscopic mode: amoeba pseudopod extensions
+            if (this.mode === 4 && c.type === 'prey') {
+                ctx.fillStyle = `hsla(${c.hue}, ${this.saturation}%, ${lightness}%, ${alpha * 0.4})`;
+                for (let p = 0; p < 3; p++) {
+                    const pa = c.angle + Math.sin(this.tick * 0.05 + p * 2.1) * 1.5;
+                    const pLen = c.size * (0.8 + Math.sin(this.tick * 0.07 + p * 1.7) * 0.4);
+                    ctx.beginPath();
+                    ctx.arc(c.x + Math.cos(pa) * pLen, c.y + Math.sin(pa) * pLen, c.size * 0.4, 0, TAU);
+                    ctx.fill();
+                }
             }
         }
 

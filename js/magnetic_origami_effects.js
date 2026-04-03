@@ -160,10 +160,27 @@ export class MagneticOrigami {
 
         if (isClicking && !this._wasClicking) {
             // Trigger fold/unfold for shapes near click
-            for (const s of this.shapes) {
+            const triggered = [];
+            for (let i = 0; i < this.shapes.length; i++) {
+                const s = this.shapes[i];
                 const sdx = s.x - mx, sdy = s.y - my;
                 if (sdx * sdx + sdy * sdy < this._influenceRadius * this._influenceRadius) {
                     s.targetFold = s.targetFold > 0.5 ? 0 : 1;
+                    triggered.push(i);
+                }
+            }
+            // Cascade: shapes near triggered shapes also fold (with delay via partial target)
+            for (const ti of triggered) {
+                const ts = this.shapes[ti];
+                for (let i = 0; i < this.shapes.length; i++) {
+                    if (triggered.includes(i)) continue;
+                    const s = this.shapes[i];
+                    const cdx = s.x - ts.x, cdy = s.y - ts.y;
+                    const cascadeRadius = this._influenceRadius * 1.5;
+                    if (cdx * cdx + cdy * cdy < cascadeRadius * cascadeRadius) {
+                        // Cascade: same direction as triggered shape, with slight delay
+                        s.targetFold = ts.targetFold;
+                    }
                 }
             }
         }
@@ -194,26 +211,48 @@ export class MagneticOrigami {
                 s.fold += foldDelta * (foldDelta > 0 ? this._foldSpeed : this._unfoldSpeed);
             }
 
-            // Crane wing flapping
-            if (this.mode === 0 && proximity > 0.3) {
-                s.wingAngle = Math.sin(this.tick * s.wingSpeed) * proximity * 0.8;
-            } else if (this.mode === 0) {
-                s.wingAngle *= 0.95;
-            }
-
-            // Box face opening
-            if (this.mode === 2) {
+            // Crane wing flapping + vertical bob
+            if (this.mode === 0) {
                 if (proximity > 0.3) {
-                    // Open face toward cursor
-                    const angle = Math.atan2(-sdy, -sdx);
-                    s.openFace = Math.round(((angle + TAU) % TAU) / (TAU / 4)) % 4;
+                    s.wingAngle = Math.sin(this.tick * s.wingSpeed) * proximity * 0.8;
+                    // Bob up and down when flapping
+                    s.y += Math.sin(this.tick * s.wingSpeed * 0.5) * proximity * 0.8;
                 } else {
-                    s.openFace = -1;
+                    s.wingAngle *= 0.95;
                 }
             }
 
-            // Rotation
-            s.rotation += s.rotSpeed || 0;
+            // Star: spin faster when folding/unfolding
+            if (this.mode === 1) {
+                const foldVelocity = Math.abs(s.targetFold - s.fold);
+                s.rotation += (s.rotSpeed || 0) + foldVelocity * 0.08;
+            }
+
+            // Box face opening with smooth lerp
+            if (this.mode === 2) {
+                if (proximity > 0.3) {
+                    const angle = Math.atan2(-sdy, -sdx);
+                    const targetFace = Math.round(((angle + TAU) % TAU) / (TAU / 4)) % 4;
+                    s.openFace = targetFace;
+                    // Smooth flap open amount
+                    s.flapOpen = Math.min(1, (s.flapOpen || 0) + 0.04);
+                } else {
+                    s.flapOpen = Math.max(0, (s.flapOpen || 0) - 0.03);
+                    if (s.flapOpen < 0.01) s.openFace = -1;
+                }
+            }
+
+            // Fractal: fold state affects visual complexity (more fold = more transparent)
+            if (this.mode === 4) {
+                s.depth = Math.floor(proximity * (s.maxDepth + 1));
+                // Fold causes rotation acceleration
+                s.rotation += (s.rotSpeed || 0) + proximity * 0.005;
+            }
+
+            // Rotation (skip for modes that handle their own)
+            if (this.mode !== 1 && this.mode !== 4) {
+                s.rotation += s.rotSpeed || 0;
+            }
 
             // Gentle drift
             if (s.drift) {
@@ -239,6 +278,17 @@ export class MagneticOrigami {
         ctx.globalCompositeOperation = 'lighter';
 
         for (const s of this.shapes) {
+            // Subtle shadow offset
+            ctx.save();
+            ctx.translate(s.x + 3, s.y + 3);
+            ctx.rotate(s.rotation);
+            ctx.globalAlpha = 0.02;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(0, 0, s.size * 0.6, 0, TAU);
+            ctx.fill();
+            ctx.restore();
+
             ctx.save();
             ctx.translate(s.x, s.y);
             ctx.rotate(s.rotation);
@@ -405,8 +455,8 @@ export class MagneticOrigami {
         ctx.fill();
 
         // Open face flap
-        if (s.openFace >= 0) {
-            const flapOpen = Math.sin(this.tick * 0.05) * 0.3 + 0.5;
+        if (s.openFace >= 0 && (s.flapOpen || 0) > 0.01) {
+            const flapOpen = s.flapOpen || 0;
             ctx.save();
             const flapAlpha = alpha * 0.8;
             ctx.fillStyle = `hsla(${(s.hue + 20) % 360}, ${this.saturation}%, 65%, ${flapAlpha * flapOpen})`;

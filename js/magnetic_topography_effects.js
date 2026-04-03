@@ -67,7 +67,7 @@ export class MagneticTopography {
 
         const W = window.innerWidth, H = window.innerHeight;
 
-        this._fieldScale = 3;
+        this._fieldScale = 4;
         this._fieldW = Math.ceil(W / this._fieldScale);
         this._fieldH = Math.ceil(H / this._fieldScale);
         this._fieldCanvas = document.createElement('canvas');
@@ -118,7 +118,7 @@ export class MagneticTopography {
         // Cursor contribution
         const cdx = fx - mx / scale;
         const cdy = fy - my / scale;
-        const cDist = Math.sqrt(cdx * cdx + cdy * cdy) || 0.1;
+        const cDist = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
         const cursorRadius = 60 / scale;
 
         if (this.mode === 1) {
@@ -196,14 +196,17 @@ export class MagneticTopography {
                     }
                 }
             }
+            // Use tick-based pseudo-random for deterministic click behavior
+            const pr = ((this.tick * 2654435761) >>> 0) / 4294967296;
+            const pr2 = ((this.tick * 2246822519) >>> 0) / 4294967296;
             this.sources.push({
                 x: mx, y: my,
-                strength: 0.5 + this._rng() * 0.5,
-                radius: 80 + this._rng() * 150,
-                type: this._rng() > 0.4 ? 'peak' : 'crater',
-                polarity: this._rng() > 0.5 ? 1 : -1,
+                strength: 0.5 + pr * 0.5,
+                radius: 80 + pr2 * 150,
+                type: pr > 0.4 ? 'peak' : 'crater',
+                polarity: pr2 > 0.5 ? 1 : -1,
                 permanent: false,
-                life: 300 + Math.floor(this._rng() * 200),
+                life: 300 + Math.floor(pr * 200),
             });
         }
         this._wasClicking = isClicking;
@@ -245,8 +248,10 @@ export class MagneticTopography {
             }
         }
 
-        // Render contour field
-        this._renderContours();
+        // Render contour field (throttle to every 2 frames for performance)
+        if (this.tick % 2 === 0) {
+            this._renderContours();
+        }
     }
 
     _renderContours() {
@@ -268,58 +273,55 @@ export class MagneticTopography {
         const imageData = fc.createImageData(this._fieldW, this._fieldH);
         const data = imageData.data;
         const levels = this._contourLevels;
-
-        // Precompute hue-based colors for contour bands
         const hue = this.hue;
         const tick = this.tick;
+        const intensity = this.intensity;
+
+        // Precompute contour level colors (avoid per-pixel HSL→RGB)
+        const maxLevels = levels + 5;
+        const levelR = new Uint8Array(maxLevels);
+        const levelG = new Uint8Array(maxLevels);
+        const levelB = new Uint8Array(maxLevels);
+        for (let li = 0; li < maxLevels; li++) {
+            const lineHue = ((hue + li * 25 + tick * 0.2) % 360 + 360) % 360;
+            const h6 = lineHue / 60;
+            const hi = Math.floor(h6) % 6;
+            const f = h6 - Math.floor(h6);
+            switch (hi) {
+                case 0: levelR[li] = 200; levelG[li] = Math.round(f * 200); levelB[li] = 50; break;
+                case 1: levelR[li] = Math.round((1-f) * 200); levelG[li] = 200; levelB[li] = 50; break;
+                case 2: levelR[li] = 50; levelG[li] = 200; levelB[li] = Math.round(f * 200); break;
+                case 3: levelR[li] = 50; levelG[li] = Math.round((1-f) * 200); levelB[li] = 200; break;
+                case 4: levelR[li] = Math.round(f * 200); levelG[li] = 50; levelB[li] = 200; break;
+                default: levelR[li] = 200; levelG[li] = 50; levelB[li] = Math.round((1-f) * 200); break;
+            }
+        }
 
         for (let fy = 0; fy < this._fieldH; fy++) {
             for (let fx = 0; fx < this._fieldW; fx++) {
                 const value = this._computeField(fx, fy, mx, my);
 
-                // Quantize to contour levels
                 const level = value * levels;
                 const frac = level - Math.floor(level);
 
-                // Contour line detection: thin band near integer levels
                 const isContour = frac < 0.08 || frac > 0.92;
-                const contourIntensity = isContour
-                    ? (frac < 0.08 ? 1 - frac / 0.08 : (frac - 0.92) / 0.08)
-                    : 0;
 
                 const idx = (fy * this._fieldW + fx) * 4;
 
                 if (isContour) {
-                    // Bright contour line with color based on elevation
-                    const levelIdx = Math.floor(level + 0.5);
-                    const lineHue = (hue + levelIdx * 25 + tick * 0.2) % 360;
-                    // Simple HSL to RGB approximation
-                    const h6 = lineHue / 60;
-                    const hi = Math.floor(h6) % 6;
-                    const f = h6 - Math.floor(h6);
-                    let r, g, b;
-                    switch (hi) {
-                        case 0: r = 200; g = Math.round(f * 200); b = 50; break;
-                        case 1: r = Math.round((1-f) * 200); g = 200; b = 50; break;
-                        case 2: r = 50; g = 200; b = Math.round(f * 200); break;
-                        case 3: r = 50; g = Math.round((1-f) * 200); b = 200; break;
-                        case 4: r = Math.round(f * 200); g = 50; b = 200; break;
-                        default: r = 200; g = 50; b = Math.round((1-f) * 200); break;
-                    }
-
-                    const alpha = contourIntensity * 150 * this.intensity;
-                    data[idx] = r;
-                    data[idx + 1] = g;
-                    data[idx + 2] = b;
+                    const contourIntensity = frac < 0.08 ? 1 - frac / 0.08 : (frac - 0.92) / 0.08;
+                    const levelIdx = Math.max(0, Math.min(maxLevels - 1, Math.floor(level + 0.5)));
+                    const alpha = contourIntensity * 160 * intensity;
+                    data[idx] = levelR[levelIdx];
+                    data[idx + 1] = levelG[levelIdx];
+                    data[idx + 2] = levelB[levelIdx];
                     data[idx + 3] = Math.round(Math.min(255, alpha));
                 } else {
-                    // Subtle fill between contours
-                    const bandAlpha = 8 * this.intensity;
-                    const bandBright = Math.abs(value) * 30;
+                    const bandBright = Math.abs(value) * 35;
                     data[idx] = Math.round(bandBright);
                     data[idx + 1] = Math.round(bandBright * 0.8);
-                    data[idx + 2] = Math.round(bandBright * 1.2);
-                    data[idx + 3] = Math.round(bandAlpha);
+                    data[idx + 2] = Math.round(bandBright * 1.3);
+                    data[idx + 3] = Math.round(10 * intensity);
                 }
             }
         }

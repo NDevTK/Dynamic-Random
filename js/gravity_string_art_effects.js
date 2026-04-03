@@ -44,10 +44,20 @@ export class GravityStringArt {
         // Vibration state per string
         this._vibrations = new Float32Array(0);
 
+        // Per-string cached perpendicular normals (avoid recomputing per segment)
+        this._stringNormals = null;
+
         // Cached values
         this._webAngle = 0;
         this._webPulse = 0;
         this._loomPhase = 0;
+        this._cachedCenterX = 0;
+        this._cachedCenterY = 0;
+
+        // Mode-specific damping and resonance
+        this._dampingRate = 0.95;
+        this._resonanceFreq = 4;
+        this._resonanceSpeed = 0.3;
     }
 
     configure(rng, palette) {
@@ -60,20 +70,69 @@ export class GravityStringArt {
         this._pluckWaves = [];
 
         const W = window.innerWidth, H = window.innerHeight;
+        this._cachedCenterX = W / 2;
+        this._cachedCenterY = H / 2;
         this.anchors = [];
         this.strings = [];
 
+        // Mode-specific physics tuning
         switch (this.mode) {
-            case 0: this._setupHarp(rng, W, H); break;
-            case 1: this._setupSpiderWeb(rng, W, H); break;
-            case 2: this._setupCatsCradle(rng, W, H); break;
-            case 3: this._setupLoom(rng, W, H); break;
-            case 4: this._setupBridge(rng, W, H); break;
-            case 5: this._setupDreamcatcher(rng, W, H); break;
+            case 0:
+                this._dampingRate = 0.93; // Harp: faster decay, twangy
+                this._resonanceFreq = 6 + rng() * 4;
+                this._resonanceSpeed = 0.4 + rng() * 0.3;
+                this._setupHarp(rng, W, H);
+                break;
+            case 1:
+                this._dampingRate = 0.97; // Web: slow decay, eerie
+                this._resonanceFreq = 2 + rng() * 2;
+                this._resonanceSpeed = 0.15 + rng() * 0.1;
+                this._setupSpiderWeb(rng, W, H);
+                break;
+            case 2:
+                this._dampingRate = 0.94;
+                this._resonanceFreq = 3 + rng() * 3;
+                this._resonanceSpeed = 0.25 + rng() * 0.2;
+                this._setupCatsCradle(rng, W, H);
+                break;
+            case 3:
+                this._dampingRate = 0.96; // Loom: medium decay
+                this._resonanceFreq = 2 + rng() * 2;
+                this._resonanceSpeed = 0.2 + rng() * 0.15;
+                this._setupLoom(rng, W, H);
+                break;
+            case 4:
+                this._dampingRate = 0.98; // Bridge: very slow decay, heavy
+                this._resonanceFreq = 1.5 + rng() * 1.5;
+                this._resonanceSpeed = 0.1 + rng() * 0.1;
+                this._setupBridge(rng, W, H);
+                break;
+            case 5:
+                this._dampingRate = 0.96;
+                this._resonanceFreq = 3 + rng() * 3;
+                this._resonanceSpeed = 0.2 + rng() * 0.2;
+                this._setupDreamcatcher(rng, W, H);
+                break;
         }
 
         this._vibrations = new Float32Array(this.strings.length);
         this._webAngle = rng() * TAU;
+
+        // Precompute string normals
+        this._stringNormals = new Float32Array(this.strings.length * 2);
+        this._recomputeNormals();
+    }
+
+    _recomputeNormals() {
+        for (let i = 0; i < this.strings.length; i++) {
+            const str = this.strings[i];
+            const a = this.anchors[str.a];
+            const b = this.anchors[str.b];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            this._stringNormals[i * 2] = -dy / len;
+            this._stringNormals[i * 2 + 1] = dx / len;
+        }
     }
 
     _setupHarp(rng, W, H) {
@@ -93,6 +152,8 @@ export class GravityStringArt {
                 tension: 0.8 + rng() * 0.2,
                 hueShift: rng() * 60 - 30,
                 segments: 12 + Math.floor(rng() * 8),
+                // Harp: each string has a unique pitch (frequency multiplier)
+                pitch: 0.5 + t * 2,
             });
         }
     }
@@ -103,11 +164,9 @@ export class GravityStringArt {
         const spokes = 8 + Math.floor(rng() * 8);
         const maxR = Math.min(W, H) * 0.4;
 
-        // Center anchor
         this.anchors.push({ x: cx, y: cy, fixed: true });
         const centerIdx = 0;
 
-        // Spoke anchors (at each ring)
         const ringAnchors = [];
         for (let r = 1; r <= rings; r++) {
             const ring = [];
@@ -126,14 +185,11 @@ export class GravityStringArt {
             ringAnchors.push(ring);
         }
 
-        // Radial spokes
         for (let s = 0; s < spokes; s++) {
-            // Center to first ring
             this.strings.push({
                 a: centerIdx, b: ringAnchors[0][s],
                 tension: 0.9, hueShift: s * 10, segments: 6,
             });
-            // Between rings
             for (let r = 0; r < rings - 1; r++) {
                 this.strings.push({
                     a: ringAnchors[r][s], b: ringAnchors[r + 1][s],
@@ -142,7 +198,6 @@ export class GravityStringArt {
             }
         }
 
-        // Spiral threads connecting ring anchors
         for (let r = 0; r < rings; r++) {
             for (let s = 0; s < spokes; s++) {
                 const next = (s + 1) % spokes;
@@ -155,7 +210,6 @@ export class GravityStringArt {
     }
 
     _setupCatsCradle(rng, W, H) {
-        // Place "finger" anchor points around edges
         const fingerCount = 6 + Math.floor(rng() * 4);
         for (let i = 0; i < fingerCount; i++) {
             const side = Math.floor(rng() * 4);
@@ -167,7 +221,6 @@ export class GravityStringArt {
             this.anchors.push({ x, y, fixed: true });
         }
 
-        // Connect each finger to 2-4 others
         for (let i = 0; i < fingerCount; i++) {
             const connections = 2 + Math.floor(rng() * 3);
             for (let c = 0; c < connections; c++) {
@@ -187,25 +240,25 @@ export class GravityStringArt {
         const warpCount = 12 + Math.floor(rng() * 10);
         const weftCount = 8 + Math.floor(rng() * 8);
 
-        // Warp (vertical) threads
         for (let i = 0; i < warpCount; i++) {
             const x = W * 0.1 + (i / (warpCount - 1)) * W * 0.8;
             this.anchors.push({ x, y: 0, fixed: true });
             this.anchors.push({ x, y: H, fixed: true });
             this.strings.push({
                 a: this.anchors.length - 2, b: this.anchors.length - 1,
-                tension: 0.9, hueShift: 0, segments: 16, isWarp: true,
+                tension: 0.9, hueShift: 0, segments: 16,
+                isWarp: true, warpIndex: i,
             });
         }
 
-        // Weft (horizontal) threads
         for (let i = 0; i < weftCount; i++) {
             const y = H * 0.1 + (i / (weftCount - 1)) * H * 0.8;
             this.anchors.push({ x: 0, y, fixed: true });
             this.anchors.push({ x: W, y, fixed: true });
             this.strings.push({
                 a: this.anchors.length - 2, b: this.anchors.length - 1,
-                tension: 0.9, hueShift: 120, segments: 16, isWeft: true,
+                tension: 0.9, hueShift: 120, segments: 16,
+                isWeft: true, weftIndex: i,
             });
         }
     }
@@ -216,12 +269,10 @@ export class GravityStringArt {
 
         for (let t = 0; t < towerCount; t++) {
             const x = W * (0.15 + (t / (towerCount - 1)) * 0.7);
-            // Tower top and bottom
             this.anchors.push({ x, y: H * 0.2, fixed: true });
             this.anchors.push({ x, y: H * 0.8, fixed: true });
         }
 
-        // Main cables between tower tops
         for (let t = 0; t < towerCount - 1; t++) {
             this.strings.push({
                 a: t * 2, b: (t + 1) * 2,
@@ -230,7 +281,6 @@ export class GravityStringArt {
                 catenary: true,
             });
 
-            // Vertical suspenders
             for (let c = 0; c < cablesPerSpan; c++) {
                 const ct = (c + 1) / (cablesPerSpan + 1);
                 const ax = this.anchors[t * 2].x;
@@ -267,7 +317,6 @@ export class GravityStringArt {
                 const idx = this.anchors.length - 1;
                 prev.push(idx);
 
-                // Connect to next point on same ring
                 if (p > 0) {
                     this.strings.push({
                         a: idx - 1, b: idx,
@@ -275,13 +324,11 @@ export class GravityStringArt {
                     });
                 }
             }
-            // Close the ring
             this.strings.push({
                 a: prev[0], b: prev[prev.length - 1],
                 tension: 0.8, hueShift: r * 30, segments: 3,
             });
 
-            // Inner web: connect to offset points on next inner ring
             if (r > 0) {
                 const innerStart = prev[0] - pointsPerRing;
                 for (let p = 0; p < pointsPerRing; p++) {
@@ -298,25 +345,40 @@ export class GravityStringArt {
         }
     }
 
-    _computeStringCurve(str, mx, my, isClicking, vibration) {
+    _computeStringCurve(str, strIdx, mx, my, isClicking, vibration) {
         const a = this.anchors[str.a];
         const b = this.anchors[str.b];
         const segs = str.segments;
         const points = [];
+
+        // Use cached perpendicular normal
+        const nx = this._stringNormals[strIdx * 2];
+        const ny = this._stringNormals[strIdx * 2 + 1];
+        const pullRadius = isClicking ? 300 : 180;
+        const pullForce = isClicking ? 40 : 15;
+        const pitch = str.pitch || 1;
+
+        // Check for active pluck waves on this string
+        let pluckOffset = 0;
+        for (const pw of this._pluckWaves) {
+            if (pw.stringIdx === strIdx) {
+                pluckOffset = pw.amplitude;
+            }
+        }
 
         for (let i = 0; i <= segs; i++) {
             const t = i / segs;
             let x = a.x + t * (b.x - a.x);
             let y = a.y + t * (b.y - a.y);
 
-            // Cursor gravity pull on midpoints
-            const midFactor = Math.sin(t * Math.PI); // Max at center
+            const midFactor = Math.sin(t * Math.PI);
             const dx = mx - x, dy = my - y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const pullRadius = isClicking ? 300 : 180;
+            const distSq = dx * dx + dy * dy;
+            const pullRadiusSq = pullRadius * pullRadius;
 
-            if (dist < pullRadius) {
-                const force = (1 - dist / pullRadius) * midFactor * (isClicking ? 40 : 15);
+            if (distSq < pullRadiusSq) {
+                const dist = Math.sqrt(distSq);
+                const force = (1 - dist / pullRadius) * midFactor * pullForce;
                 x += (dx / dist) * force;
                 y += (dy / dist) * force;
             }
@@ -326,13 +388,16 @@ export class GravityStringArt {
                 y += midFactor * 60 * (1 - str.tension);
             }
 
-            // Vibration wave
-            if (vibration > 0.01) {
-                const wave = Math.sin(t * Math.PI * 4 + this.tick * 0.3) * vibration * midFactor * 15;
-                // Perpendicular to string direction
-                const len = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2) || 1;
-                const nx = -(b.y - a.y) / len;
-                const ny = (b.x - a.x) / len;
+            // Loom weaving: alternating over/under displacement
+            if (str.isWeft && this.mode === 3) {
+                const weaveAmt = Math.sin((t * 8 + this._loomPhase) * Math.PI) * 3 * midFactor;
+                y += weaveAmt;
+            }
+
+            // Vibration wave with mode-specific frequency and pitch
+            const totalVib = vibration + pluckOffset;
+            if (totalVib > 0.01) {
+                const wave = Math.sin(t * Math.PI * this._resonanceFreq * pitch + this.tick * this._resonanceSpeed) * totalVib * midFactor * 15;
                 x += nx * wave;
                 y += ny * wave;
             }
@@ -352,58 +417,80 @@ export class GravityStringArt {
         this._mouseX = mx;
         this._mouseY = my;
 
-        // Click triggers pluck waves
+        // Click triggers pluck waves and string vibrations
         if (isClicking && !this._wasClicking) {
+            const pullRadius = 200;
             for (let i = 0; i < this.strings.length; i++) {
                 const str = this.strings[i];
                 const a = this.anchors[str.a];
                 const b = this.anchors[str.b];
-                // Check if click is near the string midpoint
-                const midX = (a.x + b.x) / 2;
-                const midY = (a.y + b.y) / 2;
-                const dist = Math.sqrt((mx - midX) ** 2 + (my - midY) ** 2);
-                if (dist < 120) {
-                    this._vibrations[i] = Math.min(1, this._vibrations[i] + (1 - dist / 120) * 0.8);
+                // Point-to-segment distance for more accurate pluck detection
+                const abx = b.x - a.x, aby = b.y - a.y;
+                const apx = mx - a.x, apy = my - a.y;
+                const abLenSq = abx * abx + aby * aby;
+                const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / (abLenSq || 1)));
+                const closestX = a.x + t * abx;
+                const closestY = a.y + t * aby;
+                const distSq = (mx - closestX) ** 2 + (my - closestY) ** 2;
+
+                if (distSq < pullRadius * pullRadius) {
+                    const dist = Math.sqrt(distSq);
+                    const strength = (1 - dist / pullRadius);
+                    this._vibrations[i] = Math.min(1, this._vibrations[i] + strength * 0.9);
+
+                    // Spawn pluck wave
+                    if (this._pluckWaves.length < this._maxPlucks && strength > 0.2) {
+                        const pw = this._pluckPool.length > 0 ? this._pluckPool.pop() : {};
+                        pw.stringIdx = i;
+                        pw.position = t; // Where on the string it was plucked
+                        pw.amplitude = strength * 0.6;
+                        pw.life = 30 + Math.floor(strength * 20);
+                        pw.maxLife = pw.life;
+                        this._pluckWaves.push(pw);
+                    }
                 }
             }
         }
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
-        // Mouse speed triggers nearby string vibrations
-        if (this._mouseSpeed > 3) {
+        // Mouse speed triggers nearby string vibrations (with speed-proportional intensity)
+        if (this._mouseSpeed > 2) {
+            const speedFactor = Math.min(1, this._mouseSpeed * 0.02);
             for (let i = 0; i < this.strings.length; i++) {
                 const str = this.strings[i];
                 const a = this.anchors[str.a];
                 const b = this.anchors[str.b];
                 const midX = (a.x + b.x) / 2;
                 const midY = (a.y + b.y) / 2;
-                const dist = Math.sqrt((mx - midX) ** 2 + (my - midY) ** 2);
-                if (dist < 100) {
-                    this._vibrations[i] = Math.min(1, this._vibrations[i] + this._mouseSpeed * 0.005 * (1 - dist / 100));
+                const distSq = (mx - midX) ** 2 + (my - midY) ** 2;
+                if (distSq < 22500) { // 150^2
+                    const dist = Math.sqrt(distSq);
+                    this._vibrations[i] = Math.min(1, this._vibrations[i] + speedFactor * 0.15 * (1 - dist / 150));
                 }
             }
         }
 
-        // Decay vibrations
+        // Decay vibrations with mode-specific damping
         for (let i = 0; i < this._vibrations.length; i++) {
-            this._vibrations[i] *= 0.95;
+            this._vibrations[i] *= this._dampingRate;
         }
 
-        // Spider web and dreamcatcher: rotate non-fixed anchors slightly
+        // Spider web and dreamcatcher: rotate non-fixed anchors
         if (this.mode === 1 || this.mode === 5) {
             this._webAngle += 0.002;
             this._webPulse = Math.sin(this.tick * 0.02) * 0.05;
+            const cx = this._cachedCenterX;
+            const cy = this._cachedCenterY;
             for (const anchor of this.anchors) {
                 if (!anchor.fixed && anchor.baseAngle !== undefined) {
                     const r = anchor.baseRadius * (1 + this._webPulse);
                     const angle = anchor.baseAngle + this._webAngle;
-                    const cx = window.innerWidth / 2;
-                    const cy = window.innerHeight / 2;
                     anchor.x = cx + Math.cos(angle) * r;
                     anchor.y = cy + Math.sin(angle) * r;
                 }
             }
+            this._recomputeNormals();
         }
 
         // Loom: weave phase
@@ -413,9 +500,11 @@ export class GravityStringArt {
 
         // Pluck wave decay
         for (let i = this._pluckWaves.length - 1; i >= 0; i--) {
-            this._pluckWaves[i].life--;
-            if (this._pluckWaves[i].life <= 0) {
-                this._pluckPool.push(this._pluckWaves[i]);
+            const pw = this._pluckWaves[i];
+            pw.life--;
+            pw.amplitude *= 0.92;
+            if (pw.life <= 0) {
+                this._pluckPool.push(pw);
                 this._pluckWaves[i] = this._pluckWaves[this._pluckWaves.length - 1];
                 this._pluckWaves.pop();
             }
@@ -434,16 +523,26 @@ export class GravityStringArt {
         for (let i = 0; i < this.strings.length; i++) {
             const str = this.strings[i];
             const vib = this._vibrations[i] || 0;
-            const points = this._computeStringCurve(str, mx, my, clicking, vib);
+            const points = this._computeStringCurve(str, i, mx, my, clicking, vib);
 
             const hue = (this.hue + (str.hueShift || 0) + 360) % 360;
-            const baseAlpha = (0.08 + vib * 0.25) * this.intensity;
-            const lightness = 50 + vib * 30;
+            const baseAlpha = (0.08 + vib * 0.35) * this.intensity;
+            const lightness = 50 + vib * 35;
 
-            // Glow pass
+            // Wide glow pass (only for vibrating strings)
             if (vib > 0.05) {
-                ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${lightness}%, ${baseAlpha * 0.4})`;
-                ctx.lineWidth = 3 + vib * 4;
+                ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${lightness + 10}%, ${baseAlpha * 0.2})`;
+                ctx.lineWidth = 6 + vib * 8;
+                ctx.beginPath();
+                ctx.moveTo(points[0], points[1]);
+                for (let j = 2; j < points.length; j += 2) {
+                    ctx.lineTo(points[j], points[j + 1]);
+                }
+                ctx.stroke();
+
+                // Inner glow pass
+                ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${lightness}%, ${baseAlpha * 0.5})`;
+                ctx.lineWidth = 2 + vib * 4;
                 ctx.beginPath();
                 ctx.moveTo(points[0], points[1]);
                 for (let j = 2; j < points.length; j += 2) {
@@ -453,8 +552,8 @@ export class GravityStringArt {
             }
 
             // Core string
-            ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${lightness}%, ${baseAlpha + 0.05})`;
-            ctx.lineWidth = 0.5 + vib * 1.5;
+            ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${lightness}%, ${baseAlpha + 0.06})`;
+            ctx.lineWidth = 0.5 + vib * 2;
             ctx.beginPath();
             ctx.moveTo(points[0], points[1]);
             for (let j = 2; j < points.length; j += 2) {
@@ -463,15 +562,37 @@ export class GravityStringArt {
             ctx.stroke();
         }
 
-        // Draw anchor points as small glowing dots
-        const anchorAlpha = 0.12 * this.intensity;
-        ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, 80%, ${anchorAlpha})`;
+        // Draw pluck wave flash points
+        for (const pw of this._pluckWaves) {
+            if (pw.amplitude < 0.05) continue;
+            const str = this.strings[pw.stringIdx];
+            if (!str) continue;
+            const a = this.anchors[str.a];
+            const b = this.anchors[str.b];
+            const px = a.x + pw.position * (b.x - a.x);
+            const py = a.y + pw.position * (b.y - a.y);
+            const alpha = pw.amplitude * 0.4 * this.intensity;
+            const hue = (this.hue + (str.hueShift || 0) + 360) % 360;
+            ctx.fillStyle = `hsla(${hue}, 90%, 85%, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(px, py, 3 + pw.amplitude * 6, 0, TAU);
+            ctx.fill();
+        }
+
+        // Anchor points with glow
         for (const a of this.anchors) {
-            if (a.fixed) {
-                ctx.beginPath();
-                ctx.arc(a.x, a.y, 2, 0, TAU);
-                ctx.fill();
-            }
+            if (!a.fixed) continue;
+            // Outer glow
+            const alpha = 0.06 * this.intensity;
+            ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, 70%, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(a.x, a.y, 5, 0, TAU);
+            ctx.fill();
+            // Core
+            ctx.fillStyle = `hsla(${this.hue}, ${this.saturation}%, 90%, ${alpha * 2})`;
+            ctx.beginPath();
+            ctx.arc(a.x, a.y, 1.5, 0, TAU);
+            ctx.fill();
         }
 
         ctx.restore();

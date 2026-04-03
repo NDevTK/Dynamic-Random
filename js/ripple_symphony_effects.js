@@ -70,8 +70,8 @@ export class RippleSymphony {
 
         const W = window.innerWidth, H = window.innerHeight;
 
-        // Set up field canvas
-        this._fieldScale = this.mode === 4 ? 3 : 4;
+        // Set up field canvas (lower resolution for performance)
+        this._fieldScale = this.mode === 4 ? 4 : 5;
         this._fieldW = Math.ceil(W / this._fieldScale);
         this._fieldH = Math.ceil(H / this._fieldScale);
         this._fieldCanvas = document.createElement('canvas');
@@ -170,6 +170,11 @@ export class RippleSymphony {
             }
         }
 
+        // Mode 2: slits follow cursor X position
+        if (this.mode === 2) {
+            this._slitCenterX = mx;
+        }
+
         // Radar rotation
         if (this.mode === 5) {
             this._radarAngle += 0.02;
@@ -180,8 +185,10 @@ export class RippleSymphony {
             this._chladniFreq += 0.005;
         }
 
-        // Render wave field
-        this._renderField();
+        // Render wave field (throttle to every 2 frames for performance)
+        if (this.tick % 2 === 0) {
+            this._renderField();
+        }
     }
 
     _renderField() {
@@ -234,56 +241,67 @@ export class RippleSymphony {
             default: baseR = 255; baseG = 0; baseB = Math.round((1 - hFrac) * 255); break;
         }
 
-        // Sample every pixel in the field
+        // Precompute source positions in field space (avoid division per pixel)
+        const srcXs = new Float32Array(srcLen);
+        const srcYs = new Float32Array(srcLen);
+        const srcFreqs = new Float32Array(srcLen);
+        const srcAmps = new Float32Array(srcLen);
+        const srcPhases = new Float32Array(srcLen);
+        for (let s = 0; s < srcLen; s++) {
+            srcXs[s] = sources[s].x / scale;
+            srcYs[s] = sources[s].y / scale;
+            srcFreqs[s] = sources[s].frequency * scale;
+            srcAmps[s] = sources[s].amplitude;
+            srcPhases[s] = sources[s].phase;
+        }
+
+        const timeFactor = tick * 0.08;
+        const timeFactor05 = tick * 0.05;
+        const slitY = this.mode === 2 ? this._slitY / scale : 0;
+        const halfGap = this.mode === 2 ? this._slitGap / (2 * scale) : 0;
+        const slitCX = (this._slitCenterX || this._mouseX) / scale;
+
         for (let fy = 0; fy < this._fieldH; fy++) {
             for (let fx = 0; fx < this._fieldW; fx++) {
                 let wave = 0;
 
-                // Cursor as a wave source too
+                // Cursor wave source
                 const cdx = fx - mx, cdy = fy - my;
-                const cDist = Math.sqrt(cdx * cdx + cdy * cdy);
-                wave += Math.sin(cDist * 0.15 - tick * 0.08) * 0.3 / (1 + cDist * 0.02);
+                const cDistSq = cdx * cdx + cdy * cdy;
+                const cDist = Math.sqrt(cDistSq);
+                wave += Math.sin(cDist * 0.15 - timeFactor) * 0.3 / (1 + cDist * 0.02);
 
                 for (let s = 0; s < srcLen; s++) {
-                    const src = sources[s];
-                    const sx = src.x / scale, sy = src.y / scale;
-                    const sdx = fx - sx, sdy = fy - sy;
+                    const sdx = fx - srcXs[s], sdy = fy - srcYs[s];
                     const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
 
                     let contribution;
-                    if (src.isDirectional) {
-                        // Directional wave cone
+                    if (sources[s].isDirectional) {
                         const angle = Math.atan2(sdy, sdx);
-                        const angleDiff = Math.abs(((angle - src.direction) + Math.PI) % TAU - Math.PI);
-                        const dirFactor = angleDiff < src.spread ? (1 - angleDiff / src.spread) : 0;
-                        contribution = Math.sin(sDist * src.frequency * scale - tick * 0.08 + src.phase) *
-                            src.amplitude * dirFactor / (1 + sDist * 0.01);
+                        const angleDiff = Math.abs(((angle - sources[s].direction) + Math.PI) % TAU - Math.PI);
+                        const dirFactor = angleDiff < sources[s].spread ? (1 - angleDiff / sources[s].spread) : 0;
+                        contribution = Math.sin(sDist * srcFreqs[s] - timeFactor + srcPhases[s]) *
+                            srcAmps[s] * dirFactor / (1 + sDist * 0.01);
                     } else if (this.mode === 2) {
-                        // Double slit: wave only passes through two slits
-                        const slitY = this._slitY / scale;
-                        const halfGap = this._slitGap / (2 * scale);
-                        const slitW = this._slitWidth / scale;
                         if (fy > slitY) {
-                            // Two virtual sources at slit positions
-                            const slit1x = sx - halfGap, slit2x = sx + halfGap;
+                            const slit1x = slitCX - halfGap, slit2x = slitCX + halfGap;
                             const d1 = Math.sqrt((fx - slit1x) ** 2 + (fy - slitY) ** 2);
                             const d2 = Math.sqrt((fx - slit2x) ** 2 + (fy - slitY) ** 2);
-                            contribution = (Math.sin(d1 * src.frequency * scale - tick * 0.05) +
-                                Math.sin(d2 * src.frequency * scale - tick * 0.05)) *
-                                src.amplitude * 0.5 / (1 + Math.min(d1, d2) * 0.005);
+                            contribution = (Math.sin(d1 * srcFreqs[s] - timeFactor05) +
+                                Math.sin(d2 * srcFreqs[s] - timeFactor05)) *
+                                srcAmps[s] * 0.5 / (1 + Math.min(d1, d2) * 0.005);
                         } else {
-                            contribution = Math.sin(sDist * src.frequency * scale - tick * 0.05 + src.phase) *
-                                src.amplitude / (1 + sDist * 0.01);
+                            contribution = Math.sin(sDist * srcFreqs[s] - timeFactor05 + srcPhases[s]) *
+                                srcAmps[s] / (1 + sDist * 0.01);
                         }
                     } else if (this.mode === 3) {
-                        // Seismic: two wave speeds
-                        const age = (tick - src.born) * 0.1;
-                        const pWave = Math.sin(sDist * src.frequency * scale * 1.5 - age * 2 + src.phase);
-                        const sWave = Math.sin(sDist * src.frequency * scale - age + src.phase);
-                        contribution = (pWave * 0.6 + sWave * 0.4) * src.amplitude / (1 + sDist * 0.01);
+                        const age = (tick - sources[s].born) * 0.1;
+                        const pWave = Math.sin(sDist * srcFreqs[s] * 1.5 - age * 2 + srcPhases[s]);
+                        const sWave = Math.sin(sDist * srcFreqs[s] - age + srcPhases[s]);
+                        contribution = (pWave * 0.6 + sWave * 0.4) * srcAmps[s] / (1 + sDist * 0.01);
                     } else {
-                        contribution = Math.sin(sDist * src.frequency * scale - tick * 0.05 + src.phase) *
-                            src.amplitude / (1 + sDist * 0.01);
+                        contribution = Math.sin(sDist * srcFreqs[s] - timeFactor05 + srcPhases[s]) *
+                            srcAmps[s] / (1 + sDist * 0.01);
                     }
 
                     wave += contribution;

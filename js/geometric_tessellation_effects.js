@@ -98,12 +98,9 @@ export class GeometricTessellation {
     }
 
     _setupPenrose(rng, W, H) {
-        // Simplified Penrose-like pattern using two rhombus types
         const s = this.tileSize * 1.2;
         const cx = W / 2, cy = H / 2;
-        const golden = (1 + Math.sqrt(5)) / 2;
 
-        // Generate from a fivefold symmetric grid
         for (let k = 0; k < 5; k++) {
             const angle = (k / 5) * TAU;
             const cos = Math.cos(angle), sin = Math.sin(angle);
@@ -119,7 +116,7 @@ export class GeometricTessellation {
                         type: i % 2 === 0 ? 'thin' : 'thick',
                         angle: angle,
                         size: s * 0.4,
-                        hueOffset: k * 20 + rng() * 10,
+                        hueOffset: k * 20 + rng() * 10, // uses seeded rng
                         reactStyle: Math.floor(rng() * 3),
                     });
                 }
@@ -223,42 +220,59 @@ export class GeometricTessellation {
         this._mouseY = my;
 
         if (isClicking && !this._wasClicking) {
-            // Click: send a ripple wave from click point
-            for (let i = 0; i < this.tiles.length; i++) {
-                const t = this.tiles[i];
-                const tdx = t.x - mx, tdy = t.y - my;
-                const dist = Math.sqrt(tdx * tdx + tdy * tdy);
-                if (dist < 300) {
-                    this._tileFlip[i] = (1 - dist / 300) * Math.PI;
-                    this._tileRotation[i] += (1 - dist / 300) * 0.5;
-                }
-            }
+            // Click: send a delayed ripple wave from click point
+            this._clickRippleOriginX = mx;
+            this._clickRippleOriginY = my;
+            this._clickRippleRadius = 0;
+            this._clickRippleActive = true;
         }
         this._wasClicking = isClicking;
         this._isClicking = isClicking;
 
-        // Update tile states based on cursor proximity
+        // Propagate click ripple outward over time (expanding ring, not instant)
+        if (this._clickRippleActive) {
+            this._clickRippleRadius += 12;
+            if (this._clickRippleRadius > 500) this._clickRippleActive = false;
+            const innerR = this._clickRippleRadius - 60;
+            const outerR = this._clickRippleRadius;
+            const rx = this._clickRippleOriginX;
+            const ry = this._clickRippleOriginY;
+            for (let i = 0; i < this.tiles.length; i++) {
+                const t = this.tiles[i];
+                const tdx = t.x - rx, tdy = t.y - ry;
+                const distSq = tdx * tdx + tdy * tdy;
+                if (distSq > innerR * innerR && distSq < outerR * outerR) {
+                    const dist = Math.sqrt(distSq);
+                    const ring = 1 - Math.abs(dist - (innerR + outerR) / 2) / 30;
+                    this._tileFlip[i] = ring * Math.PI * 0.5;
+                    this._tileRotation[i] += ring * 0.3;
+                    this._tileScale[i] = 1 + ring * 0.4;
+                }
+            }
+        }
+
+        // Update tile states based on cursor proximity (use distSq for early-out)
         const interactRadius = isClicking ? 250 : 150;
+        const interactRadiusSq = interactRadius * interactRadius;
         for (let i = 0; i < this.tiles.length; i++) {
             const t = this.tiles[i];
             const tdx = t.x - mx, tdy = t.y - my;
-            const dist = Math.sqrt(tdx * tdx + tdy * tdy);
+            const distSq = tdx * tdx + tdy * tdy;
 
-            // Proximity reaction
-            if (dist < interactRadius) {
+            if (distSq < interactRadiusSq) {
+                const dist = Math.sqrt(distSq);
                 const influence = (1 - dist / interactRadius);
                 if (t.reactStyle === 0) {
-                    this._tileScale[i] += (1 + influence * 0.5 - this._tileScale[i]) * 0.1;
+                    this._tileScale[i] += (1 + influence * 0.6 - this._tileScale[i]) * 0.12;
                 } else if (t.reactStyle === 1) {
-                    this._tileRotation[i] += influence * 0.03;
-                } else {
-                    // Brighten handled in draw
+                    this._tileRotation[i] += influence * 0.04;
                 }
+                // reactStyle 2: brighten handled in draw
             }
 
             // Decay
-            this._tileFlip[i] *= 0.92;
-            this._tileScale[i] += (1 - this._tileScale[i]) * 0.05;
+            this._tileFlip[i] *= 0.90;
+            this._tileScale[i] += (1 - this._tileScale[i]) * 0.06;
         }
 
         // Voronoi: move points slowly
@@ -303,8 +317,9 @@ export class GeometricTessellation {
             const proximity = dist < interactRadius ? (1 - dist / interactRadius) : 0;
 
             const hue = (this.hue + t.hueOffset + this.tick * 0.1) % 360;
-            const baseLightness = 40 + (t.reactStyle === 2 ? proximity * 30 : 0);
-            const baseAlpha = (0.04 + proximity * 0.12 + Math.abs(this._tileFlip[i]) * 0.08) * this.intensity;
+            const flipEnergy = Math.abs(this._tileFlip[i]);
+            const baseLightness = 40 + (t.reactStyle === 2 ? proximity * 35 : 0) + flipEnergy * 15;
+            const baseAlpha = (0.05 + proximity * 0.18 + flipEnergy * 0.12) * this.intensity;
 
             ctx.save();
             ctx.translate(t.x, t.y);
@@ -312,37 +327,52 @@ export class GeometricTessellation {
             const sc = this._tileScale[i];
             ctx.scale(sc, sc);
 
+            // Glow layer for active tiles
+            if (proximity > 0.3 || flipEnergy > 0.2) {
+                const glowAlpha = baseAlpha * 0.2;
+                ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${baseLightness + 15}%, ${glowAlpha})`;
+                ctx.lineWidth = 3 + proximity * 4;
+                this._drawTileShape(ctx, t);
+                ctx.stroke();
+            }
+
             ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, ${baseLightness}%, ${baseAlpha})`;
             ctx.fillStyle = `hsla(${hue}, ${this.saturation}%, ${baseLightness}%, ${baseAlpha * 0.3})`;
-            ctx.lineWidth = 0.5 + proximity;
+            ctx.lineWidth = 0.5 + proximity * 1.5;
 
-            switch (t.type) {
-                case 'hex':
-                    this._drawHex(ctx, t.size * 0.45);
-                    break;
-                case 'thin':
-                case 'thick':
-                    this._drawRhombus(ctx, t.size, t.type === 'thin' ? 0.3 : 0.6, t.angle || 0);
-                    break;
-                case 'bird':
-                case 'fish':
-                    this._drawEscher(ctx, t);
-                    break;
-                case 'voronoi':
-                    this._drawVoronoiCell(ctx, t, i, proximity);
-                    break;
-                case 'star':
-                    this._drawStar(ctx, t);
-                    break;
-                case 'truchet':
-                    this._drawTruchet(ctx, t, proximity);
-                    break;
-            }
+            this._drawTileShape(ctx, t, i, proximity);
 
             ctx.restore();
         }
 
         ctx.restore();
+    }
+
+    _drawTileShape(ctx, t, i, proximity) {
+        switch (t.type) {
+            case 'hex':
+                this._drawHex(ctx, t.size * 0.45);
+                ctx.fill();
+                ctx.stroke();
+                break;
+            case 'thin':
+            case 'thick':
+                this._drawRhombus(ctx, t.size, t.type === 'thin' ? 0.3 : 0.6, t.angle || 0);
+                break;
+            case 'bird':
+            case 'fish':
+                this._drawEscher(ctx, t);
+                break;
+            case 'voronoi':
+                this._drawVoronoiCell(ctx, t, i, proximity);
+                break;
+            case 'star':
+                this._drawStar(ctx, t);
+                break;
+            case 'truchet':
+                this._drawTruchet(ctx, t, proximity);
+                break;
+        }
     }
 
     _drawHex(ctx, r) {
@@ -355,8 +385,6 @@ export class GeometricTessellation {
             else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
     }
 
     _drawRhombus(ctx, size, ratio, angle) {
@@ -438,11 +466,14 @@ export class GeometricTessellation {
         const s = tile.size / 2;
         const orient = tile.orient;
         const arcR = s;
-
-        ctx.lineWidth = 1 + proximity * 2;
+        // Flowing animation: dash offset shifts over time
+        const dashLen = 4 + proximity * 8;
+        const dashGap = 6 - proximity * 3;
+        ctx.setLineDash([dashLen, Math.max(1, dashGap)]);
+        ctx.lineDashOffset = -this.tick * 0.5; // flowing motion
+        ctx.lineWidth = 1 + proximity * 2.5;
 
         if (orient === 0) {
-            // Top-left to bottom-right arcs
             ctx.beginPath();
             ctx.arc(-s, -s, arcR, 0, Math.PI / 2);
             ctx.stroke();
@@ -450,7 +481,6 @@ export class GeometricTessellation {
             ctx.arc(s, s, arcR, Math.PI, Math.PI * 1.5);
             ctx.stroke();
         } else {
-            // Top-right to bottom-left arcs
             ctx.beginPath();
             ctx.arc(s, -s, arcR, Math.PI / 2, Math.PI);
             ctx.stroke();
@@ -458,5 +488,6 @@ export class GeometricTessellation {
             ctx.arc(-s, s, arcR, Math.PI * 1.5, TAU);
             ctx.stroke();
         }
+        ctx.setLineDash([]);
     }
 }

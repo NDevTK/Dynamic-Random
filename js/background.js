@@ -23,6 +23,9 @@ import { selectArchitecture, ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES } from './arc
 // Re-export for consumers that import from background.js
 export { ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES };
 
+// Pre-allocated constant to avoid array creation in animation loop
+const _TRANSITION_TYPES = ['crossfade', 'wipe', 'zoom', 'spiral'];
+
 class BackgroundSystem {
     constructor() {
         this.canvas = document.createElement('canvas');
@@ -189,8 +192,7 @@ class BackgroundSystem {
             this._transitionAlpha = 0;
             this._transitionActive = true;
             // Pick random transition type
-            const types = ['crossfade', 'wipe', 'zoom', 'spiral'];
-            this._transitionType = types[Math.floor(Math.random() * types.length)];
+            this._transitionType = _TRANSITION_TYPES[Math.floor(Math.random() * _TRANSITION_TYPES.length)];
         }
         this.architecture = architectureFactory();
         this.architecture.init(this);

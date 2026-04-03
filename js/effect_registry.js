@@ -54,6 +54,11 @@ import { DNAHelix } from './dna_helix_effects.js';
 import { ParticleEcology } from './particle_ecology_effects.js';
 import { MorphingGeometry } from './morphing_geometry_effects.js';
 import { SonicTerrain } from './sonic_terrain_effects.js';
+import { ChaosPendulum } from './chaos_pendulum_effects.js';
+import { ReactionDiffusion } from './reaction_diffusion_effects.js';
+import { HypnoticSpirograph } from './hypnotic_spirograph_effects.js';
+import { MagneticParticleTheater } from './magnetic_particle_theater_effects.js';
+import { GlitchTerrain } from './glitch_terrain_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -151,6 +156,11 @@ export const EFFECT_REGISTRY = [
     { instance: new ParticleEcology(),       tags: ['organic', 'swarm', 'bio'],              minQuality: 0.25, drawOrder: 43 },
     { instance: new MorphingGeometry(),      tags: ['geometric', 'crystal', 'ethereal'],     minQuality: 0.3,  drawOrder: 44 },
     { instance: new SonicTerrain(),          tags: ['sonic', 'physics', 'cosmic'],            minQuality: 0.25, drawOrder: 45 },
+    { instance: new ChaosPendulum(),        tags: ['physics', 'harmonic', 'painterly'],      minQuality: 0.25, drawOrder: 46 },
+    { instance: new ReactionDiffusion(),    tags: ['organic', 'bio', 'fluid'],               minQuality: 0.3,  drawOrder: 47 },
+    { instance: new HypnoticSpirograph(),   tags: ['geometric', 'harmonic', 'light'],        minQuality: 0.3,  drawOrder: 48 },
+    { instance: new MagneticParticleTheater(), tags: ['cosmic', 'geometric', 'ethereal'],    minQuality: 0.25, drawOrder: 49 },
+    { instance: new GlitchTerrain(),        tags: ['digital', 'glitch', 'tech'],             minQuality: 0.3,  drawOrder: 50 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

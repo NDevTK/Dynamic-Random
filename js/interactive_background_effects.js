@@ -524,9 +524,8 @@ class InteractiveBackgroundEffects {
                     const cdy = p1.y - p2.y;
                     const distSq = cdx * cdx + cdy * cdy;
                     if (distSq < maxDistSq) {
-                        // Approximate dist using fast inverse sqrt approximation
-                        const dist = Math.sqrt(distSq);
-                        const alpha = Math.min(p1.alpha, p2.alpha) * (1 - dist * invMaxDist) * 0.3;
+                        // Use distSq ratio to avoid expensive Math.sqrt
+                        const alpha = Math.min(p1.alpha, p2.alpha) * (1 - distSq / maxDistSq) * 0.3;
                         batchAlpha += alpha;
                         lineCount++;
                         ctx.moveTo(p1.x, p1.y);

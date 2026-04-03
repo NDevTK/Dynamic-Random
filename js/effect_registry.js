@@ -59,6 +59,15 @@ import { ReactionDiffusion } from './reaction_diffusion_effects.js';
 import { HypnoticSpirograph } from './hypnotic_spirograph_effects.js';
 import { MagneticParticleTheater } from './magnetic_particle_theater_effects.js';
 import { GlitchTerrain } from './glitch_terrain_effects.js';
+import { ShockwavePrism } from './shockwave_prism_effects.js';
+import { FungalNetwork } from './fungal_network_effects.js';
+import { CosmicJellyfish } from './cosmic_jellyfish_effects.js';
+import { GravityRainbow } from './gravity_rainbow_effects.js';
+import { ElectricOcean } from './electric_ocean_effects.js';
+import { QuantumEntanglement } from './quantum_entanglement_effects.js';
+import { WormholeTransit } from './wormhole_transit_effects.js';
+import { InkSplatter } from './ink_splatter_effects.js';
+import { CrystalGrowth } from './crystal_growth_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -161,6 +170,15 @@ export const EFFECT_REGISTRY = [
     { instance: new HypnoticSpirograph(),   tags: ['geometric', 'harmonic', 'light'],        minQuality: 0.3,  drawOrder: 48 },
     { instance: new MagneticParticleTheater(), tags: ['cosmic', 'geometric', 'ethereal'],    minQuality: 0.25, drawOrder: 49 },
     { instance: new GlitchTerrain(),        tags: ['digital', 'glitch', 'tech'],             minQuality: 0.3,  drawOrder: 50 },
+    { instance: new ShockwavePrism(),     tags: ['light', 'crystal', 'cosmic'],            minQuality: 0.25, drawOrder: 51 },
+    { instance: new FungalNetwork(),      tags: ['organic', 'bio', 'dark'],                minQuality: 0.25, drawOrder: 52 },
+    { instance: new CosmicJellyfish(),    tags: ['aquatic', 'bio', 'ethereal'],            minQuality: 0.3,  drawOrder: 53 },
+    { instance: new GravityRainbow(),     tags: ['light', 'painterly', 'cosmic'],          minQuality: 0.3,  drawOrder: 54 },
+    { instance: new ElectricOcean(),      tags: ['aquatic', 'physics', 'dark'],            minQuality: 0.25, drawOrder: 55 },
+    { instance: new QuantumEntanglement(),tags: ['quantum', 'physics', 'ethereal'],        minQuality: 0.25, drawOrder: 56 },
+    { instance: new WormholeTransit(),    tags: ['void', 'cosmic', 'temporal'],            minQuality: 0.3,  drawOrder: 57 },
+    { instance: new InkSplatter(),        tags: ['fluid', 'painterly', 'dark'],            minQuality: 0.3,  drawOrder: 58 },
+    { instance: new CrystalGrowth(),      tags: ['crystal', 'geometric', 'light'],         minQuality: 0.25, drawOrder: 59 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

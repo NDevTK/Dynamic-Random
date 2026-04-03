@@ -297,8 +297,8 @@ export class PixelFireflies {
 
         const W = window.innerWidth, H = window.innerHeight;
 
-        // Build spatial grid for predator/prey mode
-        if (this.mode === 4) {
+        // Build spatial grid for predator/prey and constellation modes
+        if (this.mode === 4 || this.mode === 5) {
             this._buildSpatialGrid();
         }
 
@@ -451,26 +451,44 @@ export class PixelFireflies {
             }
         }
 
-        // Mode 5: constellation connections
-        if (this.mode === 5) {
+        // Mode 5: constellation connections (spatial grid accelerated)
+        if (this.mode === 5 && this._grid) {
             ctx.lineWidth = 0.5;
+            const searchRadius = 90;
+            const searchRadiusSq = searchRadius * searchRadius;
+            const cellRange = Math.ceil(searchRadius / this._gridCellSize);
             for (let i = 0; i < this.fireflies.length; i++) {
                 const fi = this.fireflies[i];
                 if (fi.brightness < 0.3) continue;
-                for (let j = i + 1; j < this.fireflies.length; j++) {
-                    const fj = this.fireflies[j];
-                    if (fj.brightness < 0.3) continue;
-                    const ddx = fi.x - fj.x, ddy = fi.y - fj.y;
-                    const distSq = ddx * ddx + ddy * ddy;
-                    if (distSq < 8100) { // 90px
-                        const dist = Math.sqrt(distSq);
-                        const alpha = Math.min(fi.brightness, fj.brightness) * (1 - dist / 90) * 0.12 * this.intensity;
-                        const hue = (this.hue + fi.hueOffset + fj.hueOffset + 360) % 360;
-                        ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 70%, ${alpha})`;
-                        ctx.beginPath();
-                        ctx.moveTo(fi.x, fi.y);
-                        ctx.lineTo(fj.x, fj.y);
-                        ctx.stroke();
+                const col = Math.max(0, Math.min(this._gridCols - 1, Math.floor(fi.x / this._gridCellSize)));
+                const row = Math.max(0, Math.min(this._gridRows - 1, Math.floor(fi.y / this._gridCellSize)));
+                for (let dr = -cellRange; dr <= cellRange; dr++) {
+                    const r2 = row + dr;
+                    if (r2 < 0 || r2 >= this._gridRows) continue;
+                    for (let dc = -cellRange; dc <= cellRange; dc++) {
+                        const c2 = col + dc;
+                        if (c2 < 0 || c2 >= this._gridCols) continue;
+                        let idx = this._grid[r2 * this._gridCols + c2];
+                        while (idx !== null && idx !== undefined) {
+                            if (idx > i) {
+                                const fj = this.fireflies[idx];
+                                if (fj.brightness >= 0.3) {
+                                    const ddx = fi.x - fj.x, ddy = fi.y - fj.y;
+                                    const distSq = ddx * ddx + ddy * ddy;
+                                    if (distSq < searchRadiusSq) {
+                                        const dist = Math.sqrt(distSq);
+                                        const alpha = Math.min(fi.brightness, fj.brightness) * (1 - dist / searchRadius) * 0.12 * this.intensity;
+                                        const hue = (this.hue + fi.hueOffset + fj.hueOffset + 360) % 360;
+                                        ctx.strokeStyle = `hsla(${hue}, ${this.saturation}%, 70%, ${alpha})`;
+                                        ctx.beginPath();
+                                        ctx.moveTo(fi.x, fi.y);
+                                        ctx.lineTo(fj.x, fj.y);
+                                        ctx.stroke();
+                                    }
+                                }
+                            }
+                            idx = this.fireflies[idx]._gridNext;
+                        }
                     }
                 }
             }

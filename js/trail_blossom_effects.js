@@ -18,11 +18,10 @@ export class TrailBlossom {
         this.spawnInterval = 12;
         this.lastMx = 0;
         this.lastMy = 0;
-        // Local deterministic RNG state (replaces Math.random for determinism).
         this._rngState = 1;
     }
 
-    // Fast deterministic PRNG (mulberry32-style) seeded per configure().
+    // Deterministic PRNG (mulberry32) seeded per configure() for reproducible spawns.
     _rand() {
         this._rngState = (this._rngState + 0x6D2B79F5) | 0;
         let t = this._rngState;
@@ -32,7 +31,6 @@ export class TrailBlossom {
     }
 
     configure(rng, palette) {
-        // Seed local PRNG from the master rng so spawn-time randomness stays deterministic.
         this._rngState = (rng() * 0xFFFFFFFF) | 0;
         this.petalStyle = Math.floor(rng() * 5); // 0=round, 1=pointed, 2=star, 3=spiral, 4=geometric
         this.symmetry = 3 + Math.floor(rng() * 7); // 3-9 fold symmetry

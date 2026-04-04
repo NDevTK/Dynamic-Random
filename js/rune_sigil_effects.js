@@ -26,7 +26,6 @@ export class RuneSigils {
     constructor() {
         this._runes = [];
         this._alphabet = null;
-        this._style = 0;
         this._layoutMode = 0;
         this._interactionMode = 0;
         this._linkMode = 0;
@@ -38,26 +37,33 @@ export class RuneSigils {
         this._casts = [];
         this._castPool = [];
         this._maxCasts = 60;
-        this._lastMx = 0;
-        this._lastMy = 0;
         this._wasClicking = false;
         this._centerX = 0;
         this._centerY = 0;
         this._rotationSense = 1;
         this._runeCountTarget = 18;
+        this._rngState = 1;
+    }
+
+    // Local deterministic PRNG for click-time randomness (mulberry32).
+    _rand() {
+        this._rngState = (this._rngState + 0x6D2B79F5) | 0;
+        let t = this._rngState;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return (((t ^ (t >>> 14)) >>> 0) / 4294967296);
     }
 
     configure(rng, palette) {
         this._tick = 0;
+        this._rngState = (rng() * 0xFFFFFFFF) | 0;
         const w = window.innerWidth;
         const h = window.innerHeight;
         this._centerX = w * 0.5;
         this._centerY = h * 0.5;
 
-        // Seed-based parameters
         const glyphCount = 6 + Math.floor(rng() * 7); // 6-12 unique glyphs
         this._alphabet = generateRuneAlphabet(rng, glyphCount);
-        this._style = this._alphabet.style;
 
         this._layoutMode = Math.floor(rng() * 4);
         this._interactionMode = Math.floor(rng() * 3);
@@ -125,7 +131,6 @@ export class RuneSigils {
             vx: (rng() - 0.5) * 0.4,
             vy: (rng() - 0.5) * 0.4,
             size,
-            baseSize: size,
             rot: rng() * TAU,
             rotSpeed: (rng() - 0.5) * 0.008 * this._rotationSense,
             glyphIdx: Math.floor(rng() * this._alphabet.glyphs.length),
@@ -141,42 +146,34 @@ export class RuneSigils {
 
     update(mx, my, isClicking) {
         this._tick++;
-        const dt = 1; // tick-based
 
-        // Detect click edge
-        const justClicked = isClicking && !this._wasClicking;
+        if (isClicking && !this._wasClicking) this._castSigil(mx, my);
         this._wasClicking = isClicking;
 
-        if (justClicked) {
-            this._castSigil(mx, my);
-        }
-
         const influenceSq = this._influenceRadius * this._influenceRadius;
+        const invInfluence = 1 / this._influenceRadius;
+        const baseRotSpeed = 0.003 * this._rotationSense;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const margin = 60;
 
         for (let i = 0; i < this._runes.length; i++) {
             const r = this._runes[i];
 
-            // Fade in
             if (r.alpha < r.targetAlpha) r.alpha = Math.min(r.targetAlpha, r.alpha + 0.01);
 
-            // Bobbing/drift motion
             r.phase += r.bobFreq;
-            const bobX = Math.cos(r.phase) * r.bobAmp;
-            const bobY = Math.sin(r.phase * 1.3) * r.bobAmp;
 
-            // Pull back toward base position gently
-            const toBaseX = r.baseX - r.x;
-            const toBaseY = r.baseY - r.y;
-            r.vx += toBaseX * 0.002;
-            r.vy += toBaseY * 0.002;
+            // Spring toward base position.
+            r.vx += (r.baseX - r.x) * 0.002;
+            r.vy += (r.baseY - r.y) * 0.002;
 
-            // Cursor interaction
             const dx = mx - r.x;
             const dy = my - r.y;
             const distSq = dx * dx + dy * dy;
             if (distSq < influenceSq && distSq > 1) {
                 const dist = Math.sqrt(distSq);
-                const strength = 1 - dist / this._influenceRadius;
+                const strength = 1 - dist * invInfluence;
                 const nx = dx / dist;
                 const ny = dy / dist;
                 switch (this._interactionMode) {
@@ -188,46 +185,31 @@ export class RuneSigils {
                         r.vx -= nx * strength * 0.5;
                         r.vy -= ny * strength * 0.5;
                         break;
-                    case 2: { // orbit
-                        // perpendicular push + slight inward
+                    case 2: // orbit: perpendicular push + slight inward
                         r.vx += (-ny * 0.6 - nx * 0.1) * strength;
                         r.vy += (nx * 0.6 - ny * 0.1) * strength;
                         break;
-                    }
                 }
-                // Pulse and grow
                 r.pulseScale = Math.min(0.4, r.pulseScale + strength * 0.03);
                 r.rotSpeed += strength * 0.001 * this._rotationSense;
             } else {
                 r.pulseScale *= 0.95;
             }
 
-            // Damping & integrate
             r.vx *= 0.94;
             r.vy *= 0.94;
-            r.x += r.vx * dt;
-            r.y += r.vy * dt;
+            r.x += r.vx;
+            r.y += r.vy;
             r.rot += r.rotSpeed;
             r.rotSpeed *= 0.99;
-            // Decay rotSpeed toward base
-            const baseRotSpeed = 0.003 * this._rotationSense;
             r.rotSpeed += (baseRotSpeed - r.rotSpeed) * 0.02;
 
-            // Add subtle bob offset to draw position via temporary state
-            r._drawX = r.x + bobX;
-            r._drawY = r.y + bobY;
-
-            // Wrap softly around screen edges
-            const margin = 60;
-            const w = window.innerWidth;
-            const h = window.innerHeight;
             if (r.x < -margin) { r.x = w + margin; r.baseX = r.x; }
             else if (r.x > w + margin) { r.x = -margin; r.baseX = r.x; }
             if (r.y < -margin) { r.y = h + margin; r.baseY = r.y; }
             else if (r.y > h + margin) { r.y = -margin; r.baseY = r.y; }
         }
 
-        // Update cast fragments
         for (let i = this._casts.length - 1; i >= 0; i--) {
             const c = this._casts[i];
             c.x += c.vx;
@@ -244,9 +226,6 @@ export class RuneSigils {
                 this._casts.pop();
             }
         }
-
-        this._lastMx = mx;
-        this._lastMy = my;
     }
 
     _castSigil(mx, my) {
@@ -266,28 +245,27 @@ export class RuneSigils {
 
         for (let i = 0; i < count; i++) {
             const { r } = burstables[i];
-            // Spawn cast fragment at rune's position
             if (this._casts.length >= this._maxCasts) break;
             const c = this._castPool.length > 0 ? this._castPool.pop() : {};
             c.x = r.x;
             c.y = r.y;
-            const ang = Math.atan2(r.y - my, r.x - mx) + (Math.random() - 0.5) * 0.6;
-            const speed = 4 + Math.random() * 6;
+            const ang = Math.atan2(r.y - my, r.x - mx) + (this._rand() - 0.5) * 0.6;
+            const speed = 4 + this._rand() * 6;
             c.vx = Math.cos(ang) * speed;
             c.vy = Math.sin(ang) * speed;
             c.rot = r.rot;
-            c.rotSpeed = (Math.random() - 0.5) * 0.2;
-            c.size = r.size * (1 + Math.random() * 0.6);
+            c.rotSpeed = (this._rand() - 0.5) * 0.2;
+            c.size = r.size * (1 + this._rand() * 0.6);
             c.glyphIdx = r.glyphIdx;
             c.hueOffset = r.hueOffset;
-            c.maxLife = 40 + Math.floor(Math.random() * 30);
+            c.maxLife = 40 + Math.floor(this._rand() * 30);
             c.life = c.maxLife;
             c.alpha = 1;
             this._casts.push(c);
 
-            // Teleport rune to new base position for respawn
-            const angT = Math.random() * TAU;
-            const dist = 150 + Math.random() * 300;
+            // Respawn rune at a new base position.
+            const angT = this._rand() * TAU;
+            const dist = 150 + this._rand() * 300;
             r.baseX = mx + Math.cos(angT) * dist;
             r.baseY = my + Math.sin(angT) * dist;
             r.x = r.baseX;
@@ -305,29 +283,27 @@ export class RuneSigils {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
-        // Draw links first (under runes)
-        if (this._linkMode !== 0) {
-            this._drawLinks(ctx);
-        }
+        if (this._linkMode !== 0) this._drawLinks(ctx);
 
-        // Draw runes
+        const style = this._alphabet.style;
+        const glyphs = this._alphabet.glyphs;
         const hueShift = this._tick * this._hueDrift;
+
         for (let i = 0; i < this._runes.length; i++) {
             const r = this._runes[i];
             if (r.alpha <= 0.01) continue;
-            const glyph = this._alphabet.glyphs[r.glyphIdx];
+            const bobX = Math.cos(r.phase) * r.bobAmp;
+            const bobY = Math.sin(r.phase * 1.3) * r.bobAmp;
             const hue = (this._baseHue + r.hueOffset + hueShift + 360) % 360;
             const drawSize = r.size * (1 + r.pulseScale);
-            drawGlyph(ctx, glyph, r._drawX || r.x, r._drawY || r.y,
-                drawSize, r.rot, hue, r.alpha, this._style);
+            drawGlyph(ctx, glyphs[r.glyphIdx], r.x + bobX, r.y + bobY,
+                drawSize, r.rot, hue, r.alpha, style);
         }
 
-        // Draw cast fragments
         for (let i = 0; i < this._casts.length; i++) {
             const c = this._casts[i];
-            const glyph = this._alphabet.glyphs[c.glyphIdx];
             const hue = (this._baseHue + c.hueOffset + hueShift + 40 + 360) % 360;
-            drawGlyph(ctx, glyph, c.x, c.y, c.size, c.rot, hue, c.alpha * 0.7, this._style);
+            drawGlyph(ctx, glyphs[c.glyphIdx], c.x, c.y, c.size, c.rot, hue, c.alpha * 0.7, style);
         }
 
         ctx.restore();

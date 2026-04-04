@@ -13,19 +13,6 @@
  */
 
 /**
- * Deterministic pseudo-random in [0,1) from integer seed.
- * Used so glyphs can be re-rendered identically without storing state.
- */
-function hash01(n) {
-    n = (n ^ 61) ^ (n >>> 16);
-    n = (n + (n << 3)) | 0;
-    n = n ^ (n >>> 4);
-    n = Math.imul(n, 0x27d4eb2d);
-    n = n ^ (n >>> 15);
-    return (n >>> 0) / 4294967296;
-}
-
-/**
  * Generates one glyph: a sequence of strokes inside [-0.5, 0.5] unit space.
  * @param {function} rng - seeded RNG
  * @returns {{strokes: Array, complexity: number}}
@@ -113,7 +100,7 @@ export function generateRuneAlphabet(rng, count) {
     }
     return {
         glyphs,
-        // Overall stroke rendering style: 0=solid, 1=dashed, 2=glow-wide, 3=double-stroke
+        // Overall stroke rendering style: 0=solid, 1=dashed, 2=wide-glow, 3=double-stroke
         style: Math.floor(rng() * 4),
     };
 }
@@ -142,7 +129,7 @@ export function drawGlyph(ctx, glyph, x, y, size, rotation, hue, alpha, style) {
     }
     ctx.strokeStyle = strokeColor;
     ctx.fillStyle = fillColor;
-    ctx.lineWidth = lw;
+    ctx.lineWidth = style === 2 ? lw * 2.5 : lw;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -181,8 +168,13 @@ export function drawGlyph(ctx, glyph, x, y, size, rotation, hue, alpha, style) {
     }
     ctx.stroke();
 
-    if (style === 3) {
-        // Double-stroke: outline in brighter tone
+    if (style === 2) {
+        // Wide-glow: re-stroke thin bright core on top of the wide halo.
+        ctx.strokeStyle = `hsla(${hue}, 100%, 90%, ${alpha})`;
+        ctx.lineWidth = lw * 0.4;
+        ctx.stroke();
+    } else if (style === 3) {
+        // Double-stroke: hue-shifted inner highlight.
         ctx.strokeStyle = `hsla(${(hue + 30) % 360}, 100%, 85%, ${alpha * 0.5})`;
         ctx.lineWidth = lw * 0.4;
         ctx.stroke();

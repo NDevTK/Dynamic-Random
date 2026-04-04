@@ -48,6 +48,7 @@ export class KiteFestival {
         this._gusts = [];
         this._gustPool = [];
         this._wasClicking = false;
+        this._cursorInited = false;
         this._prevMx = 0;
         this._prevMy = 0;
         this._cursorVx = 0;
@@ -86,6 +87,10 @@ export class KiteFestival {
         this._gusts.length = 0;
         this._wasClicking = false;
         this._noiseT = rng() * 1000;
+        // Avoid first-frame cursor-velocity kick
+        this._cursorInited = false;
+        this._cursorVx = 0;
+        this._cursorVy = 0;
 
         // Initialize anchors and kites
         this._kites = [];
@@ -150,8 +155,6 @@ export class KiteFestival {
                 tailWriteIdx: 0,
                 tailLen,
                 pulse: 0,
-                wobblePhase: rng() * TAU,
-                wobbleFreq: 0.02 + rng() * 0.03,
             });
         }
     }
@@ -160,11 +163,15 @@ export class KiteFestival {
         this._tick++;
         this._noiseT += 0.008;
 
-        // Cursor velocity for wind influence
-        const rawDx = mx - this._prevMx;
-        const rawDy = my - this._prevMy;
-        this._cursorVx = this._cursorVx * 0.7 + rawDx * 0.3;
-        this._cursorVy = this._cursorVy * 0.7 + rawDy * 0.3;
+        // Cursor velocity for wind influence (skip first frame to avoid huge kick)
+        if (this._cursorInited) {
+            const rawDx = mx - this._prevMx;
+            const rawDy = my - this._prevMy;
+            this._cursorVx = this._cursorVx * 0.7 + rawDx * 0.3;
+            this._cursorVy = this._cursorVy * 0.7 + rawDy * 0.3;
+        } else {
+            this._cursorInited = true;
+        }
         this._prevMx = mx;
         this._prevMy = my;
 
@@ -414,21 +421,24 @@ export class KiteFestival {
         const start = k.tailWriteIdx; // oldest entry
 
         if (style === 0) {
-            // ribbon - single connected stroke with per-segment fade
-            for (let j = 1; j < n; j++) {
-                const idxA = (start + j - 1) % n;
-                const idxB = (start + j) % n;
-                const ax = tail[idxA * 2];
-                const ay = tail[idxA * 2 + 1];
-                const bx = tail[idxB * 2];
-                const by = tail[idxB * 2 + 1];
-                const t = j / n;
-                const alpha = t * 0.55;
-                ctx.strokeStyle = `hsla(${(hue + 360) % 360}, 75%, 60%, ${alpha})`;
-                ctx.lineWidth = 1 + t * 2.5;
+            // ribbon - batch segments into 3 width/alpha bands to reduce strokes
+            const hueN = (hue + 360) % 360;
+            const bands = 3;
+            for (let b = 0; b < bands; b++) {
+                const bandLo = b / bands;
+                const bandHi = (b + 1) / bands;
+                const bandMid = (bandLo + bandHi) * 0.5;
+                ctx.lineWidth = 1 + bandMid * 2.5;
+                ctx.strokeStyle = `hsla(${hueN}, 75%, 60%, ${bandMid * 0.55})`;
                 ctx.beginPath();
-                ctx.moveTo(ax, ay);
-                ctx.lineTo(bx, by);
+                for (let j = 1; j < n; j++) {
+                    const t = j / n;
+                    if (t < bandLo || t >= bandHi) continue;
+                    const idxA = (start + j - 1) % n;
+                    const idxB = (start + j) % n;
+                    ctx.moveTo(tail[idxA * 2], tail[idxA * 2 + 1]);
+                    ctx.lineTo(tail[idxB * 2], tail[idxB * 2 + 1]);
+                }
                 ctx.stroke();
             }
         } else if (style === 1) {
@@ -453,17 +463,25 @@ export class KiteFestival {
                 ctx.fill();
             }
         } else {
-            // streamer - filled narrowing polyline with glow
-            ctx.strokeStyle = `hsla(${(hue + 360) % 360}, 85%, 70%, 0.45)`;
+            // streamer - batch into 3 width bands
+            const hueN = (hue + 360) % 360;
+            ctx.strokeStyle = `hsla(${hueN}, 85%, 70%, 0.45)`;
             ctx.lineCap = 'round';
-            for (let j = 1; j < n; j++) {
-                const idxA = (start + j - 1) % n;
-                const idxB = (start + j) % n;
-                const t = j / n;
-                ctx.lineWidth = (1 - t * 0.8) * 4 + 0.5;
+            const bands = 3;
+            for (let b = 0; b < bands; b++) {
+                const bandLo = b / bands;
+                const bandHi = (b + 1) / bands;
+                const bandMid = (bandLo + bandHi) * 0.5;
+                ctx.lineWidth = (1 - bandMid * 0.8) * 4 + 0.5;
                 ctx.beginPath();
-                ctx.moveTo(tail[idxA * 2], tail[idxA * 2 + 1]);
-                ctx.lineTo(tail[idxB * 2], tail[idxB * 2 + 1]);
+                for (let j = 1; j < n; j++) {
+                    const t = j / n;
+                    if (t < bandLo || t >= bandHi) continue;
+                    const idxA = (start + j - 1) % n;
+                    const idxB = (start + j) % n;
+                    ctx.moveTo(tail[idxA * 2], tail[idxA * 2 + 1]);
+                    ctx.lineTo(tail[idxB * 2], tail[idxB * 2 + 1]);
+                }
                 ctx.stroke();
             }
         }

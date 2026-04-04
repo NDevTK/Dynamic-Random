@@ -101,6 +101,7 @@ import { LivingGeometry } from './living_geometry_effects.js';
 import { ChromaticWake } from './chromatic_wake_effects.js';
 import { ParticleFountain } from './particle_fountain_effects.js';
 import { RuneSigils } from './rune_sigil_effects.js';
+import { KiteFestival } from './kite_festival_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -245,6 +246,7 @@ export const EFFECT_REGISTRY = [
     { instance: new ChromaticWake(),       tags: ['light', 'painterly', 'glitch'],          minQuality: 0.25, drawOrder: 90 },
     { instance: new ParticleFountain(),    tags: ['fire', 'stellar', 'physics'],            minQuality: 0.25, drawOrder: 91 },
     { instance: new RuneSigils(),          tags: ['ethereal', 'geometric', 'dark'],          minQuality: 0.3,  drawOrder: 92 },
+    { instance: new KiteFestival(),        tags: ['ethereal', 'painterly', 'geometric'],     minQuality: 0.3,  drawOrder: 93 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

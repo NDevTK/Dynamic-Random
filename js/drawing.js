@@ -9,10 +9,15 @@ import { activeEffects, getTick, universeProfile } from './state.js';
 
 function drawNebulas(ctx) {
     activeEffects.nebulas.forEach(n => {
-        const grad = ctx.createRadialGradient(n.x, n.y, n.radius / 4, n.x, n.y, n.radius);
-        grad.addColorStop(0, n.color.replace('0.15', '0.3'));
-        grad.addColorStop(1, n.color.replace('0.15', '0'));
-        ctx.fillStyle = grad;
+        // Cache gradient to avoid recreating every frame (perf: createRadialGradient is expensive)
+        if (!n._cachedGrad || n._cachedX !== n.x || n._cachedY !== n.y) {
+            n._cachedGrad = ctx.createRadialGradient(n.x, n.y, n.radius / 4, n.x, n.y, n.radius);
+            n._cachedGrad.addColorStop(0, n.color.replace('0.15', '0.3'));
+            n._cachedGrad.addColorStop(1, n.color.replace('0.15', '0'));
+            n._cachedX = n.x;
+            n._cachedY = n.y;
+        }
+        ctx.fillStyle = n._cachedGrad;
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.radius, 0, 2 * Math.PI);
         ctx.fill();
@@ -26,13 +31,11 @@ function drawPulsars(ctx) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
         ctx.fill();
+        // Use simple alpha fade via globalAlpha instead of per-frame gradient creation (perf)
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 2;
         for (let i = 0; i < 2; i++) {
             const angle = p.angle + i * Math.PI;
-            const grad = ctx.createLinearGradient(p.x, p.y, p.x + Math.cos(angle) * 1000, p.y + Math.sin(angle) * 1000);
-            grad.addColorStop(0, 'rgba(255,255,255,0.2)');
-            grad.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p.x + Math.cos(angle) * 1000, p.y + Math.sin(angle) * 1000);
@@ -115,16 +118,17 @@ function drawStasisFields(ctx, tick) {
 
 function drawCosmicWebs(ctx) {
     activeEffects.cosmicWebs.forEach(web => {
-        ctx.strokeStyle = `rgba(180, 220, 255, 0.1)`;
+        ctx.strokeStyle = 'rgba(180, 220, 255, 0.1)';
         ctx.lineWidth = 1;
+        // Batch all web lines into a single path (perf: fewer stroke calls)
+        ctx.beginPath();
         for (let i = 0; i < web.nodes.length; i++) {
             for (let j = i + 1; j < web.nodes.length; j++) {
-                ctx.beginPath();
                 ctx.moveTo(web.nodes[i].x, web.nodes[i].y);
                 ctx.lineTo(web.nodes[j].x, web.nodes[j].y);
-                ctx.stroke();
             }
         }
+        ctx.stroke();
     });
 }
 
@@ -135,10 +139,8 @@ function drawQuasars(ctx) {
         ctx.arc(q.x, q.y, 8, 0, 2 * Math.PI);
         ctx.fill();
         if (q.isFiring) {
-            const grad = ctx.createLinearGradient(q.x, q.y, q.x + Math.cos(q.angle) * 1000, q.y + Math.sin(q.angle) * 1000);
-            grad.addColorStop(0, 'rgba(255,255,200,0.5)');
-            grad.addColorStop(1, 'rgba(255,255,200,0)');
-            ctx.strokeStyle = grad;
+            // Use flat color instead of per-frame gradient (perf)
+            ctx.strokeStyle = 'rgba(255,255,200,0.3)';
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(q.x, q.y);
@@ -163,10 +165,13 @@ function drawCosmicRifts(ctx) {
 
 function drawIonClouds(ctx) {
     activeEffects.ionClouds.forEach(c => {
-        const grad = ctx.createRadialGradient(c.x, c.y, c.radius / 2, c.x, c.y, c.radius);
-        grad.addColorStop(0, 'rgba(200, 220, 255, 0.0)');
-        grad.addColorStop(1, `rgba(200, 220, 255, 0.2)`);
-        ctx.fillStyle = grad;
+        // Cache gradient (perf: avoid createRadialGradient every frame)
+        if (!c._cachedGrad) {
+            c._cachedGrad = ctx.createRadialGradient(c.x, c.y, c.radius / 2, c.x, c.y, c.radius);
+            c._cachedGrad.addColorStop(0, 'rgba(200, 220, 255, 0.0)');
+            c._cachedGrad.addColorStop(1, 'rgba(200, 220, 255, 0.2)');
+        }
+        ctx.fillStyle = c._cachedGrad;
         ctx.beginPath();
         ctx.arc(c.x, c.y, c.radius, 0, 2 * Math.PI);
         ctx.fill();
@@ -224,31 +229,44 @@ function drawParticleAccelerators(ctx) {
 }
 
 function drawSpacetimeFoam(ctx) {
-    activeEffects.spacetimeFoam.forEach(f => {
-        ctx.fillStyle = `rgba(200, 200, 255, ${0.05 + (f.life / f.maxLife) * 0.1})`;
-        ctx.beginPath();
+    if (activeEffects.spacetimeFoam.length === 0) return;
+    // Batch into alpha bands to reduce fillStyle changes (perf)
+    ctx.fillStyle = 'rgba(200, 200, 255, 0.1)';
+    ctx.beginPath();
+    for (const f of activeEffects.spacetimeFoam) {
+        ctx.moveTo(f.x + f.radius, f.y);
         ctx.arc(f.x, f.y, f.radius, 0, 2 * Math.PI);
-        ctx.fill();
-    });
+    }
+    ctx.fill();
 }
 
 function drawEchoingVoids(ctx) {
     activeEffects.echoingVoids.forEach(e => {
-        e.history.forEach((h, i) => {
-            ctx.fillStyle = `rgba(${h.color.r}, ${h.color.g}, ${h.color.b}, ${i / e.history.length * 0.5})`;
+        if (e.history.length === 0) return;
+        const len = e.history.length;
+        // Batch render: only draw every 3rd point to reduce draw calls (perf)
+        const step = len > 50 ? 3 : 1;
+        for (let i = 0; i < len; i += step) {
+            const h = e.history[i];
+            const alpha = (i / len) * 0.5;
+            if (alpha < 0.02) continue;
+            ctx.fillStyle = `rgba(${h.color.r | 0}, ${h.color.g | 0}, ${h.color.b | 0}, ${alpha})`;
             ctx.beginPath();
             ctx.arc(h.x, h.y, 2, 0, 2 * Math.PI);
             ctx.fill();
-        });
+        }
     });
 }
 
 function drawCosmicNurseries(ctx) {
     activeEffects.cosmicNurseries.forEach(n => {
-        const grad = ctx.createRadialGradient(n.x, n.y, n.radius / 2, n.x, n.y, n.radius);
-        grad.addColorStop(0, 'rgba(255, 200, 255, 0.2)');
-        grad.addColorStop(1, 'rgba(255, 200, 255, 0)');
-        ctx.fillStyle = grad;
+        // Cache gradient (perf: avoid createRadialGradient every frame)
+        if (!n._cachedGrad) {
+            n._cachedGrad = ctx.createRadialGradient(n.x, n.y, n.radius / 2, n.x, n.y, n.radius);
+            n._cachedGrad.addColorStop(0, 'rgba(255, 200, 255, 0.2)');
+            n._cachedGrad.addColorStop(1, 'rgba(255, 200, 255, 0)');
+        }
+        ctx.fillStyle = n._cachedGrad;
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.radius, 0, 2 * Math.PI);
         ctx.fill();

@@ -18,9 +18,22 @@ export class TrailBlossom {
         this.spawnInterval = 12;
         this.lastMx = 0;
         this.lastMy = 0;
+        // Local deterministic RNG state (replaces Math.random for determinism).
+        this._rngState = 1;
+    }
+
+    // Fast deterministic PRNG (mulberry32-style) seeded per configure().
+    _rand() {
+        this._rngState = (this._rngState + 0x6D2B79F5) | 0;
+        let t = this._rngState;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return (((t ^ (t >>> 14)) >>> 0) / 4294967296);
     }
 
     configure(rng, palette) {
+        // Seed local PRNG from the master rng so spawn-time randomness stays deterministic.
+        this._rngState = (rng() * 0xFFFFFFFF) | 0;
         this.petalStyle = Math.floor(rng() * 5); // 0=round, 1=pointed, 2=star, 3=spiral, 4=geometric
         this.symmetry = 3 + Math.floor(rng() * 7); // 3-9 fold symmetry
         this.spawnInterval = 8 + Math.floor(rng() * 12);
@@ -48,7 +61,7 @@ export class TrailBlossom {
 
         // Click creates a big burst bloom
         if (isClicking && this.blooms.length < this.maxBlooms) {
-            this._spawnBloom(mx, my, 40 + Math.random() * 20, true);
+            this._spawnBloom(mx, my, 40 + this._rand() * 20, true);
         }
 
         this.lastMx = mx;
@@ -78,15 +91,15 @@ export class TrailBlossom {
         b.y = y;
         b.maxSize = maxSize;
         b.age = 0;
-        b.lifetime = isBurst ? 120 + Math.random() * 60 : 60 + Math.random() * 40;
+        b.lifetime = isBurst ? 120 + this._rand() * 60 : 60 + this._rand() * 40;
         b.growDuration = isBurst ? 30 : 15;
         b.growthProgress = 0;
-        b.rotation = Math.random() * Math.PI * 2;
-        b.rotationSpeed = (Math.random() - 0.5) * 0.02;
-        b.colorIdx = Math.floor(Math.random() * this.palette.length);
+        b.rotation = this._rand() * Math.PI * 2;
+        b.rotationSpeed = (this._rand() - 0.5) * 0.02;
+        b.colorIdx = Math.floor(this._rand() * this.palette.length);
         b.alpha = 0;
         b.symmetry = this.symmetry + (isBurst ? 2 : 0);
-        b.innerRatio = 0.3 + Math.random() * 0.4;
+        b.innerRatio = 0.3 + this._rand() * 0.4;
         this.blooms.push(b);
     }
 

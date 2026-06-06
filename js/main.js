@@ -5,6 +5,11 @@
  * and rendering of the particle system.
  */
 
+if (window.origin != 'null) {
+    location.href = '/sandbox.html';
+    throw new Error("Page must be sandboxed");
+}
+
 import { baseConfig } from './config.js';
 import { generateUniverse } from './universe.js';
 import { update } from './simulation.js';

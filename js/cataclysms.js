@@ -5,6 +5,7 @@
 
 import { ui, universeProfile, physics, setCataclysmInProgress, addActiveInterval, activeEffects, seededRandom } from './state.js';
 import { generateUniverse } from './universe.js';
+import { gamepadInput } from './gamepad_input.js';
 
 /**
  * Triggers a universe-ending cataclysm.
@@ -12,6 +13,7 @@ import { generateUniverse } from './universe.js';
  */
 export function triggerCataclysm(pJS) {
     setCataclysmInProgress(true);
+    gamepadInput.vibrate(800, 1, 1);
     ui.container.classList.remove('visible');
     ui.canvasContainer.classList.remove('shake');
     const choice = universeProfile.cataclysm;

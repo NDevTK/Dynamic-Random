@@ -19,6 +19,7 @@ import { hud } from './hud.js';
 import { inputToolbar } from './input_toolbar.js';
 import { perfMonitor } from './perf_monitor.js';
 import { touchGestures } from './touch_gestures.js';
+import { epochSystem } from './epoch_system.js';
 
 // --- Simulation Sub-modules ---
 
@@ -919,6 +920,7 @@ export function update(pJS) {
     hud.update(performance.now());
     inputToolbar.update();
 
+    epochSystem.update(pJS);
     handleEnergyAndCataclysm(pJS);
     prepareCanvas(pJS);
     rebuildMutatorCache();

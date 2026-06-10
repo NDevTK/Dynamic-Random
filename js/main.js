@@ -39,12 +39,16 @@ import { loadingAnimation } from './loading_animation.js';
 import { interactiveEffects } from './interactive_background_effects.js';
 import { environmentSense } from './environment_sense.js';
 import { videoExport } from './video_export.js';
+import { familiarMemory } from './familiar_memory.js';
+import { postcard } from './postcard.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Loading animation (must be first) ---
     loadingAnimation.init();
     // Environment awareness must precede the render loop (quality cap, calm mode)
     environmentSense.init();
+    // Familiar memory must load before the first universe configures its familiar
+    familiarMemory.init();
 
     // --- Initial Load ---
     particlesJS('particles-js', baseConfig);
@@ -78,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     multiMonitor.init();
     interactiveEffects.init();
     videoExport.init();
+    postcard.init();
     embedMode.init();
 
     initializeEventListeners(pJS);

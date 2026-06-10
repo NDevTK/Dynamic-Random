@@ -54,6 +54,7 @@ function followChain(segs, headX, headY, spacing, stiffness) {
 
 const wisp = {
     name: 'wisp',
+    label: 'wisp',
     init(f, rng) {
         f.aux = { flamePhase: rng() * TAU, emberClock: 0 };
     },
@@ -105,6 +106,7 @@ const wisp = {
 
 const mothFlock = {
     name: 'mothFlock',
+    label: 'moth flock',
     init(f, rng) {
         const moths = [];
         const count = 3 + Math.floor(rng() * 4);
@@ -178,6 +180,7 @@ const mothFlock = {
 
 const serpent = {
     name: 'serpent',
+    label: 'serpent',
     init(f, rng) {
         const n = 14 + Math.floor(rng() * 9);
         const segs = [];
@@ -261,6 +264,7 @@ const serpent = {
 
 const satellites = {
     name: 'satellites',
+    label: 'satellite swarm',
     init(f, rng) {
         const shards = [];
         const count = 3 + Math.floor(rng() * 3);
@@ -334,6 +338,7 @@ const satellites = {
 
 const jelly = {
     name: 'jelly',
+    label: 'jelly',
     init(f, rng) {
         const verts = [];
         const n = 10;
@@ -426,6 +431,7 @@ const jelly = {
 
 const oculus = {
     name: 'oculus',
+    label: 'oculus',
     init(f, rng) {
         f.aux = {
             blinkAt: 200 + Math.floor(rng() * 240),

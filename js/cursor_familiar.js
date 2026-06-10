@@ -17,6 +17,7 @@
  */
 
 import { FAMILIAR_SPECIES, selectSpecies } from './familiar_species.js';
+import { familiarMemory } from './familiar_memory.js';
 
 const TAU = Math.PI * 2;
 
@@ -36,6 +37,7 @@ class CursorFamiliar {
         this.startleT = 0;
         this.dozeT = 0;
         this.size = 6;
+        this.stage = 0;
         this.hue = 200;
         this.hue2 = 60;
         this.tick = 0;
@@ -72,7 +74,10 @@ class CursorFamiliar {
 
     configure(rng, hues, blueprintName) {
         this.species = selectSpecies(rng, blueprintName || '');
-        this.size = 4.5 + rng() * 4;
+        // Familiars grow with cumulative play time across visits (familiar_memory.js)
+        const stage = familiarMemory.loaded ? familiarMemory.stage : 0;
+        this.stage = stage;
+        this.size = (4.5 + rng() * 4) * (0.85 + stage * 0.12);
         this.hue = hues && hues.length > 0 ? hues[0].h : rng() * 360;
         this.hue2 = hues && hues.length > 1 ? hues[1].h : (this.hue + 150) % 360;
         this._followK = 0.035 + rng() * 0.04;
@@ -115,6 +120,9 @@ class CursorFamiliar {
         this.excitement += (Math.min(1, mouseSpeed / 18) - this.excitement) * 0.06;
         if (mouseSpeed > 1.5 || isClicking) this._idleTicks = 0;
         else this._idleTicks++;
+
+        // Time genuinely spent together feeds long-term growth
+        if (this.excitement > 0.05) familiarMemory.recordActivity();
 
         // Startle on click edge
         if (isClicking && !this._wasClicking) {
@@ -172,6 +180,20 @@ class CursorFamiliar {
     draw(ctx, system) {
         // Trail behind the body so the creature reads on top
         if (this._trail.length > 0) this._drawTrail(ctx);
+
+        // Venerable+ familiars carry a faint breathing aura
+        if (this.stage >= 3) {
+            const auraR = this.size * (2.6 + Math.sin(this.tick * 0.04) * 0.4) * (1 - this.dozeT * 0.3);
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = `hsla(${this.hue2}, 80%, 75%, ${this.stage >= 4 ? 0.22 : 0.12})`;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, auraR, 0, TAU);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         this.species.draw(ctx, this);
 
         // Doze tell: drifting 'z' sparkles

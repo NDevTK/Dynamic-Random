@@ -359,6 +359,8 @@ class BackgroundSystem {
         // Cap shockwaves to prevent unbounded growth
         if (this.shockwaves.length >= 15) return;
         this.shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(this.width, this.height) * 0.8, speed: 10, strength: 2, alpha: 1 });
+        // Haptic thump on controllers that support rumble
+        if (!fromRemote) gamepadInput.vibrate(110, 0.35, 0.6);
         // Broadcast to other tabs (normalized coordinates)
         if (!fromRemote && tabSync.tabCount > 1) {
             tabSync.sendEffect('shockwave', { x: x / this.width, y: y / this.height });
@@ -406,7 +408,8 @@ class BackgroundSystem {
             this.gradientColors = [`hsl(${this.hue}, 80%, ${l}%)`, `hsl(${this.hue}, 40%, ${l*2}%)`, `hsl(${this.hue}, 90%, ${l*0.5}%)` ];
         } else {
             const shift = Math.sin(this.tick * 0.002) * 20;
-            const h = this.hue + shift;
+            // Epoch aging slowly biases the sky's hue (epoch_system.js)
+            const h = this.hue + shift + (this.epochHueBias || 0);
             const style = this.gradientStyle || 0;
             if (style === 1) {
                 // Radial: bright center fading to dark edges
@@ -657,6 +660,11 @@ class BackgroundSystem {
 
     applyBGMutators() {
         const ctx = this.ctx;
+        // Late-epoch dimming: the universe gutters as it nears heat death
+        if (this.epochDim > 0.005) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.epochDim})`;
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
         if (this.bgMutators.includes('Vignette')) {
             // Cache vignette gradient (only recreate on resize)
             if (!this.cachedVignetteGradient || this.cachedVignetteWidth !== this.width) {

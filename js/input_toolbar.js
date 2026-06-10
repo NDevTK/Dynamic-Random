@@ -7,8 +7,10 @@
 import { micReactive } from './mic_reactive.js';
 import { cameraInput } from './camera_input.js';
 import { speechInput } from './speech_input.js';
+import { midiInput } from './midi_input.js';
+import { videoExport } from './video_export.js';
 
-const ACCENTS = { mic: '#4fc3f7', camera: '#ef5350', speech: '#ab47bc' };
+const ACCENTS = { mic: '#4fc3f7', camera: '#ef5350', speech: '#ab47bc', midi: '#ffd54f', record: '#ff5252' };
 
 let _toolbar = null;
 let _buttons = {};
@@ -148,6 +150,34 @@ export const inputToolbar = {
             _buttons.speech = btn;
         }
 
+        if (midiInput.supported) {
+            const btn = _makeButton('🎹', ACCENTS.midi);
+            btn.title = 'Connect a MIDI controller: knobs warp the universe, notes strike shockwaves';
+            btn.addEventListener('click', async () => {
+                if (btn.dataset.active === 'false') {
+                    try {
+                        await midiInput.activate();
+                        _setActive(btn, true, true);
+                    } catch (err) {
+                        console.warn('[inputToolbar] MIDI activation failed:', err.message ?? err);
+                    }
+                } else {
+                    midiInput.deactivate();
+                    _setActive(btn, false, false);
+                }
+            });
+            _toolbar.appendChild(btn);
+            _buttons.midi = btn;
+        }
+
+        if (videoExport.supported) {
+            const btn = _makeButton('⏺', ACCENTS.record);
+            btn.title = 'Record a WebM clip of this universe (R)';
+            btn.addEventListener('click', () => videoExport.toggle());
+            _toolbar.appendChild(btn);
+            _buttons.record = btn;
+        }
+
         document.body.appendChild(_toolbar);
 
         document.addEventListener('keydown', (e) => {
@@ -176,6 +206,16 @@ export const inputToolbar = {
             const on = speechInput.active;
             const was = _buttons.speech.dataset.active === 'true';
             if (was !== on) _setActive(_buttons.speech, on, true);
+        }
+        if (_buttons.midi) {
+            const on = midiInput.active;
+            const was = _buttons.midi.dataset.active === 'true';
+            if (was !== on) _setActive(_buttons.midi, on, true);
+        }
+        if (_buttons.record) {
+            const on = videoExport.recording;
+            const was = _buttons.record.dataset.active === 'true';
+            if (was !== on) _setActive(_buttons.record, on, true);
         }
     },
 };

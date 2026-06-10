@@ -16,6 +16,7 @@ import { ambientFX } from './ambient_fx.js';
 import { warpField } from './warp_field.js';
 import { ambientSound } from './ambient_sound.js';
 import { interactiveEffects } from './interactive_background_effects.js';
+import { loreCodex } from './lore_codex.js';
 
 /**
  * Generates a new universe based on a seed.
@@ -104,6 +105,9 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
         profile.anomaly = anomalyName;
         anomalies[anomalyName](pJS, seededRandom, activeEffects);
     }
+
+    // Write this universe's field-guide entry
+    loreCodex.generate(seededRandom, blueprintName);
 
     updateUI();
 

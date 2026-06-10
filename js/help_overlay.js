@@ -14,6 +14,8 @@ const SHORTCUTS = [
     { key: 'B',              desc: 'Toggle architecture blending' },
     { key: 'F',              desc: 'Open favorites' },
     { key: 'T',              desc: 'Open theme editor' },
+    { key: 'R',              desc: 'Record a WebM clip (30s max)' },
+    { key: '\ud83c\udfb9',   desc: 'Toolbar: MIDI knobs warp, notes strike' },
     { key: '\u2190 \u2192',  desc: 'Cycle architecture' },
     { key: 'Click',          desc: 'Shockwave' },
     { key: 'Right-click',    desc: 'Gravity well' },

@@ -4,6 +4,7 @@
  */
 
 import { universeProfile, currentSeed } from './state.js';
+import { loreCodex } from './lore_codex.js';
 import { gamepadInput } from './gamepad_input.js';
 import { micReactive } from './mic_reactive.js';
 import { tabSync } from './tab_sync.js';
@@ -16,6 +17,7 @@ import { background, ARCH_DISPLAY_NAMES } from './background.js';
 
 export const hud = (() => {
     let container, blueprintEl, descriptionEl, seedEl, mutatorEl, anomalyEl, fpsEl;
+    let epithetEl, loreEl, _lastLore = null;
     let badgeGamepad, badgeMic, badgeCamera, badgeSpeech, badgeTab;
 
     let lastMouseTime = 0;
@@ -45,6 +47,12 @@ export const hud = (() => {
 
         descriptionEl = document.createElement('div');
         descriptionEl.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.35);font-style:italic;font-family:"Exo 2",sans-serif;margin-top:2px;';
+
+        // Procedural field-guide lore (lore_codex.js)
+        epithetEl = document.createElement('div');
+        epithetEl.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.55);font-family:"Exo 2",sans-serif;margin-top:4px;letter-spacing:0.5px;';
+        loreEl = document.createElement('div');
+        loreEl.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.3);font-style:italic;font-family:"Exo 2",sans-serif;margin-top:1px;max-width:300px;line-height:1.4;';
 
         seedEl = document.createElement('span');
         seedEl.id = 'seed-capture';
@@ -98,6 +106,8 @@ export const hud = (() => {
 
         container.appendChild(blueprintEl);
         container.appendChild(descriptionEl);
+        container.appendChild(epithetEl);
+        container.appendChild(loreEl);
         container.appendChild(seedEl);
         container.appendChild(mutatorEl);
         container.appendChild(anomalyEl);
@@ -157,6 +167,13 @@ export const hud = (() => {
         // Seed
         if (document.activeElement !== seedEl && !seedEl.classList.contains('copied-animation')) {
             seedEl.textContent = currentSeed || '';
+        }
+
+        // Field-guide lore (only touch the DOM when a new universe is logged)
+        if (loreCodex.current !== _lastLore) {
+            _lastLore = loreCodex.current;
+            epithetEl.textContent = _lastLore ? _lastLore.epithet : '';
+            loreEl.textContent = _lastLore ? _lastLore.note : '';
         }
 
         // Mutators

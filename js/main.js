@@ -37,10 +37,14 @@ import { embedMode } from './embed_mode.js';
 import { multiMonitor } from './multi_monitor.js';
 import { loadingAnimation } from './loading_animation.js';
 import { interactiveEffects } from './interactive_background_effects.js';
+import { environmentSense } from './environment_sense.js';
+import { videoExport } from './video_export.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Loading animation (must be first) ---
     loadingAnimation.init();
+    // Environment awareness must precede the render loop (quality cap, calm mode)
+    environmentSense.init();
 
     // --- Initial Load ---
     particlesJS('particles-js', baseConfig);
@@ -73,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     themeEditor.init();
     multiMonitor.init();
     interactiveEffects.init();
+    videoExport.init();
     embedMode.init();
 
     initializeEventListeners(pJS);

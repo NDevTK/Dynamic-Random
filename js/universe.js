@@ -44,6 +44,8 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
         rightClickPower: blueprint.right[Math.floor(seededRandom() * blueprint.right.length)],
         ambientEvent: blueprint.events[Math.floor(seededRandom() * blueprint.events.length)],
         cataclysm: blueprint.cataclysms[Math.floor(seededRandom() * blueprint.cataclysms.length)],
+        // Ambient event cadence: roughly every 12-27 seconds at 60fps
+        eventInterval: 700 + Math.floor(seededRandom() * 900),
         mutators: [],
         anomaly: null
     };

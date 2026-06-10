@@ -408,8 +408,9 @@ class BackgroundSystem {
             this.gradientColors = [`hsl(${this.hue}, 80%, ${l}%)`, `hsl(${this.hue}, 40%, ${l*2}%)`, `hsl(${this.hue}, 90%, ${l*0.5}%)` ];
         } else {
             const shift = Math.sin(this.tick * 0.002) * 20;
-            // Epoch aging slowly biases the sky's hue (epoch_system.js)
-            const h = this.hue + shift + (this.epochHueBias || 0);
+            // Epoch aging and live audio treble both bias the sky's hue.
+            // (audioHueShift was previously computed but never consumed.)
+            const h = this.hue + shift + (this.epochHueBias || 0) + (this.audioHueShift || 0);
             const style = this.gradientStyle || 0;
             if (style === 1) {
                 // Radial: bright center fading to dark edges

@@ -5,6 +5,7 @@
 
 import { cataclysmInProgress, universeState, setUniverseState, isLeftMouseDown, isRightMouseDown, activeEffects, universeProfile, physics, mouse, seededRandom } from './state.js';
 import { triggerCataclysm } from './cataclysms.js';
+import { ambientEvents } from './effects.js';
 import { handleActivePower } from './powers.js';
 import { getBezierXY, tagParticles } from './utils.js';
 import { drawEffects } from './drawing.js';
@@ -97,6 +98,30 @@ function applyWhiteHoleForce(p) {
             const force = hole.strength / (Math.sqrt(distSq) + 0.1);
             p.vx -= dx * force * 0.1;
             p.vy -= dy * force * 0.1;
+        }
+    }
+}
+
+function applyCosmicStringForce(p) {
+    for (const s of activeEffects.cosmicStrings) {
+        const dx = s.x2 - s.x1;
+        const dy = s.y2 - s.y1;
+        const len2 = dx * dx + dy * dy;
+        if (len2 < 1) continue;
+        let t = ((p.x - s.x1) * dx + (p.y - s.y1) * dy) / len2;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const ox = s.x1 + dx * t - p.x;
+        const oy = s.y1 + dy * t - p.y;
+        const dSq = ox * ox + oy * oy;
+        if (dSq < 14400 && dSq > 4) { // within 120px of the string
+            const d = Math.sqrt(dSq);
+            const pull = s.strength * 0.002 * (1 - d / 120);
+            // Drawn toward the string, then carried along it
+            p.vx += (ox / d) * pull * 10;
+            p.vy += (oy / d) * pull * 10;
+            const len = Math.sqrt(len2);
+            p.vx += (dx / len) * pull * 4;
+            p.vy += (dy / len) * pull * 4;
         }
     }
 }
@@ -273,6 +298,7 @@ function applyAnomalyForces(p, i, pJS) {
     if (activeEffects.pulsars.length > 0) applyPulsarForce(p);
     if (activeEffects.blackHoles.length > 0 && applyBlackHoleForce(p, i, pJS)) return true;
     if (activeEffects.whiteHoles.length > 0) applyWhiteHoleForce(p);
+    if (activeEffects.cosmicStrings.length > 0) applyCosmicStringForce(p);
     if (activeEffects.cosmicWebs.length > 0) applyCosmicWebForce(p);
     if (activeEffects.quasars.length > 0) applyQuasarForce(p);
     if (activeEffects.cosmicRifts.length > 0) applyCosmicRiftForce(p);
@@ -929,6 +955,16 @@ export function update(pJS) {
 
     updateEntangledGroups(pJS);
     updateAnomalies(pJS);
+
+    // Ambient events: each universe's blueprint event fires on a seeded cadence
+    // (previously profile.ambientEvent was selected but never consumed)
+    const tick = getTick();
+    if (universeProfile.ambientEvent && universeProfile.eventInterval
+        && tick > 0 && tick % universeProfile.eventInterval === 0) {
+        const fireEvent = ambientEvents[universeProfile.ambientEvent];
+        if (fireEvent) fireEvent(pJS, seededRandom, activeEffects);
+    }
+
     enforceParticleLimit(pJS);
 
     drawEffects(pJS.canvas.ctx);

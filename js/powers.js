@@ -46,7 +46,9 @@ export function handleActivePower(p, i, pJS, powerName, worldMouse) {
         case 'resonate': if(distSq < 22500){ p.vx += Math.sin(tick*0.8+p.seed)*0.1; p.vy += Math.cos(tick*0.8+p.seed)*0.1; } break;
         case 'dampen': if(distSq < 22500){ p.vx *= 0.95; p.vy *= 0.95; } break;
         case 'smudge': if(distSq < 22500){ if(p.radius < 15) p.radius += 0.05; p.opacity.value = Math.max(0.1, p.opacity.value*0.99); } break;
-        case 'draw': if(distSq < 400 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = {...p, x: worldMouse.x+(seededRandom()-0.5)*5, y: worldMouse.y+(seededRandom()-0.5)*5}; pJS.particles.array.push(newP); tagParticles([newP], universeProfile, isInitialLoad, seededRandom); } break;
+        // Note: this used to spread-clone the source particle, which shared the
+        // opacity/color OBJECTS between clone and original — fading one faded both.
+        case 'draw': if(distSq < 400 && pJS.particles.array.length < pJS.particles.number.value_max) { const newP = pJS.fn.modes.pushParticles(1, {x: worldMouse.x+(seededRandom()-0.5)*5, y: worldMouse.y+(seededRandom()-0.5)*5})[0]; if(newP) { newP.color = {rgb: {...p.color.rgb}}; newP.radius = p.radius; newP.vx = p.vx * 0.5; newP.vy = p.vy * 0.5; tagParticles([newP], universeProfile, isInitialLoad, seededRandom); } } break;
         case 'consume': if (distSq < 22500) { p.isConsumed = 100; } break;
         case 'maddeningWhisper': if (distSq < 40000) { p.vx += (seededRandom() - 0.5) * 0.4; p.vy += (seededRandom() - 0.5) * 0.4; } break;
         case 'smear': if (distSq < 22500) { p.vx += (worldMouse.x - p.x) * 0.02; p.vy += (worldMouse.y - p.y) * 0.02; p.color = { rgb: { r:255, g:255, b:255 } }; } break;

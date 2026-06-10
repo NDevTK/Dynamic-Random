@@ -6,6 +6,7 @@
  */
 
 import { baseConfig } from './config.js';
+import { createParticleEngine } from './particle_engine.js';
 import { generateUniverse } from './universe.js';
 import { update } from './simulation.js';
 import { initializeEventListeners } from './ui.js';
@@ -41,6 +42,7 @@ import { environmentSense } from './environment_sense.js';
 import { videoExport } from './video_export.js';
 import { familiarMemory } from './familiar_memory.js';
 import { postcard } from './postcard.js';
+import { journal } from './journal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Loading animation (must be first) ---
@@ -49,10 +51,12 @@ document.addEventListener('DOMContentLoaded', () => {
     environmentSense.init();
     // Familiar memory must load before the first universe configures its familiar
     familiarMemory.init();
+    // Journal must load before the first universe records itself
+    journal.init();
 
     // --- Initial Load ---
-    particlesJS('particles-js', baseConfig);
-    const pJS = window.pJSDom[0].pJS;
+    // In-house engine (particle_engine.js) — no CDN dependency
+    const pJS = createParticleEngine('particles-js', baseConfig);
     const urlParams = new URLSearchParams(window.location.search);
 
     background.init();
@@ -88,4 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeEventListeners(pJS);
     generateUniverse(pJS, urlParams.get('seed'));
     requestAnimationFrame(() => update(pJS));
+
+    // Installable / offline-capable (sw.js caches the app shell + modules)
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        navigator.serviceWorker.register('sw.js').catch(() => { /* offline mode unavailable */ });
+    }
 });

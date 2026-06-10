@@ -42,12 +42,6 @@ function handleEnergyAndCataclysm(pJS) {
     }
 }
 
-function prepareCanvas(pJS) {
-    const trailAlpha = pJS.particles.move.trail.enable ? (universeProfile.blueprintName === 'LivingInk' || universeProfile.blueprintName === 'Painterly' ? 0.2 : 0.1) : 1;
-    pJS.canvas.ctx.fillStyle = `rgba(0, 0, 0, ${trailAlpha})`;
-    pJS.canvas.ctx.fillRect(0, 0, pJS.canvas.w, pJS.canvas.h);
-}
-
 function applyOngoingEffects(p, i, pJS) {
     const arr = pJS.particles.array;
     if (p.unravelling > 0) { p.unravelling--; p.radius *= 0.98; if (p.unravelling <= 0) { arr[i] = arr[arr.length - 1]; arr.pop(); return true; } }
@@ -922,7 +916,7 @@ export function update(pJS) {
 
     epochSystem.update(pJS);
     handleEnergyAndCataclysm(pJS);
-    prepareCanvas(pJS);
+    // Canvas clearing / trail fading is owned by the engine's particlesDraw()
     rebuildMutatorCache();
     precomputeChoralAverage(pJS);
     precomputeRiverSamples();

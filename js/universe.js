@@ -17,6 +17,7 @@ import { warpField } from './warp_field.js';
 import { ambientSound } from './ambient_sound.js';
 import { interactiveEffects } from './interactive_background_effects.js';
 import { loreCodex } from './lore_codex.js';
+import { journal } from './journal.js';
 
 /**
  * Generates a new universe based on a seed.
@@ -56,6 +57,8 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
     pJS.particles.number.value = 150; pJS.particles.number.value_max = 400;
     pJS.particles.move.speed = 1 + seededRandom() * 3;
     pJS.particles.move.trail.enable = !!blueprint.aesthetic.trails;
+    // Engine fades 1/length per frame; painterly universes repaint faster
+    pJS.particles.move.trail.length = (blueprintName === 'LivingInk' || blueprintName === 'Painterly') ? 5 : 10;
     pJS.particles.shape.type = blueprint.aesthetic.shape;
     if (blueprintName === 'Digital') pJS.particles.shape.character.value = blueprint.aesthetic.chars;
     if (blueprintName === 'Eldritch' || blueprintName === 'ArcaneCodex') pJS.particles.shape.polygon.nb_sides = blueprint.aesthetic.sides;
@@ -106,8 +109,9 @@ export const generateUniverse = (pJS, seed, isNewSeed = false) => {
         anomalies[anomalyName](pJS, seededRandom, activeEffects);
     }
 
-    // Write this universe's field-guide entry
+    // Write this universe's field-guide entry and chart it in the journal
     loreCodex.generate(seededRandom, blueprintName);
+    journal.record(newSeed, blueprintName);
 
     updateUI();
 

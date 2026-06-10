@@ -244,13 +244,17 @@ export class WebGPUFluidArchitecture extends Architecture {
             run(pipes.advect,[b.uA,prev,b.vx,b.vy,cur]);
         }
 
+        // The compute pass must end before the encoder can record copies —
+        // copying while the pass was open invalidated the whole command buffer
+        // (every submit failed, so the fluid never rendered).
+        pass.end();
+
         // Readback dye
         if(!this._stagingMapped){
             enc.copyBufferToBuffer(b.dyeR,0,this._stagingBuf,0,bytes);
             enc.copyBufferToBuffer(b.dyeG,0,this._stagingBuf,bytes,bytes);
             enc.copyBufferToBuffer(b.dyeB,0,this._stagingBuf,bytes*2,bytes);
         }
-        pass.end();
         device.queue.submit([enc.finish()]);
         if(!this._stagingMapped){
             this._stagingMapped=true;

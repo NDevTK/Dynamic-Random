@@ -196,15 +196,18 @@ export class ChaosPendulum {
         }
     }
 
-    update(system) {
+    update(mx, my, isClicking) {
         this.tick++;
-        const w = system.width;
-        const h = system.height;
-        const mx = system.mouse ? system.mouse.x : w / 2;
-        const my = system.mouse ? system.mouse.y : h / 2;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
 
         this._mouseX = mx;
         this._mouseY = my;
+
+        // Click: inject chaotic impulse (this lived in draw() reading a
+        // property that only existed on the old orchestrator — never fired)
+        if (isClicking && !this._wasClicking) this._clickEnergy = 1.5;
+        this._wasClicking = isClicking;
 
         // Gravity tilts toward mouse (subtle)
         const gcx = w / 2;
@@ -257,11 +260,6 @@ export class ChaosPendulum {
     draw(ctx, system) {
         const w = system.width;
         const h = system.height;
-
-        // Handle click events from system
-        if (system._clickRegistered !== undefined && system._clickRegistered) {
-            this._clickEnergy = 1.5;
-        }
 
         this._ensureTrailCanvas(w, h);
 

@@ -591,8 +591,15 @@ class BackgroundSystem {
         // Draw cached gradient background
         this.ctx.drawImage(this.offscreenCanvas, 0, 0);
 
-        this.architecture.update(this);
-        this.architecture.draw(this);
+        // A crashing architecture must not take down the whole render loop —
+        // swap it for an inert placeholder and keep the universe alive.
+        try {
+            this.architecture.update(this);
+            this.architecture.draw(this);
+        } catch (err) {
+            console.warn('[background] Architecture crashed; replaced with a quiet sky. Use ←/→ to pick another.', err);
+            this.architecture = { init() {}, update() {}, draw() {} };
+        }
 
         // Architecture blending: draw secondary architecture on offscreen canvas and composite
         if (this._blendMode === 'active' && this._blendArchitecture) {
@@ -601,8 +608,14 @@ class BackgroundSystem {
             // Temporarily swap ctx so architecture draws to blend canvas
             const realCtx = this.ctx;
             this.ctx = bc;
-            this._blendArchitecture.update(this);
-            this._blendArchitecture.draw(this);
+            try {
+                this._blendArchitecture.update(this);
+                this._blendArchitecture.draw(this);
+            } catch (err) {
+                console.warn('[background] Blend architecture crashed; blending disabled.', err);
+                this._blendMode = 'off';
+                this._blendArchitecture = null;
+            }
             this.ctx = realCtx;
             // Composite blend canvas onto main
             realCtx.save();

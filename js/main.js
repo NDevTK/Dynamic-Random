@@ -93,8 +93,19 @@ document.addEventListener('DOMContentLoaded', () => {
     generateUniverse(pJS, urlParams.get('seed'));
     requestAnimationFrame(() => update(pJS));
 
-    // Installable / offline-capable (sw.js caches the app shell + modules)
+    // Installable / offline-capable (sw.js caches the app shell + modules).
+    // The CSP enforces Trusted Types, so the worker URL must go through a
+    // policy — a bare string is blocked ("requires 'TrustedScriptURL'").
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
-        navigator.serviceWorker.register('sw.js').catch(() => { /* offline mode unavailable */ });
+        try {
+            let swUrl = 'sw.js';
+            if (window.trustedTypes && window.trustedTypes.createPolicy) {
+                const policy = window.trustedTypes.createPolicy('celestial-sw', {
+                    createScriptURL: (input) => (input === 'sw.js' ? input : ''),
+                });
+                swUrl = policy.createScriptURL('sw.js');
+            }
+            navigator.serviceWorker.register(swUrl).catch(() => { /* offline mode unavailable */ });
+        } catch (err) { /* Trusted Types policy refused — run without offline support */ }
     }
 });

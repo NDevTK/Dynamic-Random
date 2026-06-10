@@ -160,17 +160,27 @@ export class ReactionDiffusion {
         }
     }
 
-    update(system) {
+    update(mx, my, isClicking) {
         this.tick++;
-        const w = system.width;
-        const h = system.height;
+        // This effect was written against the architecture signature; the
+        // orchestrator passes (mx, my, isClicking), so system.width was
+        // undefined and createImageData(NaN, NaN) threw — killing the whole
+        // background animation loop for any universe that selected it.
+        const w = window.innerWidth;
+        const h = window.innerHeight;
 
         if (!this._gridA || Math.ceil(w / this._scale) !== this._cols) {
             this._initGrid(w, h);
         }
 
-        this._mouseX = (system.mouse ? system.mouse.x : w / 2) / this._scale;
-        this._mouseY = (system.mouse ? system.mouse.y : h / 2) / this._scale;
+        this._mouseX = mx / this._scale;
+        this._mouseY = my / this._scale;
+
+        // Click: seed a new bloom of chemical B at the cursor
+        if (isClicking && !this._wasClicking) {
+            this._clickSeeds.push({ x: mx, y: my });
+        }
+        this._wasClicking = isClicking;
 
         // Process click seeds
         for (const cs of this._clickSeeds) {
@@ -186,8 +196,8 @@ export class ReactionDiffusion {
         const baseKill = this._kill;
         const dA = this._diffA;
         const dB = this._diffB;
-        const mx = this._mouseX;
-        const my = this._mouseY;
+        const gridMx = this._mouseX; // grid-space mouse (mx/my params are screen-space)
+        const gridMy = this._mouseY;
         const rowUp = this._rowUp;
         const rowDown = this._rowDown;
         const colLeft = this._colLeft;
@@ -224,8 +234,8 @@ export class ReactionDiffusion {
                                  B[yDn + xL] * 0.05 + B[yDn + xR] * 0.05 - b;
 
                     // Mouse proximity modulates feed rate (creates local pattern changes)
-                    const ddx = x - mx;
-                    const ddy = y - my;
+                    const ddx = x - gridMx;
+                    const ddy = y - gridMy;
                     const dist2 = ddx * ddx + ddy * ddy;
                     const feed = dist2 < 900 ? baseFeed + (1 - dist2 / 900) * 0.01 : baseFeed;
 
@@ -259,11 +269,6 @@ export class ReactionDiffusion {
 
     draw(ctx, system) {
         if (!this._gridA || !this._imageData) return;
-
-        // Handle click events
-        if (system._clickRegistered !== undefined && system._clickRegistered) {
-            this._clickSeeds.push({ x: system._lastClickX || 0, y: system._lastClickY || 0 });
-        }
 
         const cols = this._cols;
         const rows = this._rows;

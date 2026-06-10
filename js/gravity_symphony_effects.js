@@ -141,7 +141,7 @@ export class GravitySymphony {
         });
     }
 
-    update(mx, my, isClicking, system) {
+    update(mx, my, isClicking) {
         this._pmx = this._mx;
         this._pmy = this._my;
         this._mx = mx;
@@ -162,7 +162,9 @@ export class GravitySymphony {
             this._holdStrength *= 0.95;
         }
 
-        const W = system.width, H = system.height;
+        // The orchestrator passes only (mx, my, isClicking); the old 4th
+        // `system` parameter was always undefined, so every update threw
+        const W = window.innerWidth, H = window.innerHeight;
 
         // Click: spawn burst of notes + temporary attractor
         if (this._isClicking && !this._wasClicking) {

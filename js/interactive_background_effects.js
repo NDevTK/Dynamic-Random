@@ -101,12 +101,19 @@ class InteractiveBackgroundEffects {
         const my = mouse.y;
         const isClicking = isLeftMouseDown || isRightMouseDown;
 
-        // Update active sub-systems via registry
+        // Update active sub-systems via registry. Each one is quarantined:
+        // a throwing effect is disabled for this universe instead of killing
+        // the background animation loop for the whole session.
         const q = this._qualityScale;
-        for (const idx of this._activeIndices) {
+        for (let k = this._activeIndices.length - 1; k >= 0; k--) {
+            const idx = this._activeIndices[k];
             const entry = EFFECT_REGISTRY[idx];
             if (q > entry.minQuality) {
-                entry.instance.update(mx, my, isClicking);
+                try {
+                    entry.instance.update(mx, my, isClicking);
+                } catch (err) {
+                    this._quarantine(idx, err);
+                }
             }
         }
 
@@ -121,16 +128,37 @@ class InteractiveBackgroundEffects {
 
         const q = this._qualityScale;
 
-        // Draw sub-systems in draw-order (sorted during configure)
-        for (const idx of this._drawOrder) {
+        // Draw sub-systems in draw-order (iterate a snapshot so quarantine
+        // removal during the loop stays safe)
+        for (const idx of [...this._drawOrder]) {
             const entry = EFFECT_REGISTRY[idx];
             if (q > entry.minQuality) {
-                entry.instance.draw(ctx, system);
+                try {
+                    entry.instance.draw(ctx, system);
+                } catch (err) {
+                    this._rescueContext(ctx);
+                    this._quarantine(idx, err);
+                }
             }
         }
 
         // The familiar draws last: it should always read on top of the scenery
         cursorFamiliar.draw(ctx, system);
+    }
+
+    /** Remove a misbehaving effect for the rest of this universe. */
+    _quarantine(idx, err) {
+        const name = EFFECT_REGISTRY[idx].instance.constructor.name;
+        console.warn(`[interactiveEffects] Disabled "${name}" after error:`, err);
+        this._activeIndices = this._activeIndices.filter((i) => i !== idx);
+        this._drawOrder = this._drawOrder.filter((i) => i !== idx);
+    }
+
+    /** A throwing draw may leave save()s/composites unbalanced; reset the basics. */
+    _rescueContext(ctx) {
+        for (let i = 0; i < 8; i++) ctx.restore(); // no-op once the stack is empty
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
     }
 }
 

@@ -184,8 +184,10 @@ export class ParticleFountain {
                 p.rotation = (p.rotation || 0) + (p.rotSpeed || 0);
             }
 
-            // Ring-buffer trail (no shift)
-            if (p.trailIdx === undefined) {
+            // Ring-buffer trail (no shift). Guard on the buffer itself:
+            // spawn resets trailIdx to 0 on fresh pool objects, so checking
+            // trailIdx === undefined skipped buffer creation and crashed.
+            if (!p.trailBuf || p.trailBuf.length !== this.particleTrailLen) {
                 p.trailBuf = new Array(this.particleTrailLen);
                 p.trailIdx = 0;
                 p.trailFilled = 0;

@@ -233,13 +233,21 @@ export class GlitchTerrain {
         return true;
     }
 
-    update(system) {
+    update(mx, my, isClicking) {
         this.tick++;
-        const w = system.width;
-        const h = system.height;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
 
-        this._mouseX = system.mouse ? system.mouse.x / w : 0.5;
-        this._mouseY = system.mouse ? system.mouse.y / h : 0.5;
+        this._mouseX = mx / Math.max(1, w);
+        this._mouseY = my / Math.max(1, h);
+
+        // Click: earthquake (this lived in draw() reading a property that
+        // only existed on the old orchestrator — never fired)
+        if (isClicking && !this._wasClicking) {
+            this._quakeIntensity = 1.5;
+            this._quakePhase = 0;
+        }
+        this._wasClicking = isClicking;
 
         // Camera follows mouse
         this._camX += (this._mouseX - 0.5) * 0.02;
@@ -299,12 +307,6 @@ export class GlitchTerrain {
     draw(ctx, system) {
         const w = system.width;
         const h = system.height;
-
-        // Handle click events
-        if (system._clickRegistered !== undefined && system._clickRegistered) {
-            this._quakeIntensity = 1.5;
-            this._quakePhase = 0;
-        }
 
         ctx.save();
 

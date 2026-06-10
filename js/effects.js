@@ -33,17 +33,17 @@ import { postProcess } from './post_processing.js';
  */
 export const universeBlueprints = {
     // A classic space simulation with gravitational pull and explosive events.
-    Classical: { left:['comet'], right:['supernova','gravityWell'], events:['binaryStars','meteorShower'], cataclysms:['Supernova'], aesthetic:{glow:true, trails:false, shape:['circle','star'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
+    Classical: { left:['comet'], right:['supernova','gravityWell'], events:['binaryStars','meteorShower'], cataclysms:['Supernova', 'StarFall'], aesthetic:{glow:true, trails:false, shape:['circle','star'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
     // A fluid, biological environment with interactive, symbiotic particles.
     Organic: { left:['symbiote','forceField'], right:['sculptor','setOrbit'], events:['pulsingCore', 'sporeRelease'], cataclysms:['Phase Shift'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
     Digital: { left:['chainLightning','shaper','scribe'], right:['glitch','toggleLinks'], events:['cosmicMessage'], cataclysms:['Glitch Storm'], aesthetic:{glow:true, trails:false, shape:['character'], chars:['0','1','<','>','/','?'], physics:{attract:false, straight:true, bounce:false, friction:0.98}} },
     Crystalline: { left: ['shatter', 'refractor'], right: ['crystalize', 'glaze'], events: ['crystalGrowth'], cataclysms: ['Resonance Cascade'], aesthetic:{glow:true, trails:false, shape:['triangle', 'edge'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
     BioMechanical: { left: ['infect', 'tendril'], right: ['harvest', 'toggleLinks'], events: ['neuronPulse', 'sporeRelease'], cataclysms: ['Overgrowth'], aesthetic:{glow:true, trails:true, shape:['polygon'], physics:{attract:true, straight:false, bounce:true, friction:0.96}} },
-    ChronoVerse: { left: ['accelerate'], right: ['stasisField'], events: ['temporalEchoes'], cataclysms: ['Time Collapse'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
+    ChronoVerse: { left: ['accelerate'], right: ['stasisField'], events: ['temporalEchoes'], cataclysms: ['Time Collapse', 'Inversion'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
     VoidTouched: { left: ['voidRift','void'], right: ['unravel'], events: ['flickeringReality'], cataclysms: ['Total Annihilation'], aesthetic:{glow:true, trails:false, shape:['circle', 'edge'], monochrome:true, physics:{attract:true, straight:true, bounce:false, friction:0.98}} },
     PhantomEcho: { left: ['echoPulse'], right: ['phaseZone'], events: ['dejaVu'], cataclysms: ['Causality Collapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
     Aetherial: { left: ['whisper', 'fade'], right: ['paint', 'wormhole'], events: ['aurora'], cataclysms: ['Great Fading'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.3, physics:{attract:false, straight:false, bounce:false, friction:0.99}}},
-    QuantumFoam: { left: ['observe', 'quantumTunnel'], right: ['entangle', 'decohere'], events: ['probabilityFlux'], cataclysms: ['False Vacuum Decay'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} },
+    QuantumFoam: { left: ['observe', 'quantumTunnel'], right: ['entangle', 'decohere'], events: ['probabilityFlux'], cataclysms: ['False Vacuum Decay', 'Inversion'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} },
     SonicScapes: { left: ['resonate', 'dampen'], right: ['shockwave', 'silence'], events: ['ambientHum'], cataclysms: ['The Great Silence'], aesthetic:{glow:true, trails:true, shape:['edge'], opacity: 0.6, physics:{attract:false, straight:false, bounce:true, friction:0.97}} },
     LivingInk: { left: ['smudge', 'draw'], right: ['splatter', 'blot'], events: ['inkSeep'], cataclysms: ['The Bleed'], aesthetic:{glow:false, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.92}} },
     Eldritch: { left: ['consume', 'maddeningWhisper'], right: ['gaze', 'realityTear'], events: ['nonEuclideanShift'], cataclysms: ['UnseenGibbering'], aesthetic:{glow:true, trails:true, shape:['polygon'], sides: 7, monochrome: true, physics:{attract:true, straight:false, bounce:false, friction:0.95}} },
@@ -54,12 +54,12 @@ export const universeBlueprints = {
     GlacialDrift: { left:['glacier'], right:['flashFreeze'], events:['crystalGrowth'], cataclysms:['DeepFreeze'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], physics:{attract:false, straight:true, bounce:true, friction:0.99}} },
     SentientSwarm: { left:['swarmFollow'], right:['disperse'], events:['neuronPulse'], cataclysms:['HiveCollapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:true, straight:false, bounce:false, friction:0.95}} },
     StellarNursery: { left:['gatherDust', 'ignite'], right:['supernova', 'whiteHoleSpawn'], events:['binaryStars', 'meteorShower'], cataclysms:['ProtoStarCollapse', 'Supernova'], aesthetic:{glow:true, trails:true, shape:['star', 'circle'], physics:{attract:true, straight:false, bounce:false, friction:0.98}} },
-    AbyssalZone: { left:['lure', 'crush'], right:['pressureWave', 'silence'], events:['bioluminescence'], cataclysms:['BenthicStorm', 'TheGreatSilence'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides:8, monochrome:true, physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
-    TechnoUtopia: { left:['align', 'regrid'], right:['glitch', 'toggleLinks'], events:['cosmicMessage'], cataclysms:['SystemCrash', 'GlitchStorm'], aesthetic:{glow:true, trails:false, shape:['edge', 'character'], chars:['|','_','[',']','{','}'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
+    AbyssalZone: { left:['lure', 'crush'], right:['pressureWave', 'silence'], events:['bioluminescence'], cataclysms:['BenthicStorm', 'The Great Silence'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides:8, monochrome:true, physics:{attract:true, straight:false, bounce:false, friction:0.8}} },
+    TechnoUtopia: { left:['align', 'regrid'], right:['glitch', 'toggleLinks'], events:['cosmicMessage'], cataclysms:['SystemCrash', 'Glitch Storm'], aesthetic:{glow:true, trails:false, shape:['edge', 'character'], chars:['|','_','[',']','{','}'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
     FungalForest: { left:['sporeBurst', 'tangle'], right:['overgrow', 'decompose'], events:['sporeRelease', 'neuronPulse'], cataclysms:['Decomposition', 'Overgrowth'], aesthetic:{glow:false, trails:true, shape:['circle', 'polygon'], sides:3, physics:{attract:true, straight:false, bounce:false, friction:0.92}} },
     GlassySea: { left:['ripple', 'freeze'], right:['shatter', 'focus'], events:['aurora'], cataclysms:['Shattering', 'DeepFreeze'], aesthetic:{glow:true, trails:false, shape:['edge', 'triangle'], opacity:0.4, physics:{attract:false, straight:false, bounce:true, friction:0.99}} },
     Papercraft: { left:['fold', 'crease'], right:['paperTear', 'smooth'], events:['ambientHum'], cataclysms:['PaperTearCataclysm', 'CanvasWipe'], aesthetic:{glow:false, trails:false, shape:['edge'], physics:{attract:false, straight:true, bounce:false, friction:0.94}} },
-    ChromaticAberration: { left:['prism', 'focus'], right:['aberrate', 'wash'], events:['colorBleed'], cataclysms:['ColorBurn', 'PhaseShift'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
+    ChromaticAberration: { left:['prism', 'focus'], right:['aberrate', 'wash'], events:['colorBleed'], cataclysms:['ColorBurn', 'Phase Shift'], aesthetic:{glow:true, trails:true, shape:['circle'], physics:{attract:false, straight:false, bounce:false, friction:0.97}} },
     // New Blueprints
     SilkWeaver: { left:['weaveThread'], right:['pullThreads'], events:['neuronPulse'], cataclysms:['WebCollapse'], aesthetic:{glow:true, trails:false, shape:['circle'], physics:{attract:false, straight:false, bounce:true, friction:0.99}} },
     VolcanicForge: { left:['stokeFire'], right:['quench', 'lavaJet'], events:['meteorShower'], cataclysms:['GrandCooling', 'CoreEruption'], aesthetic:{glow:false, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.9}} },
@@ -68,8 +68,8 @@ export const universeBlueprints = {
     HauntedRealm: { left:['exorcise'], right:['materialize', 'phaseZone'], events:['flickeringReality', 'dejaVu'], cataclysms:['Banishing'], aesthetic:{glow:true, trails:true, shape:['circle'], opacity: 0.2, physics:{attract:false, straight:true, bounce:false, friction:0.99}} },
     CoralReef: { left:['growCoral'], right:['schooling'], events:['bioluminescence'], cataclysms:['TidalWave'], aesthetic:{glow:true, trails:false, shape:['polygon'], sides: 6, physics:{attract:true, straight:false, bounce:true, friction:0.92}} },
     NeonCyber: { left:['shaper'], right:['glitch'], events:['cosmicMessage'], cataclysms:['SystemCrash'], aesthetic:{glow:true, trails:true, shape:['edge'], physics:{attract:false, straight:true, bounce:true, friction:1}} },
-    AbyssalHorror: { left:['tendril'], right:['consume'], events:['flickeringReality'], cataclysms:['TotalAnnihilation'], aesthetic:{glow:false, trails:true, shape:['circle'], monochrome:true, physics:{attract:true, straight:false, bounce:false, friction:0.94}} },
-    CelestialForge: { left:['ignite'], right:['supernova'], events:['meteorShower'], cataclysms:['CoreEruption'], aesthetic:{glow:true, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.96}} }
+    AbyssalHorror: { left:['tendril'], right:['consume'], events:['flickeringReality'], cataclysms:['Total Annihilation'], aesthetic:{glow:false, trails:true, shape:['circle'], monochrome:true, physics:{attract:true, straight:false, bounce:false, friction:0.94}} },
+    CelestialForge: { left:['ignite'], right:['supernova'], events:['meteorShower'], cataclysms:['CoreEruption', 'StarFall'], aesthetic:{glow:true, trails:true, shape:['star'], physics:{attract:true, straight:false, bounce:false, friction:0.96}} }
 };
 
 /**
@@ -137,6 +137,25 @@ export const mutators = {
     'Inverted': () => { postProcess.setFilter('invert', 1); },
     'Bloom': () => { postProcess.setFilter('blur', 2); },
     'Overexposed': () => { postProcess.setFilter('brightness', 1.5); postProcess.setFilter('saturate', 2); },
+
+    // Two opposing winds shear the universe apart along a seeded axis.
+    'Crosswinds': (pJS, seededRandom, { photonSails }) => {
+        const angle = seededRandom() * Math.PI * 2;
+        const strength = 0.02 + seededRandom() * 0.03;
+        photonSails.push({ angle, strength });
+        photonSails.push({ angle: angle + Math.PI + (seededRandom() - 0.5) * 0.6, strength });
+    },
+    // A deep lateral current drags everything sideways through thick water.
+    'Undertow': (pJS, seededRandom, { tidalForces }, physics) => {
+        tidalForces.push({ y: pJS.canvas.h * (0.4 + seededRandom() * 0.2), strength: 0.25 + seededRandom() * 0.3 });
+        physics.friction = Math.min(physics.friction, 0.93);
+    },
+    // Barely-there particles with long phosphor wakes.
+    'Ghostly': (pJS) => { pJS.particles.opacity.value = 0.22; pJS.particles.move.trail.enable = true; pJS.particles.move.trail.length = 14; },
+    // Everything painted in slow drying ink.
+    'Inkwash': (pJS) => { pJS.particles.move.trail.enable = true; pJS.particles.move.trail.length = 25; pJS.particles.move.speed *= 0.8; },
+    // A pocket cosmos: tiny, quick, busy.
+    'Microcosm': (pJS) => { pJS.particles.size.value *= 0.6; pJS.particles.move.speed *= 1.6; },
 };
 
 /**
@@ -240,5 +259,176 @@ export const anomalies = {
             strength: 0.5 + r() * 1.0,
             width: 30 + r() * 40
         });
+    },
+    // Two quasars facing each other across the void, firing in opposition.
+    'Twin Quasars': (pJS, r, { quasars }) => {
+        const x = pJS.canvas.w * (0.15 + r() * 0.2);
+        const y = pJS.canvas.h * (0.2 + r() * 0.6);
+        const angle = r() * 2 * Math.PI;
+        const period = 150 + r() * 150;
+        quasars.push({ x, y, angle, strength: 15 + r() * 15, period, duration: 20 + r() * 20, tick: 0, isFiring: false });
+        quasars.push({ x: pJS.canvas.w - x, y: pJS.canvas.h - y, angle: angle + Math.PI, strength: 15 + r() * 15, period, duration: 20 + r() * 20, tick: Math.floor(period / 2), isFiring: false });
+    },
+    // A black hole and a white hole locked in a conveyor: matter drains one
+    // side of the sky and erupts from the other.
+    'Tidal Pair': (pJS, r, { blackHoles, whiteHoles }) => {
+        blackHoles.push({ x: pJS.canvas.w * (0.15 + r() * 0.15), y: pJS.canvas.h * (0.25 + r() * 0.5), mass: 80 + r() * 120, eventHorizon: 8 + r() * 10 });
+        whiteHoles.push({ x: pJS.canvas.w * (0.7 + r() * 0.15), y: pJS.canvas.h * (0.25 + r() * 0.5), strength: 4 + r() * 6, spawnRate: 0.05 + r() * 0.1, tick: 0 });
+    },
+    // A field of geysers erupting in staggered rhythm along the floor.
+    'Geyser Field': (pJS, r, { cosmicGeysers }) => {
+        for (let i = 0; i < 3; i++) {
+            cosmicGeysers.push({ x: pJS.canvas.w * (0.15 + i * 0.3 + r() * 0.1), y: pJS.canvas.h, strength: 5 + r() * 8, period: 150 + r() * 200, tick: Math.floor(r() * 150), width: 40 + r() * 40 });
+        }
+    },
+    // Web nodes arranged in a ring; particles caught inside circulate forever.
+    'Maelstrom Web': (pJS, r, { cosmicWebs }) => {
+        const cx = pJS.canvas.w * (0.3 + r() * 0.4);
+        const cy = pJS.canvas.h * (0.3 + r() * 0.4);
+        const radius = 120 + r() * 120;
+        const nodes = [];
+        const count = 7;
+        for (let i = 0; i < count; i++) {
+            const a = (i / count) * Math.PI * 2;
+            nodes.push({ x: cx + Math.cos(a) * radius, y: cy + Math.sin(a) * radius });
+        }
+        cosmicWebs.push({ nodes, strength: 0.15 + r() * 0.15 });
     }
+};
+
+/**
+ * @callback AmbientEvent
+ * @param {object} pJS - The particle engine instance.
+ * @param {function(): number} seededRandom - The seeded random number generator.
+ * @param {object} activeEffects - The active effects object.
+ */
+
+/**
+ * Ambient events: each universe's blueprint picks one (profile.ambientEvent),
+ * and the simulation fires it on a seeded interval. Every effect here is
+ * transient — it either uses an activeEffects array with a lifetime, or
+ * nudges particle properties that already decay (radius swell, fading,
+ * velocity), so repeated firings never accumulate permanent damage.
+ * @type {Object.<string, AmbientEvent>}
+ */
+export const ambientEvents = {
+    // A heavy pair waltzes through, dragging neighbors via the isHeavy force.
+    'binaryStars': (pJS, r) => {
+        if (pJS.particles.array.length + 2 > pJS.particles.number.value_max) return;
+        const cx = pJS.canvas.w * (0.3 + r() * 0.4);
+        const cy = pJS.canvas.h * (0.3 + r() * 0.4);
+        const made = pJS.fn.modes.pushParticles(2, { x: cx, y: cy });
+        made.forEach((p, i) => {
+            const side = i === 0 ? 1 : -1;
+            p.x = cx + side * 18;
+            p.vx = 0; p.vy = side * 2.2;
+            p.isHeavy = true;
+            p.radius = p.radius_initial = 5;
+            p.fading = 400;
+        });
+    },
+    'meteorShower': (pJS, r) => {
+        const n = Math.min(6, pJS.particles.number.value_max - pJS.particles.array.length);
+        for (let i = 0; i < n; i++) {
+            const p = pJS.fn.modes.pushParticles(1, { x: r() * pJS.canvas.w, y: -10 })[0];
+            if (p) { p.vx = 4 + r() * 6; p.vy = 6 + r() * 8; p.fading = 150; }
+        }
+    },
+    'pulsingCore': (pJS, r, { echoPulses }) => {
+        echoPulses.push({ x: pJS.canvas.w / 2, y: pJS.canvas.h / 2, radiusSq: 160000, maxLife: 90, life: 90 });
+    },
+    'sporeRelease': (pJS, r) => {
+        const n = Math.min(5, pJS.particles.number.value_max - pJS.particles.array.length);
+        for (let i = 0; i < n; i++) {
+            const p = pJS.fn.modes.pushParticles(1, { x: r() * pJS.canvas.w, y: r() * pJS.canvas.h })[0];
+            if (p) { p.radius = 1.5; p.vy = -0.5 - r(); p.fading = 200; }
+        }
+    },
+    // A passing transmission: a handful of particles flash into glyphs of light.
+    'cosmicMessage': (pJS, r) => {
+        const arr = pJS.particles.array;
+        for (let i = 0; i < 8 && arr.length > 0; i++) {
+            const p = arr[Math.floor(r() * arr.length)];
+            p.radius = Math.min(p.radius_initial * 2.5, p.radius + 2);
+            p.vx = 0; p.vy = 0;
+        }
+    },
+    'crystalGrowth': (pJS, r, { stasisFields }) => {
+        stasisFields.push({ x: r() * pJS.canvas.w, y: r() * pJS.canvas.h, r: 90 + r() * 60, maxLife: 240, life: 240 });
+    },
+    'neuronPulse': (pJS, r, { echoPulses }) => {
+        const arr = pJS.particles.array;
+        if (arr.length === 0) return;
+        const p = arr[Math.floor(r() * arr.length)];
+        echoPulses.push({ x: p.x, y: p.y, radiusSq: 62500, maxLife: 80, life: 80 });
+    },
+    'temporalEchoes': (pJS, r, { temporalRifts }) => {
+        temporalRifts.push({ x: r() * pJS.canvas.w, y: r() * pJS.canvas.h, radius: 80 + r() * 60, life: 360, maxLife: 360 });
+    },
+    'flickeringReality': (pJS, r, { phaseZones }) => {
+        for (let i = 0; i < 3; i++) {
+            phaseZones.push({ x: r() * pJS.canvas.w, y: r() * pJS.canvas.h, radiusSq: 14400, maxLife: 150, life: 150 });
+        }
+    },
+    'dejaVu': (pJS, r, { echoPulses }) => {
+        const x = r() * pJS.canvas.w;
+        const y = r() * pJS.canvas.h;
+        echoPulses.push({ x, y, radiusSq: 40000, maxLife: 80, life: 80 });
+        echoPulses.push({ x, y, radiusSq: 40000, maxLife: 140, life: 140 });
+    },
+    'aurora': (pJS, r, { spacetimeFoam }) => {
+        for (let i = 0; i < 6; i++) {
+            spacetimeFoam.push({ x: pJS.canvas.w * (i + r()) / 6, y: pJS.canvas.h * (0.1 + r() * 0.2), radius: 30 + r() * 30, life: 200 + r() * 100 });
+        }
+    },
+    'probabilityFlux': (pJS, r) => {
+        const arr = pJS.particles.array;
+        for (let i = 0; i < 10 && arr.length > 0; i++) {
+            const p = arr[Math.floor(r() * arr.length)];
+            p.x += (r() - 0.5) * 120;
+            p.y += (r() - 0.5) * 120;
+        }
+    },
+    // One synchronized breath through the whole field.
+    'ambientHum': (pJS) => {
+        for (const p of pJS.particles.array) {
+            p.vx += Math.sin(p.seed) * 0.6;
+            p.vy += Math.cos(p.seed) * 0.6;
+        }
+    },
+    'inkSeep': (pJS, r) => {
+        const n = Math.min(6, pJS.particles.number.value_max - pJS.particles.array.length);
+        for (let i = 0; i < n; i++) {
+            const p = pJS.fn.modes.pushParticles(1, { x: r() * pJS.canvas.w, y: pJS.canvas.h + 5 })[0];
+            if (p) { p.vy = -1 - r() * 2; p.radius = 2 + r() * 3; p.fading = 250; }
+        }
+    },
+    // Geometry briefly refuses Euclid: nearby motion snaps to 45° rails.
+    'nonEuclideanShift': (pJS, r) => {
+        const arr = pJS.particles.array;
+        for (let i = 0; i < 12 && arr.length > 0; i++) {
+            const p = arr[Math.floor(r() * arr.length)];
+            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            const snapped = Math.round(Math.atan2(p.vy, p.vx) / (Math.PI / 4)) * (Math.PI / 4);
+            p.vx = Math.cos(snapped) * speed;
+            p.vy = Math.sin(snapped) * speed;
+        }
+    },
+    'colorBleed': (pJS, r) => {
+        const arr = pJS.particles.array;
+        for (let i = 0; i < 8 && arr.length > 1; i++) {
+            const a = arr[Math.floor(r() * arr.length)];
+            const b = arr[Math.floor(r() * arr.length)];
+            if (a === b || a.colorLocked) continue;
+            a.color = { rgb: { r: (a.color.rgb.r + b.color.rgb.r) / 2, g: (a.color.rgb.g + b.color.rgb.g) / 2, b: (a.color.rgb.b + b.color.rgb.b) / 2 } };
+        }
+    },
+    // Brief glow swell; the simulation's radius decay brings them back down.
+    'bioluminescence': (pJS, r) => {
+        const arr = pJS.particles.array;
+        for (let i = 0; i < 10 && arr.length > 0; i++) {
+            const p = arr[Math.floor(r() * arr.length)];
+            p.radius = Math.min(p.radius_initial * 3, p.radius + 1.5);
+        }
+    },
 };

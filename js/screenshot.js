@@ -17,6 +17,32 @@ export const screenshot = {
     });
   },
 
+  /** All visible render layers, back to front (shared with postcard.js). */
+  collectLayers() {
+    const layers = [];
+
+    const bg = document.querySelector('#background-canvas');
+    if (bg) layers.push(bg);
+
+    const particlesContainer = document.querySelector('#particles-js');
+    if (particlesContainer) {
+      const pc = particlesContainer.querySelector('canvas');
+      if (pc) layers.push(pc);
+    }
+
+    const overlayIds = [
+      '#cursor-effects-canvas',
+      '#cursor-trail-canvas',
+      '#ambient-fx-canvas',
+      '#warp-field-canvas',
+    ];
+    for (const id of overlayIds) {
+      const el = document.querySelector(id);
+      if (el) layers.push(el);
+    }
+    return layers;
+  },
+
   capture() {
     return new Promise((resolve) => {
       const composite = document.createElement('canvas');
@@ -24,29 +50,7 @@ export const screenshot = {
       composite.height = window.innerHeight;
       const ctx = composite.getContext('2d');
 
-      const layers = [];
-
-      const bg = document.querySelector('#background-canvas');
-      if (bg) layers.push(bg);
-
-      const particlesContainer = document.querySelector('#particles-js');
-      if (particlesContainer) {
-        const pc = particlesContainer.querySelector('canvas');
-        if (pc) layers.push(pc);
-      }
-
-      const overlayIds = [
-        '#cursor-effects-canvas',
-        '#cursor-trail-canvas',
-        '#ambient-fx-canvas',
-        '#warp-field-canvas',
-      ];
-      for (const id of overlayIds) {
-        const el = document.querySelector(id);
-        if (el) layers.push(el);
-      }
-
-      for (const canvas of layers) {
+      for (const canvas of this.collectLayers()) {
         try {
           ctx.drawImage(canvas, 0, 0, composite.width, composite.height);
         } catch (err) {

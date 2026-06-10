@@ -5,6 +5,7 @@
 
 import { ui, universeProfile, physics, setCataclysmInProgress, addActiveInterval, activeEffects, seededRandom } from './state.js';
 import { generateUniverse } from './universe.js';
+import { gamepadInput } from './gamepad_input.js';
 
 /**
  * Triggers a universe-ending cataclysm.
@@ -12,7 +13,12 @@ import { generateUniverse } from './universe.js';
  */
 export function triggerCataclysm(pJS) {
     setCataclysmInProgress(true);
-    ui.container.classList.remove('visible');
+    gamepadInput.vibrate(800, 1, 1);
+    // Hide the HUD during the cataclysm. (This used to read ui.container,
+    // which doesn't exist on the state ui object — the resulting TypeError
+    // killed the simulation loop the first time any cataclysm fired.)
+    const hudEl = document.getElementById('ui-container');
+    if (hudEl) hudEl.classList.remove('visible');
     ui.canvasContainer.classList.remove('shake');
     const choice = universeProfile.cataclysm;
     const regen = (delay) => setTimeout(() => generateUniverse(pJS, null, true), delay);
@@ -49,5 +55,16 @@ export function triggerCataclysm(pJS) {
         case 'Homogenization': let homo = 0; const homoInterval = setInterval(() => { homo++; const avg_c = pJS.particles.array.reduce((acc, p) => { acc.r += p.color.rgb.r; acc.g += p.color.rgb.g; acc.b += p.color.rgb.b; return acc; }, {r:0,g:0,b:0}); avg_c.r /= pJS.particles.array.length; avg_c.g /= pJS.particles.array.length; avg_c.b /= pJS.particles.array.length; pJS.particles.array.forEach(p => { p.vx *= 0.95; p.vy *= 0.95; p.color.rgb.r = (p.color.rgb.r*9 + avg_c.r)/10; p.color.rgb.g = (p.color.rgb.g*9 + avg_c.g)/10; p.color.rgb.b = (p.color.rgb.b*9 + avg_c.b)/10; }); if(homo > 200) { clearInterval(homoInterval); regen(1000); } }, 20); addActiveInterval(homoInterval); break;
         case 'Banishing': pJS.particles.array.forEach(p => { p.vx = (seededRandom()-0.5)*5; p.vy = (seededRandom()-0.5)*5 - 20; p.opacity.value = 1; }); regen(4000); break;
         case 'TidalWave': let wavePos = -100; const waveInterval = setInterval(() => { wavePos += 20; pJS.particles.array.forEach(p => { if (p.x < wavePos && p.x > wavePos - 40) { p.vx += 15; p.vy += (seededRandom() - 0.5) * 5; } }); if (wavePos > pJS.canvas.w + 100) { clearInterval(waveInterval); regen(1000); } }, 20); addActiveInterval(waveInterval); break;
+        // Gravity flips and the sky drains upward into a spin.
+        case 'Inversion': { let inv = 0; const invInterval = setInterval(() => { inv++; const cx = pJS.canvas.w / 2, cy = pJS.canvas.h / 2; for (const p of pJS.particles.array) { const dx = p.x - cx, dy = p.y - cy; const a = 0.002 + inv * 0.0004; p.vx += -dy * a + dx * 0.001; p.vy += dx * a + dy * 0.001 - 0.15; } if (inv > 120) { clearInterval(invInterval); regen(1500); } }, 20); addActiveInterval(invInterval); break; }
+        // Every star falls out of the firmament, bounces, and dies in a final burst.
+        case 'StarFall': { let fall = 0; const floor = pJS.canvas.h - 8; const fallInterval = setInterval(() => { fall++; for (const p of pJS.particles.array) { p.vy += 1.4; if (p.y >= floor && p.vy > 0) { p.y = floor; p.vy *= -0.55; p.vx *= 0.9; } } if (fall > 110) { for (const p of pJS.particles.array) { p.vx = (seededRandom() - 0.5) * 40; p.vy = -seededRandom() * 35; } clearInterval(fallInterval); regen(1800); } }, 20); addActiveInterval(fallInterval); break; }
+        // Safety net: an unknown cataclysm name must never strand the universe
+        // in cataclysmInProgress forever — fade out and regenerate.
+        default: {
+            console.warn(`[cataclysms] Unknown cataclysm "${choice}" — regenerating.`);
+            pJS.particles.array.forEach(p => { p.fading = 120; });
+            regen(2500);
+        }
     }
 }

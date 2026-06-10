@@ -13,6 +13,8 @@ import { speechInput } from './speech_input.js';
 import { cameraInput } from './camera_input.js';
 import { perfMonitor } from './perf_monitor.js';
 import { touchGestures } from './touch_gestures.js';
+import { midiInput } from './midi_input.js';
+import { environmentSense } from './environment_sense.js';
 import { postProcessing } from './post_processing.js';
 import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
@@ -117,7 +119,11 @@ class BackgroundSystem {
             }
         });
 
-        const markInteraction = () => { this._lastInteraction = performance.now(); this._idleCycleActive = false; };
+        const markInteraction = () => {
+            this._lastInteraction = performance.now();
+            if (this._idleCycleActive) environmentSense.releaseWakeLock();
+            this._idleCycleActive = false;
+        };
 
         window.addEventListener('mousedown', (e) => {
             markInteraction();
@@ -232,7 +238,11 @@ class BackgroundSystem {
             if (!this._idleCycleActive) {
                 this._idleCycleActive = true;
                 this._lastIdleCycle = now;
+                // Screensaver engaged: keep the display awake while it performs
+                environmentSense.requestWakeLock();
             }
+            // Calm mode: hold the current scene instead of auto-cycling
+            if (environmentSense.reducedMotion) return;
             if (now - this._lastIdleCycle > this._idleCycleInterval) {
                 this._lastIdleCycle = now;
                 // Auto-cycle to random architecture
@@ -349,6 +359,8 @@ class BackgroundSystem {
         // Cap shockwaves to prevent unbounded growth
         if (this.shockwaves.length >= 15) return;
         this.shockwaves.push({ x, y, radius: 0, maxRadius: Math.max(this.width, this.height) * 0.8, speed: 10, strength: 2, alpha: 1 });
+        // Haptic thump on controllers that support rumble
+        if (!fromRemote) gamepadInput.vibrate(110, 0.35, 0.6);
         // Broadcast to other tabs (normalized coordinates)
         if (!fromRemote && tabSync.tabCount > 1) {
             tabSync.sendEffect('shockwave', { x: x / this.width, y: y / this.height });
@@ -396,7 +408,9 @@ class BackgroundSystem {
             this.gradientColors = [`hsl(${this.hue}, 80%, ${l}%)`, `hsl(${this.hue}, 40%, ${l*2}%)`, `hsl(${this.hue}, 90%, ${l*0.5}%)` ];
         } else {
             const shift = Math.sin(this.tick * 0.002) * 20;
-            const h = this.hue + shift;
+            // Epoch aging and live audio treble both bias the sky's hue.
+            // (audioHueShift was previously computed but never consumed.)
+            const h = this.hue + shift + (this.epochHueBias || 0) + (this.audioHueShift || 0);
             const style = this.gradientStyle || 0;
             if (style === 1) {
                 // Radial: bright center fading to dark edges
@@ -459,9 +473,45 @@ class BackgroundSystem {
         this.tabSync = tabSync;
         this.speech = speechInput;
         this.camera = cameraInput;
-        this.qualityScale = perfMonitor.qualityScale;
+        // Quality budget: perf-measured scale capped by battery state
+        this.qualityScale = Math.min(perfMonitor.qualityScale, environmentSense.qualityCap);
         this.pinchScale = touchGestures.pinchScale;
         this.touchRotation = touchGestures.rotation;
+        this.midi = midiInput;
+
+        // Calm mode: prefers-reduced-motion clamps warp speed and idle churn
+        if (environmentSense.reducedMotion && this.targetSpeed > 3) {
+            this.targetSpeed = 3;
+        }
+
+        // MIDI performance hooks: knob 0 drives warp, knob 1 rotates the live
+        // theme hue, mod wheel leans on speed, note-ons strike shockwaves
+        // placed by pitch (x) and velocity (y)
+        if (midiInput.active) {
+            const k0 = midiInput.knobs[0];
+            if (!Number.isNaN(k0)) this.targetSpeed = Math.max(this.targetSpeed, 1 + k0 * 14);
+            const k1 = midiInput.knobs[1];
+            if (!Number.isNaN(k1)) {
+                const want = k1 * 360;
+                const delta = want - (this._midiHuePrev ?? want);
+                if (Math.abs(delta) > 2) {
+                    this.hue = (this.hue + delta + 360) % 360;
+                    this._midiHuePrev = want;
+                    this.updateThemeColors();
+                }
+                if (this._midiHuePrev === undefined) this._midiHuePrev = want;
+            }
+            if (midiInput.modWheel > 0.02) {
+                this.targetSpeed = Math.max(this.targetSpeed, 1 + midiInput.modWheel * 6);
+            }
+            const notes = midiInput.drainNotes();
+            for (const n of notes) {
+                this.createShockwave(
+                    (n.note / 127) * this.width,
+                    this.height * (0.85 - n.velocity * 0.7)
+                );
+            }
+        }
 
         // Touch gesture reactions
         if (touchGestures.swipeDirection) {
@@ -611,6 +661,11 @@ class BackgroundSystem {
 
     applyBGMutators() {
         const ctx = this.ctx;
+        // Late-epoch dimming: the universe gutters as it nears heat death
+        if (this.epochDim > 0.005) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.epochDim})`;
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
         if (this.bgMutators.includes('Vignette')) {
             // Cache vignette gradient (only recreate on resize)
             if (!this.cachedVignetteGradient || this.cachedVignetteWidth !== this.width) {

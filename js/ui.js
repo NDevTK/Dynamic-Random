@@ -71,7 +71,10 @@ export function initializeEventListeners(pJS) {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             if (pJS && currentSeed && !cataclysmInProgress) {
-                generateUniverse(pJS, currentSeed, true);
+                // Re-lay out the SAME universe at the new size. (isNewSeed=true
+                // here used to discard currentSeed and roll a random universe
+                // on every window resize.)
+                generateUniverse(pJS, currentSeed, false);
             }
         }, 250);
     });

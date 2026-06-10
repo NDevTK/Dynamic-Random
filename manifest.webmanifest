@@ -1,0 +1,24 @@
+{
+  "name": "Celestial Canvas",
+  "short_name": "Celestial",
+  "description": "A seeded multiverse of generative universes. Every seed is a different world; every world ages, remembers you, and can be kept as a postcard.",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#0b0b12",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

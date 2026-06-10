@@ -267,9 +267,11 @@ class PostProcessingSystem {
             const angle = this.lightLeakAngle;
             const cx = w * (0.3 + 0.4 * Math.cos(angle));
             const cy = h * (0.3 + 0.4 * Math.sin(angle));
-            // Cache light leak gradient (perf: avoid recreating radial gradient every frame)
+            // Cache light leak gradient (perf: avoid recreating radial gradient every frame).
+            // Note: comparisons must parenthesize the |0 truncation — `a !== b | 0`
+            // parses as `(a !== b) | 0`, which made this cache miss on every frame.
             if (!this._leakGrad || this._leakW !== w || this._leakH !== h ||
-                this._leakCx !== cx | 0 || this._leakCy !== cy | 0) {
+                this._leakCx !== (cx | 0) || this._leakCy !== (cy | 0)) {
                 this._leakGrad = ctx.createRadialGradient(
                     cx, cy, 0,
                     cx, cy, Math.max(w, h) * 0.5

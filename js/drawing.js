@@ -286,6 +286,25 @@ function drawCoralConnections(ctx) {
     });
 }
 
+function drawCosmicStrings(ctx, tick) {
+    activeEffects.cosmicStrings.forEach(s => {
+        const shimmer = 0.22 + Math.sin(tick * 0.05 + s.x1 * 0.01) * 0.12;
+        ctx.strokeStyle = `rgba(220, 230, 255, ${shimmer})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(s.x1, s.y1);
+        ctx.lineTo(s.x2, s.y2);
+        ctx.stroke();
+        // Anchor glints
+        ctx.fillStyle = `rgba(230, 240, 255, ${shimmer + 0.25})`;
+        ctx.beginPath();
+        ctx.arc(s.x1, s.y1, 2, 0, 2 * Math.PI);
+        ctx.moveTo(s.x2 + 2, s.y2);
+        ctx.arc(s.x2, s.y2, 2, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+}
+
 function drawCosmicRivers(ctx) {
     activeEffects.cosmicRivers.forEach(river => {
         ctx.strokeStyle = 'rgba(150, 200, 255, 0.1)';
@@ -336,6 +355,7 @@ export function drawEffects(ctx) {
     drawEchoingVoids(ctx);
     drawCosmicNurseries(ctx);
     drawCoralConnections(ctx);
+    drawCosmicStrings(ctx, tick);
     drawCosmicRivers(ctx);
 
     if (useBloom) {

@@ -194,9 +194,11 @@ export class WormholeTransit {
                     p.vx += (dx / dist) * force;
                     p.vy += (dy / dist) * force;
                 }
-                // Absorption: reset to random position
+                // Absorption: reset to random position. (Seed from the
+                // pre-reset position — the old `i` here was undeclared inside
+                // these for...of loops and threw on first absorption.)
                 if (dist < v.radius * 0.5) {
-                    const rseed = this.tick * 29 + i * 61;
+                    const rseed = this.tick * 29 + (((p.x * 13 + p.y * 7) | 0) % 9973);
                     p.x = this._prand(rseed) * W;
                     p.y = this._prand(rseed + 1) * H;
                     p.vx = (this._prand(rseed + 2) - 0.5) * 0.5;

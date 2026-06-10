@@ -9,8 +9,10 @@ import { cameraInput } from './camera_input.js';
 import { speechInput } from './speech_input.js';
 import { midiInput } from './midi_input.js';
 import { videoExport } from './video_export.js';
+import { loreCodex } from './lore_codex.js';
+import { currentSeed } from './state.js';
 
-const ACCENTS = { mic: '#4fc3f7', camera: '#ef5350', speech: '#ab47bc', midi: '#ffd54f', record: '#ff5252' };
+const ACCENTS = { mic: '#4fc3f7', camera: '#ef5350', speech: '#ab47bc', midi: '#ffd54f', record: '#ff5252', share: '#66bb6a' };
 
 let _toolbar = null;
 let _buttons = {};
@@ -176,6 +178,29 @@ export const inputToolbar = {
             btn.addEventListener('click', () => videoExport.toggle());
             _toolbar.appendChild(btn);
             _buttons.record = btn;
+        }
+
+        {
+            // Share this universe: native share sheet where available,
+            // clipboard fallback elsewhere (button flashes to confirm)
+            const btn = _makeButton('📤', ACCENTS.share);
+            btn.title = 'Share this universe';
+            btn.addEventListener('click', async () => {
+                const url = window.location.href;
+                const lore = loreCodex.current;
+                const text = lore ? `${lore.epithet} — ${currentSeed}` : currentSeed || 'Celestial Canvas';
+                try {
+                    if (navigator.share) {
+                        await navigator.share({ title: 'Celestial Canvas', text, url });
+                    } else if (navigator.clipboard) {
+                        await navigator.clipboard.writeText(url);
+                        _setActive(btn, true, false);
+                        setTimeout(() => _setActive(btn, false, false), 1200);
+                    }
+                } catch (err) { /* user dismissed the share sheet */ }
+            });
+            _toolbar.appendChild(btn);
+            _buttons.share = btn;
         }
 
         document.body.appendChild(_toolbar);

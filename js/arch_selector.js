@@ -134,10 +134,11 @@ export const archSelector = {
     },
 
     _renderPreviews() {
-        // Render a few previews per frame to avoid blocking
+        // One preview per frame: some architectures cost 40-100ms to init,
+        // so batching three produced long-task violations in the RAF handler
         let idx = 0;
         const renderBatch = () => {
-            const batchEnd = Math.min(idx + 3, this.cards.length);
+            const batchEnd = Math.min(idx + 1, this.cards.length);
             for (; idx < batchEnd; idx++) {
                 const card = this.cards[idx];
                 const canvas = card.querySelector('canvas');

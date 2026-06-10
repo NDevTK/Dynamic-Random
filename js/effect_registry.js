@@ -103,6 +103,8 @@ import { ParticleFountain } from './particle_fountain_effects.js';
 import { RuneSigils } from './rune_sigil_effects.js';
 import { KiteFestival } from './kite_festival_effects.js';
 import { MetroTransit } from './metro_transit_effects.js';
+import { ClockworkOrrery } from './clockwork_orrery_effects.js';
+import { DominoCascade } from './domino_cascade_effects.js';
 
 /**
  * Blueprint-to-tag mapping. Each blueprint has a set of theme tags that describe
@@ -249,6 +251,8 @@ export const EFFECT_REGISTRY = [
     { instance: new RuneSigils(),          tags: ['ethereal', 'geometric', 'dark'],          minQuality: 0.3,  drawOrder: 92 },
     { instance: new KiteFestival(),        tags: ['ethereal', 'painterly', 'geometric'],     minQuality: 0.3,  drawOrder: 93 },
     { instance: new MetroTransit(),        tags: ['tech', 'digital', 'geometric'],           minQuality: 0.25, drawOrder: 94 },
+    { instance: new ClockworkOrrery(),     tags: ['cosmic', 'temporal', 'geometric'],        minQuality: 0.25, drawOrder: 95 },
+    { instance: new DominoCascade(),       tags: ['physics', 'geometric', 'light'],          minQuality: 0.25, drawOrder: 96 },
 ];
 
 // Pre-create tag Sets for O(1) intersection

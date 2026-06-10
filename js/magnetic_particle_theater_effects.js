@@ -369,16 +369,28 @@ export class MagneticParticleTheater {
         }
     }
 
-    update(system) {
+    update(mx, my, isClicking) {
         this.tick++;
-        const w = system.width;
-        const h = system.height;
-        this._mouseX = system.mouse ? system.mouse.x : w / 2;
-        this._mouseY = system.mouse ? system.mouse.y : h / 2;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        this._mouseX = mx;
+        this._mouseY = my;
 
         if (this.particles.length === 0) {
             this._initParticles(w, h);
         }
+
+        // Click: scatter + advance formation (this lived in draw() reading a
+        // property that only existed on the old orchestrator — never fired)
+        if (isClicking && !this._wasClicking) {
+            this._scatterForce = 8;
+            if (this._formations.length > 1 && this.mode !== 5) {
+                this._currentFormation = (this._currentFormation + 1) % this._formations.length;
+                this._targets = this._formations[this._currentFormation];
+                this._morphProgress = 0;
+            }
+        }
+        this._wasClicking = isClicking;
 
         // Scatter force decay
         if (this._scatterForce > 0.1) {
@@ -414,8 +426,6 @@ export class MagneticParticleTheater {
             }
         }
 
-        const mx = this._mouseX;
-        const my = this._mouseY;
         const mouseRadiusSq = 15000;
         const hasTargets = this._targets.length > 0;
         const scatterForce = this._scatterForce;
@@ -485,16 +495,6 @@ export class MagneticParticleTheater {
     }
 
     draw(ctx, system) {
-        // Handle click: scatter + advance formation
-        if (system._clickRegistered !== undefined && system._clickRegistered) {
-            this._scatterForce = 8;
-            if (this._formations.length > 1 && this.mode !== 5) {
-                this._currentFormation = (this._currentFormation + 1) % this._formations.length;
-                this._targets = this._formations[this._currentFormation];
-                this._morphProgress = 0;
-            }
-        }
-
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 

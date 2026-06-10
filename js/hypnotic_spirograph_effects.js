@@ -134,10 +134,15 @@ export class HypnoticSpirograph {
         out.y = cy + y;
     }
 
-    update(system) {
+    update(mx, my, isClicking) {
         this.tick++;
-        this._mouseX = system.mouse ? system.mouse.x : system.width / 2;
-        this._mouseY = system.mouse ? system.mouse.y : system.height / 2;
+        this._mouseX = mx;
+        this._mouseY = my;
+
+        // Click: energy burst (this lived in draw() reading a property that
+        // only existed on the old orchestrator — never fired)
+        if (isClicking && !this._wasClicking) this._burstEnergy = 60;
+        this._wasClicking = isClicking;
 
         // Burst energy decay
         if (this._burstEnergy > 0.01) {
@@ -156,8 +161,8 @@ export class HypnoticSpirograph {
                                        8 + Math.floor(this._rng() * 12));
                 for (let i = 0; i < count; i++) {
                     this._fragments.push({
-                        x: this._rng() * system.width,
-                        y: this._rng() * system.height,
+                        x: this._rng() * window.innerWidth,
+                        y: this._rng() * window.innerHeight,
                         w: 20 + this._rng() * 60,
                         h: 20 + this._rng() * 60,
                         vx: (this._rng() - 0.5) * 4,
@@ -189,11 +194,6 @@ export class HypnoticSpirograph {
         const h = system.height;
         const cx = w / 2;
         const cy = h / 2;
-
-        // Handle click events
-        if (system._clickRegistered !== undefined && system._clickRegistered) {
-            this._burstEnergy = 60;
-        }
 
         this._ensureTrail(w, h);
         const tc = this._trailCtx;

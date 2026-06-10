@@ -882,14 +882,18 @@ function enforceParticleLimit(pJS) {
 // Reusable mouse object to avoid per-frame allocation from { ...mouse }
 const _worldMouse = { x: 0, y: 0 };
 
+// Cached RAF callback (avoids allocating a fresh closure every frame)
+let _rafLoop = null;
+
 /**
  * The main update loop, called on every frame.
  * This function handles particle physics, user interaction, anomalies, and cataclysms.
  */
 export function update(pJS) {
+    if (_rafLoop === null) _rafLoop = () => update(pJS);
     incrementTick();
     if (cataclysmInProgress) {
-        requestAnimationFrame(() => update(pJS));
+        requestAnimationFrame(_rafLoop);
         return;
     }
 
@@ -935,5 +939,5 @@ export function update(pJS) {
     pJS.fn.particlesUpdate();
     pJS.fn.particlesDraw();
 
-    requestAnimationFrame(() => update(pJS));
+    requestAnimationFrame(_rafLoop);
 }

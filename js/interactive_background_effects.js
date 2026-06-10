@@ -2,7 +2,7 @@
  * @file interactive_background_effects.js
  * @description Orchestrator for the interactive effects layer that runs on top of all
  * background architectures. Uses a data-driven registry (effect_registry.js) to manage
- * 25 sub-systems with tag-based blueprint affinity selection.
+ * the effect sub-systems with tag-based blueprint affinity selection.
  *
  * Each universe seed selects 6-10 sub-systems weighted by thematic affinity with the
  * active blueprint, producing coherent interactive behaviors. Sub-systems are iterated

@@ -92,4 +92,5 @@ export const ARCH_DESCRIPTIONS = [
     'A thousand wings turn as one mind',                           // FlockMurmuration
     'Signals race down glowing copper veins',                      // NeonCircuitPulse
     'A patient beam sweeps the fog-bound sea',                     // Lighthouse
+    'Hand-forged elements fall, flow, burn, and bloom',            // Alchemy
 ];

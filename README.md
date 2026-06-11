@@ -71,7 +71,7 @@ can take over mid-simulation invisibly.
 node tests/run_all.mjs
 ```
 
-Six zero-dependency suites (Node 18+) guard the content registries, the
+Ten zero-dependency suites (Node 18+) guard the content registries, the
 particle engine's API surface, and every registered effect — see
 [`tests/README.md`](tests/README.md). New effects are picked up automatically;
 if it survives the smoke suite, it ships.

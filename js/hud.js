@@ -209,9 +209,9 @@ export const hud = (() => {
             familiarEl.textContent = famText;
         }
 
-        // A visiting traveler, e.g. "✦ Ilbra is visiting · home: VOID-MAW-2121-III"
+        // A visiting traveler, e.g. "✦ Ilbra is visiting · a curious mind, gen 3 · home: VOID-MAW-2121-III"
         const trav = travelers.current;
-        const travText = trav ? `✦ ${trav.name} is visiting · home: ${trav.homeSeed}` : '';
+        const travText = trav ? `✦ ${trav.name} is visiting · ${trav.mind} · home: ${trav.homeSeed}` : '';
         if (travText !== _lastTravelerText) {
             _lastTravelerText = travText;
             travelerEl.textContent = travText;

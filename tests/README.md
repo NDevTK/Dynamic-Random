@@ -17,6 +17,7 @@ node tests/registry_smoke_test.mjs   # one suite
 | `lifecycle_test` | Epoch system (roman-numeral lineage round-trips, all four epochs traverse with bounded modifiers, exactly one rebirth at heat death) and familiar memory persistence/stages. |
 | `overhaul_test` | Lore codex determinism/variety, all six familiar species through follow → startle → doze with finite state, MIDI message decoding, environment sensing graceful degradation. |
 | `metro_test` | Metro map generator invariants across 400 seeds (octilinear geometry, stations on-line, deterministic) and 4000-frame train simulations. |
+| `neural_test` | The TinyBrain MLP (deterministic, bounded outputs, non-destructive mutation), the traveler gene pool (fitness-weighted sampling, cap/eviction, persistence, stale-layout rejection), and the full evolution loop — a planted ancestor produces mutated gen+1 offspring, and departures feed scored minds back into the pool. |
 
 When adding an interactive effect or a background architecture, no test
 changes are needed — the smoke suites pick them up automatically from

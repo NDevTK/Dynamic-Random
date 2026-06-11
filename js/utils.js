@@ -21,7 +21,7 @@ export function stringToSeed(str) { let h=0; for(let i=0;i<str.length;i++){h=(Ma
  * Generates a random, human-readable seed string.
  * @returns {string} A random seed string in the format 'WORD-WORD-NUMBER'.
  */
-export function generateRandomSeed() { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER', 'SONIC', 'QUANTUM', 'ELDRITCH', 'PAINTERLY', 'ARCANE', 'MOLTEN', 'GLACIAL', 'SWARM', 'FORGED']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL', 'HUM', 'FOAM', 'INK', 'MAW', 'STROKE', 'CODEX', 'HEART', 'HIVE', 'CORE', 'RUNE']; return `${w1[Math.floor(Math.random()*w1.length)]}-${w2[Math.floor(Math.random()*w2.length)]}-${Math.floor(Math.random()*9000)+1000}`; }
+export function generateRandomSeed(rand = Math.random) { const w1 = ['COSMIC','ASTRAL','VOID','STAR','CHRONO','PHANTOM','CRYSTAL','DEEPSEA','BIO', 'AETHER', 'SONIC', 'QUANTUM', 'ELDRITCH', 'PAINTERLY', 'ARCANE', 'MOLTEN', 'GLACIAL', 'SWARM', 'FORGED']; const w2 = ['DRIFT','ECHO','FLARE','PULSE','SONG','WARP','VORTEX','SHARD','CURRENT','SPORE', 'VEIL', 'HUM', 'FOAM', 'INK', 'MAW', 'STROKE', 'CODEX', 'HEART', 'HIVE', 'CORE', 'RUNE']; return `${w1[Math.floor(rand()*w1.length)]}-${w2[Math.floor(rand()*w2.length)]}-${Math.floor(rand()*9000)+1000}`; }
 
 /**
  * Converts an HSL color value to a hex string.

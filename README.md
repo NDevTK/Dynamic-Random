@@ -15,6 +15,7 @@ Each seed (e.g. `?seed=COSMIC-DRIFT-1234`) deterministically selects:
 - **6–10 interactive effects** — from a registry of ~100 sub-systems (metro maps with live trains, clockwork orreries, domino runs, reaction-diffusion blooms…), tag-weighted toward the blueprint's mood.
 - **A cursor familiar** — a small companion creature (wisp, moth flock, serpent, satellite swarm, jelly, or watching oculus) that follows your cursor, dozes when you idle, and startles when you click. It's named once, remembers your play time across visits, and grows from *hatchling* to *mythic*.
 - **Field-guide lore** — a procedural epithet and surveyor's note ("*The Slow-Sinking Shipyard* — Depth is negotiable; bring a flexible ruler.").
+- **Travelers** — every few minutes a visitor from a sibling universe drifts through with their own familiar, watches whatever yours watches, greets your cursor, and leaves. Their home seed shows in the HUD — type it in to visit where they live.
 - **Mutators, anomalies, and ambient events** — gravity pockets, twin quasars, meteor showers, non-Euclidean shifts…
 
 Universes also **age**: four epochs over ~20 minutes (First Light → The Long

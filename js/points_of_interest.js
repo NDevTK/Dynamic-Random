@@ -66,6 +66,12 @@ export const pointsOfInterest = {
         return best;
     },
 
+    /** A uniformly random point from this frame's board (or null). */
+    pick(rand) {
+        if (this._items.length === 0) return null;
+        return this._items[Math.floor(rand() * this._items.length)];
+    },
+
     get count() {
         return this._items.length;
     },

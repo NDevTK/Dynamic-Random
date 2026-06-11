@@ -8,6 +8,7 @@ import { loreCodex } from './lore_codex.js';
 import { epochSystem, toRoman } from './epoch_system.js';
 import { familiarMemory } from './familiar_memory.js';
 import { cursorFamiliar } from './cursor_familiar.js';
+import { travelers } from './travelers.js';
 import { gamepadInput } from './gamepad_input.js';
 import { micReactive } from './mic_reactive.js';
 import { tabSync } from './tab_sync.js';
@@ -21,7 +22,7 @@ import { background, ARCH_DISPLAY_NAMES } from './background.js';
 export const hud = (() => {
     let container, blueprintEl, descriptionEl, seedEl, mutatorEl, anomalyEl, fpsEl;
     let epithetEl, loreEl, _lastLore = null;
-    let epochEl, familiarEl, _lastEpochText = '', _lastFamiliarText = '';
+    let epochEl, familiarEl, travelerEl, _lastEpochText = '', _lastFamiliarText = '', _lastTravelerText = '';
     let badgeGamepad, badgeMic, badgeCamera, badgeSpeech, badgeTab;
 
     let lastMouseTime = 0;
@@ -63,6 +64,8 @@ export const hud = (() => {
         epochEl.style.cssText = 'font-size:10px;color:rgba(255,220,170,0.45);font-family:"Exo 2",sans-serif;margin-top:3px;letter-spacing:0.5px;';
         familiarEl = document.createElement('div');
         familiarEl.style.cssText = 'font-size:10px;color:rgba(180,220,255,0.45);font-family:"Exo 2",sans-serif;margin-top:1px;letter-spacing:0.5px;';
+        travelerEl = document.createElement('div');
+        travelerEl.style.cssText = 'font-size:10px;color:rgba(220,190,255,0.55);font-family:"Exo 2",sans-serif;margin-top:1px;letter-spacing:0.5px;';
 
         seedEl = document.createElement('span');
         seedEl.id = 'seed-capture';
@@ -120,6 +123,7 @@ export const hud = (() => {
         container.appendChild(loreEl);
         container.appendChild(epochEl);
         container.appendChild(familiarEl);
+        container.appendChild(travelerEl);
         container.appendChild(seedEl);
         container.appendChild(mutatorEl);
         container.appendChild(anomalyEl);
@@ -203,6 +207,14 @@ export const hud = (() => {
         if (famText !== _lastFamiliarText) {
             _lastFamiliarText = famText;
             familiarEl.textContent = famText;
+        }
+
+        // A visiting traveler, e.g. "✦ Ilbra is visiting · home: VOID-MAW-2121-III"
+        const trav = travelers.current;
+        const travText = trav ? `✦ ${trav.name} is visiting · home: ${trav.homeSeed}` : '';
+        if (travText !== _lastTravelerText) {
+            _lastTravelerText = travText;
+            travelerEl.textContent = travText;
         }
 
         // Mutators

@@ -18,6 +18,7 @@
 import { mouse, isLeftMouseDown, isRightMouseDown } from './state.js';
 import { EFFECT_REGISTRY, selectEffects } from './effect_registry.js';
 import { cursorFamiliar } from './cursor_familiar.js';
+import { travelers } from './travelers.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
@@ -87,8 +88,10 @@ class InteractiveBackgroundEffects {
             EFFECT_REGISTRY[idx].instance.configure(rng, hues);
         }
 
-        // Every universe hatches a cursor familiar
+        // Every universe hatches a cursor familiar, and sets a visiting
+        // schedule for travelers from sibling universes
         cursorFamiliar.configure(rng, hues, blueprintName);
+        travelers.configure(rng, hues, blueprintName);
     }
 
     /**
@@ -117,6 +120,7 @@ class InteractiveBackgroundEffects {
             }
         }
 
+        travelers.update(mx, my, isClicking);
         cursorFamiliar.update(mx, my, isClicking);
     }
 
@@ -142,7 +146,8 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // The familiar draws last: it should always read on top of the scenery
+        // Visitors beneath, then the player's familiar on top of everything
+        travelers.draw(ctx, system);
         cursorFamiliar.draw(ctx, system);
     }
 

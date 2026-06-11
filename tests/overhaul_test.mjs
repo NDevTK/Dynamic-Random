@@ -163,5 +163,49 @@ Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true }
     console.log(`familiar curiosity: visits points of interest while idle (${drift | 0}px), returns when you move`);
 }
 
+// ── travelers: visitors from sibling universes ───────────────────────────────
+{
+    const { travelers } = await import(JS + '/travelers.js');
+    const { pointsOfInterest } = await import(JS + '/points_of_interest.js');
+    const { familiarMemory } = await import(JS + '/familiar_memory.js');
+
+    travelers.configure(mulberry32(stringToSeed('VISITORS')), [{ h: 210, s: 80, l: 60 }], 'Classical');
+    travelers._nextArrivalAt = 10; // don't wait 2-5 minutes in a test
+
+    const memBefore = familiarMemory.totalActiveTicks;
+    let arrived = false;
+    let sawAlpha = 0;
+    for (let f = 0; f < 600; f++) {
+        pointsOfInterest.beginFrame();
+        pointsOfInterest.publish(900, 500, 'planet', 1);
+        travelers.update(400, 300, false);
+        if (travelers.count > 0) {
+            arrived = true;
+            sawAlpha = Math.max(sawAlpha, travelers._travelers[0].alpha);
+            const tr = travelers._travelers[0];
+            if (!Number.isFinite(tr.x) || !Number.isFinite(tr.familiar.x)) { fail('traveler state NaN'); break; }
+        }
+    }
+    if (!arrived) fail('a traveler should have arrived');
+    if (sawAlpha < 0.9) fail(`traveler should fade fully in (peaked at ${sawAlpha.toFixed(2)})`);
+    if (!travelers.current || !travelers.current.name) fail('HUD payload missing');
+    if (!/^[A-Z]+-[A-Z]+-\d{4}(-(II|III|IV|V))?$/.test(travelers.current.homeSeed)) {
+        fail(`home seed not shareable: "${travelers.current.homeSeed}"`);
+    }
+    if (familiarMemory.totalActiveTicks !== memBefore) {
+        fail('traveler familiars must not feed the player familiar\'s memory');
+    }
+
+    // Force departure and confirm the fade-out clears everything
+    travelers._travelers[0].leaveAt = 0;
+    for (let f = 0; f < 800 && travelers.count > 0; f++) {
+        pointsOfInterest.beginFrame();
+        travelers.update(400, 300, false);
+    }
+    if (travelers.count !== 0) fail('traveler should depart and despawn');
+    if (travelers.current !== null) fail('HUD payload should clear after departure');
+    console.log(`travelers: arrive, roam (alpha ${sawAlpha.toFixed(2)}), shareable home seed, leave cleanly, memory untouched`);
+}
+
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nALL TESTS PASSED');

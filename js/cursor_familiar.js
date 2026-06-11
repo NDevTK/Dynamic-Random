@@ -25,7 +25,13 @@ const TAU = Math.PI * 2;
 const MAX_TRAIL = 70;
 
 class CursorFamiliar {
-    constructor() {
+    /**
+     * @param {boolean} isPlayer - The player's familiar grows from
+     * familiarMemory and records play time; traveler familiars
+     * (travelers.js) get a seeded stage and leave the memory alone.
+     */
+    constructor(isPlayer = false) {
+        this._isPlayer = isPlayer;
         this.species = FAMILIAR_SPECIES[0];
         this.x = 0;
         this.y = 0;
@@ -75,8 +81,11 @@ class CursorFamiliar {
 
     configure(rng, hues, blueprintName) {
         this.species = selectSpecies(rng, blueprintName || '');
-        // Familiars grow with cumulative play time across visits (familiar_memory.js)
-        const stage = familiarMemory.loaded ? familiarMemory.stage : 0;
+        // The player's familiar grows with cumulative play time across visits
+        // (familiar_memory.js); a traveler's arrives at a seeded modest stage
+        const stage = this._isPlayer && familiarMemory.loaded
+            ? familiarMemory.stage
+            : Math.floor(rng() * 3);
         this.stage = stage;
         this.size = (4.5 + rng() * 4) * (0.85 + stage * 0.12);
         this.hue = hues && hues.length > 0 ? hues[0].h : rng() * 360;
@@ -122,8 +131,8 @@ class CursorFamiliar {
         if (mouseSpeed > 1.5 || isClicking) this._idleTicks = 0;
         else this._idleTicks++;
 
-        // Time genuinely spent together feeds long-term growth
-        if (this.excitement > 0.05) familiarMemory.recordActivity();
+        // Time genuinely spent together feeds long-term growth (player only)
+        if (this._isPlayer && this.excitement > 0.05) familiarMemory.recordActivity();
 
         // Startle on click edge
         if (isClicking && !this._wasClicking) {
@@ -253,4 +262,5 @@ class CursorFamiliar {
     }
 }
 
-export const cursorFamiliar = new CursorFamiliar();
+export { CursorFamiliar };
+export const cursorFamiliar = new CursorFamiliar(true);

@@ -135,5 +135,89 @@ console.log(`kernel: ${kernelBytes.length} hand-assembled bytes validate`);
     console.log('determinism: identical replay from identical seed');
 }
 
+// ── 6. Physics kernel: f64 module validates ──────────────────────────────────
+const { buildPhysicsBytes, stepClothRef, stepSoftRef } = await import('../js/physics_kernel.js');
+const { wasmPhysics } = await import('../js/wasm_physics.js');
+{
+    const bytes = buildPhysicsBytes();
+    if (!WebAssembly.validate(bytes)) fail('physics module is INVALID');
+    console.log(`physics kernel: ${bytes.length} hand-assembled f64 bytes validate (stepCloth + stepSoft)`);
+}
+
+// ── 7. Cloth: WASM ≡ JS reference, bit-exact over a turbulent run ────────────
+{
+    const mk = () => wasmPhysics.createClothGrid(24, 16, 12, 100, 50);
+    const A = mk();
+    const B = mk();
+    const okA = await A.points._phys.ready;
+    if (!okA) fail('cloth WASM instance failed to compile');
+    B.points._phys.wasmCloth = null; // hold B on the JS reference forever
+    B.points._phys.ready.then(() => { B.points._phys.wasmCloth = null; B.points._phys.wasmSoft = null; });
+
+    // Identical perturbations through the public accessor API
+    for (const S of [A, B]) {
+        S.points[100].pinned = true;
+        S.points[40].x += 7.25;
+        S.points[41].oldY -= 3.5;
+        wasmPhysics.applyForceAt(S.points, 4.5, -2.25, 160, 120, 90);
+    }
+    for (let f = 0; f < 150; f++) {
+        wasmPhysics.stepCloth(A.points, A.constraints, 0.4, 0.985, 4);
+        wasmPhysics.stepCloth(B.points, B.constraints, 0.4, 0.985, 4);
+        if (f % 30 === 0) {
+            for (const S of [A, B]) wasmPhysics.applyForceAt(S.points, -2 + f * 0.01, 1.5, 200, 140, 70);
+        }
+    }
+    const bA = A.points._phys;
+    const bB = B.points._phys;
+    if (!bA.wasmCloth) fail('cloth A never used the WASM kernel');
+    let mismatches = 0;
+    for (let i = 0; i < bA.n; i++) {
+        if (bA.xs[i] !== bB.xs[i] || bA.ys[i] !== bB.ys[i]
+            || bA.oxs[i] !== bB.oxs[i] || bA.oys[i] !== bB.oys[i]) mismatches++;
+    }
+    if (mismatches > 0) fail(`cloth WASM diverged from reference at ${mismatches}/${bA.n} points`);
+    // Pinned points never moved
+    if (bA.xs[0] !== 100 || bA.ys[0] !== 50) fail('pinned corner moved');
+    if (!Number.isFinite(bA.xs[200])) fail('cloth went non-finite');
+    console.log(`cloth: WASM ≡ JS reference bit-exact at all ${bA.n} points over 150 turbulent steps (pins held)`);
+}
+
+// ── 8. Soft body: WASM ≡ JS reference with pressure, bit-exact ──────────────
+{
+    const mk = () => wasmPhysics.createSoftBody(300, 200, 60, 22);
+    const A = mk();
+    const B = mk();
+    await A.points._phys.ready;
+    B.points._phys.wasmSoft = null;
+    B.points._phys.ready.then(() => { B.points._phys.wasmCloth = null; B.points._phys.wasmSoft = null; });
+
+    for (const S of [A, B]) {
+        S.points[5].oldX -= 6;
+        wasmPhysics.applyForceAt(S.points, 0, -5, 300, 260, 80);
+    }
+    for (let f = 0; f < 200; f++) {
+        wasmPhysics.stepSoftBody(A.points, A.constraints, 0.6, 0.3, 0.97, 5);
+        wasmPhysics.stepSoftBody(B.points, B.constraints, 0.6, 0.3, 0.97, 5);
+    }
+    const bA = A.points._phys;
+    const bB = B.points._phys;
+    if (!bA.wasmSoft) fail('softbody A never used the WASM kernel');
+    let mismatches = 0;
+    for (let i = 0; i < bA.n; i++) {
+        if (bA.xs[i] !== bB.xs[i] || bA.ys[i] !== bB.ys[i]) mismatches++;
+    }
+    if (mismatches > 0) fail(`softbody WASM diverged at ${mismatches}/${bA.n} points`);
+    // Pressure keeps the blob inflated: mean radius from centroid stays > half rest
+    let cx = 0, cy = 0;
+    for (let i = 0; i < bA.n; i++) { cx += bA.xs[i]; cy += bA.ys[i]; }
+    cx /= bA.n; cy /= bA.n;
+    let meanR = 0;
+    for (let i = 0; i < bA.n; i++) meanR += Math.hypot(bA.xs[i] - cx, bA.ys[i] - cy);
+    meanR /= bA.n;
+    if (!(meanR > 30)) fail(`blob collapsed: mean radius ${meanR}`);
+    console.log(`softbody: WASM ≡ JS reference bit-exact at all ${bA.n} points over 200 steps (blob stayed inflated, r̄=${meanR.toFixed(1)})`);
+}
+
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nALL TESTS PASSED');

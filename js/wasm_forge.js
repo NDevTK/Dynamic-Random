@@ -77,6 +77,22 @@ export class Asm {
 
     load8(offset = 0) { return this.raw(0x2d, 0x00, ...uleb(offset)); }   // i32.load8_u
     store8(offset = 0) { return this.raw(0x3a, 0x00, ...uleb(offset)); }  // i32.store8
+    load32(offset = 0) { return this.raw(0x28, 0x02, ...uleb(offset)); }  // i32.load
+    loadF(offset = 0) { return this.raw(0x2b, 0x03, ...uleb(offset)); }   // f64.load
+    storeF(offset = 0) { return this.raw(0x39, 0x03, ...uleb(offset)); }  // f64.store
+
+    constF(v) { // f64.const
+        const b = new Uint8Array(8);
+        new DataView(b.buffer).setFloat64(0, v, true);
+        return this.raw(0x44, ...b);
+    }
+    fAdd() { return this.raw(0xa0); }
+    fSub() { return this.raw(0xa1); }
+    fMul() { return this.raw(0xa2); }
+    fDiv() { return this.raw(0xa3); }
+    fSqrt() { return this.raw(0x9f); }
+    fEq() { return this.raw(0x61); }
+    fLt() { return this.raw(0x63); }
 
     add() { return this.raw(0x6a); }
     sub() { return this.raw(0x6b); }
@@ -128,33 +144,57 @@ export class Asm {
     brIf(label) { return this.raw(0x0d, ...uleb(this._depthOf(label))); }
 }
 
+const TYPE = { i32: 0x7f, f64: 0x7c };
+
+function strBytes(s) {
+    return [...uleb(s.length), ...Array.from(s, (c) => c.charCodeAt(0))];
+}
+
+/** Group consecutive same-type locals into WASM local declarations. */
+function localGroups(types) {
+    const groups = [];
+    for (const t of types) {
+        const last = groups[groups.length - 1];
+        if (last && last.t === t) last.n++;
+        else groups.push({ t, n: 1 });
+    }
+    return groups.map((g) => [...uleb(g.n), TYPE[g.t]]);
+}
+
 /**
- * Build a complete module: one exported function `step` over one imported
- * memory env.mem.
- * @param {object} spec
- * @param {number} spec.params - number of i32 parameters
- * @param {number} spec.locals - number of extra i32 locals
- * @param {number[]} spec.body - function body bytes (without the final end)
+ * Build a complete module over one imported memory env.mem.
+ *
+ * Two forms:
+ *  - Legacy single function (used by alchemy_kernel.js):
+ *      { params: <i32 count>, locals: <i32 count>, body }  → exports "step"
+ *  - Multi-function with typed signatures:
+ *      { funcs: [{ name, params: ['i32','f64',...], locals: [...types], body }] }
+ *
  * @returns {Uint8Array} a valid .wasm binary
  */
-export function buildModule({ params, locals, body }) {
-    const typeSec = section(1, vec([
-        [0x60, ...uleb(params), ...Array(params).fill(0x7f), 0x00],
-    ]));
+export function buildModule(spec) {
+    const funcs = spec.funcs || [{
+        name: 'step',
+        params: Array(spec.params).fill('i32'),
+        locals: Array(spec.locals).fill('i32'),
+        body: spec.body,
+    }];
+
+    const typeSec = section(1, vec(funcs.map((f) =>
+        [0x60, ...uleb(f.params.length), ...f.params.map((t) => TYPE[t]), 0x00]
+    )));
     const importSec = section(2, vec([
         // "env" "mem" memory, limits: min 1 page (instantiation may pass more)
-        [...uleb(3), 0x65, 0x6e, 0x76, ...uleb(3), 0x6d, 0x65, 0x6d, 0x02, 0x00, ...uleb(1)],
+        [...strBytes('env'), ...strBytes('mem'), 0x02, 0x00, ...uleb(1)],
     ]));
-    const funcSec = section(3, vec([[0x00]]));
-    const exportSec = section(7, vec([
-        [...uleb(4), 0x73, 0x74, 0x65, 0x70, 0x00, 0x00], // "step" func 0
-    ]));
-    const bodyBytes = [
-        ...vec(locals > 0 ? [[...uleb(locals), 0x7f]] : []),
-        ...body,
-        0x0b,
-    ];
-    const codeSec = section(10, vec([[...uleb(bodyBytes.length), ...bodyBytes]]));
+    const funcSec = section(3, vec(funcs.map((_, i) => [...uleb(i)])));
+    const exportSec = section(7, vec(funcs.map((f, i) =>
+        [...strBytes(f.name), 0x00, ...uleb(i)]
+    )));
+    const codeSec = section(10, vec(funcs.map((f) => {
+        const bodyBytes = [...vec(localGroups(f.locals)), ...f.body, 0x0b];
+        return [...uleb(bodyBytes.length), ...bodyBytes];
+    })));
 
     return Uint8Array.from([
         0x00, 0x61, 0x73, 0x6d, // \0asm

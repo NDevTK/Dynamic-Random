@@ -56,11 +56,14 @@ python3 -m http.server 8000   # or any static server
 
 No bundler, no `node_modules`. Everything is plain ES modules under `js/`,
 including the in-house particle engine (`js/particle_engine.js`) — and the
-in-house **WebAssembly assembler** (`js/wasm_forge.js`), which emits a valid
-.wasm binary byte-by-byte at runtime. It powers the Alchemy architecture: a
-~130,000-cell falling-sand world (sand, water, fire, plant, smoke, lava)
-whose chemistry rates are seeded per universe. The plain-JS reference kernel
-is both the spec and the fallback; tests prove the two are cell-identical.
+in-house **WebAssembly assembler** (`js/wasm_forge.js`), which emits valid
+.wasm binaries byte-by-byte at runtime. It powers the Alchemy architecture —
+a ~130,000-cell falling-sand world (sand, water, fire, plant, smoke, lava)
+whose chemistry rates are seeded per universe — and the cloth/soft-body
+Verlet solver in `js/wasm_physics.js`. In both cases the plain-JS reference
+kernel is the spec and the fallback; tests prove WASM and JS identical
+(cell-for-cell for alchemy, bit-exact f64 for physics), so the WASM kernel
+can take over mid-simulation invisibly.
 
 ## Tests
 

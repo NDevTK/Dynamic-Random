@@ -19,6 +19,8 @@
  * the hub flashes.
  */
 
+import { pointsOfInterest } from './points_of_interest.js';
+
 const TAU = Math.PI * 2;
 
 export class ClockworkOrrery {
@@ -150,6 +152,9 @@ export class ClockworkOrrery {
             for (const moon of arm.moons) {
                 moon.angle += moon.speed * (this._windDown > 0 ? 2.2 : 1);
             }
+
+            // Planets are worth a visit from the cursor familiar
+            pointsOfInterest.publish(px, py, 'planet', 0.8 + arm.planetR * 0.05);
         }
     }
 

@@ -177,13 +177,18 @@ const generativeMusic = (() => {
       const filterNode = nodes.find(n => n.type === 'filter');
       if (!filterNode) return;
       const speed = system.speedMultiplier || 1;
-      let cutoff = filterBase;
+      // The soundtrack ages with the universe: bright at First Light,
+      // muffled and cavernous by The Last Ember (epoch_system.js)
+      const epoch = system.epochIndex || 0;
+      const epochMul = [1.15, 1.0, 0.7, 0.45][epoch] || 1;
+      const epochFb = [0.4, 0.45, 0.52, 0.6][epoch] || 0.45;
+      let cutoff = filterBase * epochMul;
       if (speed > 5) {
-        cutoff = filterBase + (speed - 5) * 200;
+        cutoff += (speed - 5) * 200;
         if (delayFeedback) delayFeedback.gain.setTargetAtTime(
-          Math.min(0.7, 0.45 + (speed - 5) * 0.03), ctx.currentTime, 0.5);
+          Math.min(0.7, epochFb + (speed - 5) * 0.03), ctx.currentTime, 0.5);
       } else if (delayFeedback) {
-        delayFeedback.gain.setTargetAtTime(0.45, ctx.currentTime, 0.5);
+        delayFeedback.gain.setTargetAtTime(epochFb, ctx.currentTime, 0.5);
       }
       filterNode.node.frequency.setTargetAtTime(
         Math.min(cutoff, 6000), ctx.currentTime, 0.5);

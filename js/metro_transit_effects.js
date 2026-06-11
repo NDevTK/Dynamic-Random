@@ -29,6 +29,7 @@
  */
 
 import { generateMetroNetwork, pointAtDist, nearestOnLine } from './metro_map_generator.js';
+import { pointsOfInterest } from './points_of_interest.js';
 
 const TAU = Math.PI * 2;
 
@@ -284,6 +285,15 @@ export class MetroTransit {
                 t.dwell = this._dwellTicks; // terminus layover
                 this._syncNextStop(t);
             }
+        }
+
+        // ── Lead cars are worth a look from the cursor familiar ──
+        const psx = Math.max(1, window.innerWidth) / this._genW;
+        const psy = Math.max(1, window.innerHeight) / this._genH;
+        for (let i = 0; i < this._trains.length && i < 6; i++) {
+            const t = this._trains[i];
+            t.seg = pointAtDist(t.line, t.dist, t.seg, this._pt);
+            pointsOfInterest.publish(this._pt.x * psx, this._pt.y * psy, 'train', t.express ? 1.2 : 0.9);
         }
 
         // ── Pings ──

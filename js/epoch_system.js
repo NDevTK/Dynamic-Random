@@ -113,6 +113,7 @@ export const epochSystem = {
         pJS.particles.number.value_max = Math.round(this._baseMax * maxMul);
         background.epochDim = a.dim + (b.dim - a.dim) * t;
         background.epochHueBias = a.hueBias + (b.hueBias - a.hueBias) * t;
+        background.epochIndex = idx; // consumed by the generative soundtrack
     },
 
     /** A new universe just generated: reset age and capture its baselines. */
@@ -130,6 +131,7 @@ export const epochSystem = {
         this._baseMax = pJS.particles.number.value_max;
         background.epochDim = 0;
         background.epochHueBias = EPOCHS[0].hueBias;
+        background.epochIndex = 0;
     },
 
     /** Heat death: a small supernova flourish, then the descendant takes over. */

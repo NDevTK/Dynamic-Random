@@ -132,5 +132,36 @@ Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true }
     console.log('environment_sense: degrades gracefully without browser APIs');
 }
 
+// ── familiar curiosity via the points-of-interest bus ───────────────────────
+{
+    const { pointsOfInterest } = await import(JS + '/points_of_interest.js');
+    const { cursorFamiliar } = await import(JS + '/cursor_familiar.js');
+    cursorFamiliar.configure(mulberry32(stringToSeed('CURIOUS')), [{ h: 210, s: 80, l: 60 }], 'Classical');
+
+    // Settle at the cursor, then go idle while something interesting happens
+    for (let f = 0; f < 200; f++) {
+        pointsOfInterest.beginFrame();
+        cursorFamiliar.update(600, 400, false);
+    }
+    for (let f = 0; f < 1400; f++) {
+        pointsOfInterest.beginFrame();
+        pointsOfInterest.publish(950, 300, 'train', 1);
+        cursorFamiliar.update(600, 400, false);
+    }
+    const drift = Math.hypot(cursorFamiliar.x - 950, cursorFamiliar.y - 300);
+    if (drift > 90) fail(`idle familiar should visit the point of interest (ended ${drift | 0}px away)`);
+    if (!cursorFamiliar.curious) fail('familiar should report curiosity');
+    if (cursorFamiliar.mode === 'doze') fail('a curious familiar must not doze');
+
+    // Moving the cursor recalls it
+    for (let f = 0; f < 600; f++) {
+        pointsOfInterest.beginFrame();
+        pointsOfInterest.publish(950, 300, 'train', 1);
+        cursorFamiliar.update(600 + Math.sin(f * 0.3) * 60, 400, false);
+    }
+    if (Math.abs(cursorFamiliar.x - 950) < 200) fail('familiar should return to a moving cursor');
+    console.log(`familiar curiosity: visits points of interest while idle (${drift | 0}px), returns when you move`);
+}
+
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nALL TESTS PASSED');

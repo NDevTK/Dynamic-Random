@@ -18,6 +18,7 @@
 
 import { FAMILIAR_SPECIES, selectSpecies } from './familiar_species.js';
 import { familiarMemory } from './familiar_memory.js';
+import { pointsOfInterest } from './points_of_interest.js';
 
 const TAU = Math.PI * 2;
 
@@ -133,17 +134,27 @@ class CursorFamiliar {
         this._wasClicking = isClicking;
         if (this.startleT > 0) this.startleT = Math.max(0, this.startleT - 0.025);
 
-        // Doze state eases in and out
-        const dozing = this._idleTicks > this._dozeAfter;
+        // Curiosity: once you've been still a moment, the familiar wanders
+        // off to watch whatever the universe is doing nearby — a passing
+        // metro train, an orrery planet, a toppling domino run, a lighthouse
+        // lamp (points_of_interest.js). It returns the moment you move.
+        const poi = this._idleTicks > 90 ? pointsOfInterest.nearest(this.x, this.y, 540) : null;
+        this.curious = !!poi;
+
+        // Doze state eases in and out (a curious familiar doesn't sleep)
+        const dozing = this._idleTicks > this._dozeAfter && !poi;
         this.mode = this.startleT > 0.5 ? 'startle' : dozing ? 'doze' : 'follow';
         this.dozeT += ((dozing ? 1 : 0) - this.dozeT) * 0.02;
+        if (poi) this.excitement = Math.max(this.excitement, 0.14);
 
-        // Spring-follow a perch point near the cursor; the offset drifts so the
-        // familiar circles you while you work
+        // Spring-follow a perch point near the cursor — or hover beside the
+        // point of interest while curious; the offset drifts so it circles
         this._offsetAng += 0.004 + this.excitement * 0.01;
-        const perchR = this._offsetR * (1 - this.dozeT * 0.4) * (1 - this.excitement * 0.5);
-        const tx = mx + Math.cos(this._offsetAng) * perchR;
-        const ty = my + Math.sin(this._offsetAng) * perchR * 0.7;
+        const anchorX = poi ? poi.x : mx;
+        const anchorY = poi ? poi.y : my;
+        const perchR = (poi ? 22 : this._offsetR) * (1 - this.dozeT * 0.4) * (1 - this.excitement * 0.5);
+        const tx = anchorX + Math.cos(this._offsetAng) * perchR;
+        const ty = anchorY + Math.sin(this._offsetAng) * perchR * 0.7;
         const k = this._followK * (this.mode === 'startle' ? 2.2 : 1) * (1 - this.dozeT * 0.7);
         this.vx = (this.vx + (tx - this.x) * k) * this._damping;
         this.vy = (this.vy + (ty - this.y) * k) * this._damping;

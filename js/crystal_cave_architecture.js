@@ -296,7 +296,10 @@ export class CrystalCaveArchitecture extends Architecture {
                 // Prismatic beam away from light
                 const refAngle = crystal.angle + Math.PI * 0.3;
                 const beamLen = 80 + (1 - dist / 350) * 120;
-                const refColor = this.palette.refraction[Math.floor(this.tick * 0.02 + crystal.hueShift) % this.palette.refraction.length];
+                // hueShift can be negative, so wrap the index properly (a plain
+                // % went negative and indexed undefined for some seeds)
+                const refLen = this.palette.refraction.length;
+                const refColor = this.palette.refraction[((Math.floor(this.tick * 0.02 + crystal.hueShift) % refLen) + refLen) % refLen];
 
                 ctx.beginPath();
                 ctx.moveTo(tipX, tipY);

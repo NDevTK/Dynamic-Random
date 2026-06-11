@@ -260,9 +260,11 @@ export class WebGPUParticleArchitecture extends Architecture {
 
         if (this.useGPU && this._gpuReady) {
             this._updateGPU(system);
-        } else {
+        } else if (this._cpuX) {
             this._updateCPU(system);
         }
+        // else: async init() hasn't resolved yet — neither GPU nor CPU state
+        // exists, and the first frames land before the await completes
     }
 
     _updateGPU(system) {
@@ -378,7 +380,7 @@ export class WebGPUParticleArchitecture extends Architecture {
 
         if (this.useGPU && this._pendingPositions) {
             this._drawGPU(ctx, system);
-        } else if (!this.useGPU) {
+        } else if (!this.useGPU && this._cpuX) {
             this._drawCPU(ctx, system);
         }
 

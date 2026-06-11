@@ -37,9 +37,10 @@ function hash01(str, salt) {
  * @param {number} width
  * @param {number} height
  * @param {string} currentSeed - highlighted star
+ * @param {Set<string>} [capsuleSeeds] - seeds holding an unopened time capsule
  * @returns {{ stars: Array, lineageLinks: Array, journeyLinks: Array }}
  */
-export function chartLayout(entries, width, height, currentSeed) {
+export function chartLayout(entries, width, height, currentSeed, capsuleSeeds) {
     const cx = width / 2;
     const cy = height / 2;
     const maxR = Math.min(width, height) * 0.46;
@@ -80,6 +81,7 @@ export function chartLayout(entries, width, height, currentSeed) {
             hue: blueprintHue(en.blueprint),
             met,
             current: en.seed === currentSeed,
+            hasCapsule: !!(capsuleSeeds && capsuleSeeds.has(en.seed)),
             generation,
             base,
             entry: en,
@@ -159,11 +161,24 @@ export function drawChart(ctx, layout, width, height, hovered) {
             ctx.arc(s.x, s.y, s.r + 5, 0, Math.PI * 2);
             ctx.stroke();
         }
+        if (s.hasCapsule) {
+            // A small diamond above the star: a message is waiting there
+            const cy2 = s.y - s.r - 7;
+            ctx.fillStyle = 'rgba(235, 220, 180, 0.9)';
+            ctx.beginPath();
+            ctx.moveTo(s.x, cy2 - 3);
+            ctx.lineTo(s.x + 3, cy2);
+            ctx.lineTo(s.x, cy2 + 3);
+            ctx.lineTo(s.x - 3, cy2);
+            ctx.closePath();
+            ctx.fill();
+        }
         if (isHover) {
             const en = s.entry;
-            const label = s.met
+            let label = s.met
                 ? `${en.metName ? en.metName + "'s home — " : ''}${en.seed}`
                 : `${en.epithet || en.seed} · ${en.seed}`;
+            if (s.hasCapsule) label += ' · message waiting';
             ctx.font = '11px "Exo 2", sans-serif';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
             const tw = ctx.measureText(label).width;

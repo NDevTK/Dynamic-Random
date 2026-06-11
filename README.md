@@ -33,6 +33,7 @@ descendant seed (`COSMIC-DRIFT-1234-II`), so lineages stay shareable.
 | `←` `→` | Cycle background architecture |
 | `B` | Blend two architectures |
 | `J` | Journal + Observatory: your visits drawn as a star chart — lineage constellations, your journey line, met-travelers' homes; click a star to travel |
+| `N` | Leave a message in a bottle — it drifts here until found, and travelers may ferry it to their home worlds |
 | `O` | Save a captioned postcard PNG |
 | `P` | Screenshot |
 | `R` | Record a WebM clip (30 s max) |
@@ -71,7 +72,7 @@ can take over mid-simulation invisibly.
 node tests/run_all.mjs
 ```
 
-Ten zero-dependency suites (Node 18+) guard the content registries, the
+Eleven zero-dependency suites (Node 18+) guard the content registries, the
 particle engine's API surface, and every registered effect — see
 [`tests/README.md`](tests/README.md). New effects are picked up automatically;
 if it survives the smoke suite, it ships.

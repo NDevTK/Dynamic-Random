@@ -19,6 +19,7 @@ import { mouse, isLeftMouseDown, isRightMouseDown } from './state.js';
 import { EFFECT_REGISTRY, selectEffects } from './effect_registry.js';
 import { cursorFamiliar } from './cursor_familiar.js';
 import { travelers } from './travelers.js';
+import { timeCapsules } from './time_capsules.js';
 
 class InteractiveBackgroundEffects {
     constructor() {
@@ -88,10 +89,11 @@ class InteractiveBackgroundEffects {
             EFFECT_REGISTRY[idx].instance.configure(rng, hues);
         }
 
-        // Every universe hatches a cursor familiar, and sets a visiting
-        // schedule for travelers from sibling universes
+        // Every universe hatches a cursor familiar, sets a visiting schedule
+        // for travelers, and surfaces any capsules resting here
         cursorFamiliar.configure(rng, hues, blueprintName);
         travelers.configure(rng, hues, blueprintName);
+        timeCapsules.onUniverse();
     }
 
     /**
@@ -120,6 +122,7 @@ class InteractiveBackgroundEffects {
             }
         }
 
+        timeCapsules.update(mx, my, isClicking);
         travelers.update(mx, my, isClicking);
         cursorFamiliar.update(mx, my, isClicking);
     }
@@ -146,7 +149,8 @@ class InteractiveBackgroundEffects {
             }
         }
 
-        // Visitors beneath, then the player's familiar on top of everything
+        // Bottles in the water, then visitors, then the player's familiar on top
+        timeCapsules.draw(ctx, system);
         travelers.draw(ctx, system);
         cursorFamiliar.draw(ctx, system);
     }

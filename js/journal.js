@@ -20,6 +20,7 @@ import { loreCodex } from './lore_codex.js';
 import { parseLineage, toRoman } from './epoch_system.js';
 import { currentSeed } from './state.js';
 import { chartLayout, drawChart, hitTest } from './observatory_chart.js';
+import { timeCapsules } from './time_capsules.js';
 
 const STORAGE_KEY = 'celestial-journal';
 const MAX_ENTRIES = 150;
@@ -232,7 +233,7 @@ export const journal = {
         const h = Math.min(460, Math.floor(window.innerHeight * 0.62));
         this._canvas.width = w;
         this._canvas.height = h;
-        this._layout = chartLayout(this._entries, w, h, currentSeed);
+        this._layout = chartLayout(this._entries, w, h, currentSeed, timeCapsules.capsuleSeeds());
         this._hovered = null;
         drawChart(this._ctx, this._layout, w, h, null);
     },

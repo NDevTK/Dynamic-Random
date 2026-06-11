@@ -17,6 +17,7 @@ const SHORTCUTS = [
     { key: 'R',              desc: 'Record a WebM clip (30s max)' },
     { key: 'O',              desc: 'Save a captioned postcard PNG' },
     { key: 'J',              desc: 'Journal + Observatory star chart' },
+    { key: 'N',              desc: 'Leave a message in a bottle here' },
     { key: '\ud83c\udfb9',   desc: 'Toolbar: MIDI knobs warp, notes strike' },
     { key: '\u2190 \u2192',  desc: 'Cycle architecture' },
     { key: 'Click',          desc: 'Shockwave' },

@@ -43,6 +43,7 @@ import { videoExport } from './video_export.js';
 import { familiarMemory } from './familiar_memory.js';
 import { postcard } from './postcard.js';
 import { journal } from './journal.js';
+import { timeCapsules } from './time_capsules.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Loading animation (must be first) ---
@@ -53,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     familiarMemory.init();
     // Journal must load before the first universe records itself
     journal.init();
+    timeCapsules.init();
 
     // --- Initial Load ---
     // In-house engine (particle_engine.js) — no CDN dependency

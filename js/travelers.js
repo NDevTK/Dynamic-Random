@@ -38,6 +38,7 @@ import { generateRandomSeed, mulberry32, stringToSeed } from './utils.js';
 import { TinyBrain } from './neural_brain.js';
 import { travelerMinds } from './traveler_minds.js';
 import { journal } from './journal.js';
+import { timeCapsules } from './time_capsules.js';
 
 const GEN_SUFFIX = ['', '', '-II', '-III', '-IV', '-V']; // most travelers are gen I-III
 
@@ -244,9 +245,10 @@ class Travelers {
             } else {
                 t.alpha = Math.max(0, t.alpha - 0.008);
                 if (t.alpha <= 0) {
-                    // The mind enters the gene pool, scored by the visit —
-                    // and their home world is charted in the journal
+                    // The mind enters the gene pool, scored by the visit; the
+                    // home world is charted — and they may carry a capsule home
                     travelerMinds.record(t.brain.genome, this._fitness(t), t.mindGen);
+                    timeCapsules.ferryWith(() => this._rand(), t.name, t.homeSeed);
                     journal.recordMet(t.homeSeed, t.name);
                     this._travelers.splice(i, 1);
                     if (this.current && this.current.name === t.name) this.current = null;

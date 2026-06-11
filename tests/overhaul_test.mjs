@@ -20,9 +20,14 @@ globalThis.window = {
     matchMedia: () => ({ matches: false, addEventListener: noop }),
 };
 globalThis.document = {
-    createElement: () => ({ getContext: () => ctxStub, style: {}, width: 0, height: 0 }),
-    addEventListener: noop,
+    createElement: () => ({ getContext: () => ctxStub, style: {}, width: 0, height: 0,
+        addEventListener: noop, appendChild: noop, classList: { add: noop, remove: noop } }),
+    getElementById: () => ({ style: { setProperty: noop }, classList: { add: noop, remove: noop } }),
+    addEventListener: noop, querySelector: () => null,
+    body: { appendChild: noop, prepend: noop, classList: { add: noop, remove: noop } },
+    head: { appendChild: noop }, visibilityState: 'visible',
 };
+globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: noop, removeItem: noop };
 // Node 22 exposes a read-only navigator getter — shadow it via defineProperty
 Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
 

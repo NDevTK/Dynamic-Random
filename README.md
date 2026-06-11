@@ -32,7 +32,7 @@ descendant seed (`COSMIC-DRIFT-1234-II`), so lineages stay shareable.
 | Right-click hold | Gravity well |
 | `←` `→` | Cycle background architecture |
 | `B` | Blend two architectures |
-| `J` | Constellation journal (every universe you've visited) |
+| `J` | Journal + Observatory: your visits drawn as a star chart — lineage constellations, your journey line, met-travelers' homes; click a star to travel |
 | `O` | Save a captioned postcard PNG |
 | `P` | Screenshot |
 | `R` | Record a WebM clip (30 s max) |

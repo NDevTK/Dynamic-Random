@@ -37,6 +37,7 @@ import { pointsOfInterest } from './points_of_interest.js';
 import { generateRandomSeed, mulberry32, stringToSeed } from './utils.js';
 import { TinyBrain } from './neural_brain.js';
 import { travelerMinds } from './traveler_minds.js';
+import { journal } from './journal.js';
 
 const GEN_SUFFIX = ['', '', '-II', '-III', '-IV', '-V']; // most travelers are gen I-III
 
@@ -243,8 +244,10 @@ class Travelers {
             } else {
                 t.alpha = Math.max(0, t.alpha - 0.008);
                 if (t.alpha <= 0) {
-                    // The mind enters the gene pool, scored by the visit
+                    // The mind enters the gene pool, scored by the visit —
+                    // and their home world is charted in the journal
                     travelerMinds.record(t.brain.genome, this._fitness(t), t.mindGen);
+                    journal.recordMet(t.homeSeed, t.name);
                     this._travelers.splice(i, 1);
                     if (this.current && this.current.name === t.name) this.current = null;
                     continue;

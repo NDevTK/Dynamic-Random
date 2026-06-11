@@ -20,9 +20,14 @@ globalThis.window = {
     matchMedia: () => ({ matches: false, addEventListener: noop }),
 };
 globalThis.document = {
-    createElement: () => ({ getContext: () => ctxStub, style: {}, width: 0, height: 0 }),
-    addEventListener: noop,
+    createElement: () => ({ getContext: () => ctxStub, style: {}, width: 0, height: 0,
+        addEventListener: noop, appendChild: noop, classList: { add: noop, remove: noop } }),
+    getElementById: () => ({ style: { setProperty: noop }, classList: { add: noop, remove: noop } }),
+    addEventListener: noop, querySelector: () => null,
+    body: { appendChild: noop, prepend: noop, classList: { add: noop, remove: noop } },
+    head: { appendChild: noop }, visibilityState: 'visible',
 };
+globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: noop, removeItem: noop };
 // Node 22 exposes a read-only navigator getter — shadow it via defineProperty
 Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
 
@@ -130,6 +135,81 @@ Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true }
     await environmentSense.requestWakeLock(); // unsupported — must resolve quietly
     if (environmentSense.qualityCap !== 1) fail('default quality cap should be 1');
     console.log('environment_sense: degrades gracefully without browser APIs');
+}
+
+// ── familiar curiosity via the points-of-interest bus ───────────────────────
+{
+    const { pointsOfInterest } = await import(JS + '/points_of_interest.js');
+    const { cursorFamiliar } = await import(JS + '/cursor_familiar.js');
+    cursorFamiliar.configure(mulberry32(stringToSeed('CURIOUS')), [{ h: 210, s: 80, l: 60 }], 'Classical');
+
+    // Settle at the cursor, then go idle while something interesting happens
+    for (let f = 0; f < 200; f++) {
+        pointsOfInterest.beginFrame();
+        cursorFamiliar.update(600, 400, false);
+    }
+    for (let f = 0; f < 1400; f++) {
+        pointsOfInterest.beginFrame();
+        pointsOfInterest.publish(950, 300, 'train', 1);
+        cursorFamiliar.update(600, 400, false);
+    }
+    const drift = Math.hypot(cursorFamiliar.x - 950, cursorFamiliar.y - 300);
+    if (drift > 90) fail(`idle familiar should visit the point of interest (ended ${drift | 0}px away)`);
+    if (!cursorFamiliar.curious) fail('familiar should report curiosity');
+    if (cursorFamiliar.mode === 'doze') fail('a curious familiar must not doze');
+
+    // Moving the cursor recalls it
+    for (let f = 0; f < 600; f++) {
+        pointsOfInterest.beginFrame();
+        pointsOfInterest.publish(950, 300, 'train', 1);
+        cursorFamiliar.update(600 + Math.sin(f * 0.3) * 60, 400, false);
+    }
+    if (Math.abs(cursorFamiliar.x - 950) < 200) fail('familiar should return to a moving cursor');
+    console.log(`familiar curiosity: visits points of interest while idle (${drift | 0}px), returns when you move`);
+}
+
+// ── travelers: visitors from sibling universes ───────────────────────────────
+{
+    const { travelers } = await import(JS + '/travelers.js');
+    const { pointsOfInterest } = await import(JS + '/points_of_interest.js');
+    const { familiarMemory } = await import(JS + '/familiar_memory.js');
+
+    travelers.configure(mulberry32(stringToSeed('VISITORS')), [{ h: 210, s: 80, l: 60 }], 'Classical');
+    travelers._nextArrivalAt = 10; // don't wait 2-5 minutes in a test
+
+    const memBefore = familiarMemory.totalActiveTicks;
+    let arrived = false;
+    let sawAlpha = 0;
+    for (let f = 0; f < 600; f++) {
+        pointsOfInterest.beginFrame();
+        pointsOfInterest.publish(900, 500, 'planet', 1);
+        travelers.update(400, 300, false);
+        if (travelers.count > 0) {
+            arrived = true;
+            sawAlpha = Math.max(sawAlpha, travelers._travelers[0].alpha);
+            const tr = travelers._travelers[0];
+            if (!Number.isFinite(tr.x) || !Number.isFinite(tr.familiar.x)) { fail('traveler state NaN'); break; }
+        }
+    }
+    if (!arrived) fail('a traveler should have arrived');
+    if (sawAlpha < 0.9) fail(`traveler should fade fully in (peaked at ${sawAlpha.toFixed(2)})`);
+    if (!travelers.current || !travelers.current.name) fail('HUD payload missing');
+    if (!/^[A-Z]+-[A-Z]+-\d{4}(-(II|III|IV|V))?$/.test(travelers.current.homeSeed)) {
+        fail(`home seed not shareable: "${travelers.current.homeSeed}"`);
+    }
+    if (familiarMemory.totalActiveTicks !== memBefore) {
+        fail('traveler familiars must not feed the player familiar\'s memory');
+    }
+
+    // Force departure and confirm the fade-out clears everything
+    travelers._travelers[0].leaveAt = 0;
+    for (let f = 0; f < 800 && travelers.count > 0; f++) {
+        pointsOfInterest.beginFrame();
+        travelers.update(400, 300, false);
+    }
+    if (travelers.count !== 0) fail('traveler should depart and despawn');
+    if (travelers.current !== null) fail('HUD payload should clear after departure');
+    console.log(`travelers: arrive, roam (alpha ${sawAlpha.toFixed(2)}), shareable home seed, leave cleanly, memory untouched`);
 }
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }

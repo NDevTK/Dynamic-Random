@@ -16,6 +16,8 @@
  * over at the crossing point.
  */
 
+import { pointsOfInterest } from './points_of_interest.js';
+
 const TAU = Math.PI * 2;
 
 // states: 0 standing · 1 falling · 2 down · 3 rising
@@ -175,8 +177,14 @@ export class DominoCascade {
 
         for (const chain of this._chains) {
             const tiles = chain.tiles;
+            let publishedWavefront = false;
             for (let i = 0; i < tiles.length; i++) {
                 const t = tiles[i];
+                // The racing edge of a cascade draws the familiar's attention
+                if (!publishedWavefront && t.state === FALLING && t.progress < 0.6) {
+                    pointsOfInterest.publish(t.x, t.y, 'cascade', 1.1);
+                    publishedWavefront = true;
+                }
                 if (t.state === STANDING) {
                     // A fast cursor sweep knocks tiles at the crossing point
                     if (cursorSpeed > 16) {

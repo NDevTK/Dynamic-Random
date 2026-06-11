@@ -182,7 +182,8 @@ export class WebGPUFluidArchitecture extends Architecture {
         const dvx=(mouse.x-this.prevMx)*0.4, dvy=(mouse.y-this.prevMy)*0.4;
         this.prevMx=mouse.x; this.prevMy=mouse.y;
         if (this.useGPU&&this._gpuReady) this._updateGPU(system,mx,my,dvx,dvy);
-        else this._updateCPU(system,mx,my,dvx,dvy);
+        else if (this._vx) this._updateCPU(system,mx,my,dvx,dvy);
+        // else: async init() hasn't resolved yet — buffers don't exist
     }
 
     _updateGPU(system,mx,my,dvx,dvy) {
@@ -351,6 +352,7 @@ export class WebGPUFluidArchitecture extends Architecture {
     }
 
     draw(system){
+        if(!this._imageData) return; // init() still resolving
         const N=this.N,pixels=this._imageData.data;
         const size=(N+2)*(N+2);
         let p=0;

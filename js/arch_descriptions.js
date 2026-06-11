@@ -83,4 +83,14 @@ export const ARCH_DESCRIPTIONS = [
     'Self-playing arcade games light up the dark',                 // RetroArcade
     'Gears and pendulums tick in mesmerizing sync',                // KineticSculpture
     'Swirling vortexes bridge distant realms',                     // Portal
+    'Time bends in concentric rippling rings',                     // TimeWarp
+    'Half-remembered shapes drift through sleep',                  // DreamWeaver
+    'Tiles riot and resettle in restless mosaics',                 // ChaosMosaic
+    'Sunlight ripples across a sandy seabed',                      // UnderwaterCaustics
+    'A column of debris spirals skyward',                          // ParticleTornado
+    'Leviathans glide through a starlit deep',                     // CosmicWhale
+    'A thousand wings turn as one mind',                           // FlockMurmuration
+    'Signals race down glowing copper veins',                      // NeonCircuitPulse
+    'A patient beam sweeps the fog-bound sea',                     // Lighthouse
+    'Hand-forged elements fall, flow, burn, and bloom',            // Alchemy
 ];

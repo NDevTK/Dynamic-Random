@@ -93,6 +93,8 @@ import { ParticleTornadoArchitecture } from './particle_tornado_architecture.js'
 import { CosmicWhaleArchitecture } from './cosmic_whale_architecture.js';
 import { FlockMurmurationArchitecture } from './flock_murmuration_architecture.js';
 import { NeonCircuitPulseArchitecture } from './neon_circuit_pulse_architecture.js';
+import { LighthouseArchitecture } from './lighthouse_architecture.js';
+import { AlchemyArchitecture } from './alchemy_architecture.js';
 
 /**
  * Architecture registry. Each entry maps a factory to the blueprints it pairs well with.
@@ -162,6 +164,8 @@ export const ARCHITECTURE_REGISTRY = [
     { factory: () => new CosmicWhaleArchitecture(), blueprints: ['AbyssalZone', 'AbyssalHorror', 'Aetherial', 'GlassySea', 'CoralReef', 'GlacialDrift', 'VoidTouched', 'PhantomEcho'], weight: 1 },
     { factory: () => new FlockMurmurationArchitecture(), blueprints: ['SentientSwarm', 'Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'Classical', 'HauntedRealm', 'Aetherial'], weight: 1 },
     { factory: () => new NeonCircuitPulseArchitecture(), blueprints: ['Digital', 'NeonCyber', 'TechnoUtopia', 'BioMechanical', 'ArcaneCodex', 'QuantumFoam', 'StarForged'], weight: 1 },
+    { factory: () => new LighthouseArchitecture(), blueprints: ['AbyssalZone', 'HauntedRealm', 'GlassySea', 'Classical', 'PhantomEcho', 'GlacialDrift', 'AbyssalHorror', 'Aetherial'], weight: 1.1 },
+    { factory: () => new AlchemyArchitecture(), blueprints: ['MoltenHeart', 'VolcanicForge', 'FungalForest', 'Organic', 'GooeyMess', 'AbyssalZone', 'Classical', 'CoralReef'], weight: 1.2 },
     { factory: () => new ReactionDiffusionArchitecture(), blueprints: ['Organic', 'BioMechanical', 'FungalForest', 'CoralReef', 'QuantumFoam', 'SentientSwarm', 'GooeyMess'], weight: 1 },
     { factory: () => new VoronoiArchitecture(), blueprints: ['Crystalline', 'GlassySea', 'ArcaneCodex', 'Papercraft', 'Eldritch', 'AbyssalZone'], weight: 1 },
     { factory: () => new MagneticFieldArchitecture(), blueprints: ['StarForged', 'CelestialForge', 'StellarNursery', 'VolcanicForge', 'MoltenHeart', 'SonicScapes'], weight: 1 },
@@ -285,7 +289,9 @@ export const ALL_ARCHITECTURES = [
     () => new ParticleTornadoArchitecture(),
     () => new CosmicWhaleArchitecture(),
     () => new FlockMurmurationArchitecture(),
-    () => new NeonCircuitPulseArchitecture()
+    () => new NeonCircuitPulseArchitecture(),
+    () => new LighthouseArchitecture(),
+    () => new AlchemyArchitecture()
 ];
 
 // Display-friendly names derived from constructor names

@@ -18,13 +18,20 @@
 
 import { FAMILIAR_SPECIES, selectSpecies } from './familiar_species.js';
 import { familiarMemory } from './familiar_memory.js';
+import { pointsOfInterest } from './points_of_interest.js';
 
 const TAU = Math.PI * 2;
 
 const MAX_TRAIL = 70;
 
 class CursorFamiliar {
-    constructor() {
+    /**
+     * @param {boolean} isPlayer - The player's familiar grows from
+     * familiarMemory and records play time; traveler familiars
+     * (travelers.js) get a seeded stage and leave the memory alone.
+     */
+    constructor(isPlayer = false) {
+        this._isPlayer = isPlayer;
         this.species = FAMILIAR_SPECIES[0];
         this.x = 0;
         this.y = 0;
@@ -74,8 +81,11 @@ class CursorFamiliar {
 
     configure(rng, hues, blueprintName) {
         this.species = selectSpecies(rng, blueprintName || '');
-        // Familiars grow with cumulative play time across visits (familiar_memory.js)
-        const stage = familiarMemory.loaded ? familiarMemory.stage : 0;
+        // The player's familiar grows with cumulative play time across visits
+        // (familiar_memory.js); a traveler's arrives at a seeded modest stage
+        const stage = this._isPlayer && familiarMemory.loaded
+            ? familiarMemory.stage
+            : Math.floor(rng() * 3);
         this.stage = stage;
         this.size = (4.5 + rng() * 4) * (0.85 + stage * 0.12);
         this.hue = hues && hues.length > 0 ? hues[0].h : rng() * 360;
@@ -121,8 +131,8 @@ class CursorFamiliar {
         if (mouseSpeed > 1.5 || isClicking) this._idleTicks = 0;
         else this._idleTicks++;
 
-        // Time genuinely spent together feeds long-term growth
-        if (this.excitement > 0.05) familiarMemory.recordActivity();
+        // Time genuinely spent together feeds long-term growth (player only)
+        if (this._isPlayer && this.excitement > 0.05) familiarMemory.recordActivity();
 
         // Startle on click edge
         if (isClicking && !this._wasClicking) {
@@ -133,17 +143,27 @@ class CursorFamiliar {
         this._wasClicking = isClicking;
         if (this.startleT > 0) this.startleT = Math.max(0, this.startleT - 0.025);
 
-        // Doze state eases in and out
-        const dozing = this._idleTicks > this._dozeAfter;
+        // Curiosity: once you've been still a moment, the familiar wanders
+        // off to watch whatever the universe is doing nearby — a passing
+        // metro train, an orrery planet, a toppling domino run, a lighthouse
+        // lamp (points_of_interest.js). It returns the moment you move.
+        const poi = this._idleTicks > 90 ? pointsOfInterest.nearest(this.x, this.y, 540) : null;
+        this.curious = !!poi;
+
+        // Doze state eases in and out (a curious familiar doesn't sleep)
+        const dozing = this._idleTicks > this._dozeAfter && !poi;
         this.mode = this.startleT > 0.5 ? 'startle' : dozing ? 'doze' : 'follow';
         this.dozeT += ((dozing ? 1 : 0) - this.dozeT) * 0.02;
+        if (poi) this.excitement = Math.max(this.excitement, 0.14);
 
-        // Spring-follow a perch point near the cursor; the offset drifts so the
-        // familiar circles you while you work
+        // Spring-follow a perch point near the cursor — or hover beside the
+        // point of interest while curious; the offset drifts so it circles
         this._offsetAng += 0.004 + this.excitement * 0.01;
-        const perchR = this._offsetR * (1 - this.dozeT * 0.4) * (1 - this.excitement * 0.5);
-        const tx = mx + Math.cos(this._offsetAng) * perchR;
-        const ty = my + Math.sin(this._offsetAng) * perchR * 0.7;
+        const anchorX = poi ? poi.x : mx;
+        const anchorY = poi ? poi.y : my;
+        const perchR = (poi ? 22 : this._offsetR) * (1 - this.dozeT * 0.4) * (1 - this.excitement * 0.5);
+        const tx = anchorX + Math.cos(this._offsetAng) * perchR;
+        const ty = anchorY + Math.sin(this._offsetAng) * perchR * 0.7;
         const k = this._followK * (this.mode === 'startle' ? 2.2 : 1) * (1 - this.dozeT * 0.7);
         this.vx = (this.vx + (tx - this.x) * k) * this._damping;
         this.vy = (this.vy + (ty - this.y) * k) * this._damping;
@@ -242,4 +262,5 @@ class CursorFamiliar {
     }
 }
 
-export const cursorFamiliar = new CursorFamiliar();
+export { CursorFamiliar };
+export const cursorFamiliar = new CursorFamiliar(true);

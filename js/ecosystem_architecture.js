@@ -186,8 +186,9 @@ export class EcosystemArchitecture extends Architecture {
             }
         }
 
-        // Update creatures
-        const creatureCount = this.creatures.length;
+        // Update creatures (mutable: catching prey swap-removes and decrements;
+        // this was const, so every successful hunt threw)
+        let creatureCount = this.creatures.length;
         for (let i = creatureCount - 1; i >= 0; i--) {
             const c = this.creatures[i];
             const sp = this.speciesConfig[c.species];

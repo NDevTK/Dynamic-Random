@@ -6,8 +6,9 @@
  * DOM — so the HUD just reads `loreCodex.current`.
  */
 
-/** Map each blueprint to a lore theme bank. Unknown blueprints fall back to 'cosmic'. */
-const BLUEPRINT_THEME = {
+/** Map each blueprint to a lore theme bank. Unknown blueprints fall back to 'cosmic'.
+ * (Exported for the observatory chart, which colors stars by theme.) */
+export const BLUEPRINT_THEME = {
     Classical: 'cosmic', StarForged: 'cosmic', StellarNursery: 'cosmic',
     CelestialForge: 'cosmic', LivingConstellation: 'cosmic', ChronoVerse: 'temporal',
     PhantomEcho: 'temporal', HauntedRealm: 'void', VoidTouched: 'void',

@@ -20,6 +20,7 @@ import { generativeMusic } from './generative_music.js';
 import { timeline } from './timeline.js';
 import { multiMonitor } from './multi_monitor.js';
 import { interactiveEffects } from './interactive_background_effects.js';
+import { pointsOfInterest } from './points_of_interest.js';
 import { selectArchitecture, ALL_ARCHITECTURES, ARCH_DISPLAY_NAMES, ARCH_CONSTRUCTOR_NAMES } from './architecture_registry.js';
 
 // Re-export for consumers that import from background.js
@@ -439,6 +440,9 @@ class BackgroundSystem {
 
     animate() {
         this.tick++;
+        // New frame on the points-of-interest bus: the architecture and
+        // effects publish during update; the familiar reads later this frame
+        pointsOfInterest.beginFrame();
         this.speedMultiplier += (this.targetSpeed - this.speedMultiplier) * 0.1;
         const now = performance.now();
 

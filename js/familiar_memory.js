@@ -21,7 +21,8 @@ export const STAGE_NAMES = ['hatchling', 'fledgling', 'companion', 'venerable', 
 const SYLLABLES = ['ka', 've', 'sk', 'lu', 'mi', 'ra', 'no', 'th', 'el', 'ir',
     'os', 'ya', 'zu', 'fen', 'qui', 'br', 'um', 'ash', 'ol', 'wyn'];
 
-function generateName(seedNum) {
+/** Deterministic creature name from a numeric seed (also used by travelers.js). */
+export function generateName(seedNum) {
     let lcg = (seedNum >>> 0) || 1;
     const next = () => {
         lcg = (Math.imul(lcg, 1664525) + 1013904223) >>> 0;

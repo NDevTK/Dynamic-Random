@@ -51,14 +51,33 @@ export const travelerMinds = {
         return fit[fit.length - 1];
     },
 
-    /** Record a departed visitor's mind and how the visit went. */
+    /**
+     * Record a departed visitor's mind and how the visit went.
+     * Niching: a mind nearly identical to a stored one (mean |Δw| below the
+     * threshold) replaces it only if fitter, instead of filling the pool with
+     * clones — premature convergence is how toy GAs quietly stop evolving.
+     */
     record(genome, fitness, generation) {
         this.load();
-        this._entries.push({
+        const entry = {
             g: Array.from(genome, (v) => Math.round(v * 1000) / 1000),
             f: Math.round(fitness * 1000) / 1000,
             gen: generation,
-        });
+        };
+        const NICHE_DIST = 0.06;
+        let twinIdx = -1;
+        for (let i = 0; i < this._entries.length; i++) {
+            const e = this._entries[i];
+            if (e.g.length !== entry.g.length) continue;
+            let sum = 0;
+            for (let k = 0; k < e.g.length; k++) sum += Math.abs(e.g[k] - entry.g[k]);
+            if (sum / e.g.length < NICHE_DIST) { twinIdx = i; break; }
+        }
+        if (twinIdx >= 0) {
+            if (entry.f > this._entries[twinIdx].f) this._entries[twinIdx] = entry;
+        } else {
+            this._entries.push(entry);
+        }
         // Keep the strongest minds; ties resolved toward newer entries
         if (this._entries.length > MAX_ENTRIES) {
             this._entries.sort((a, b) => a.f - b.f);

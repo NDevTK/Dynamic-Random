@@ -5,22 +5,30 @@
  * wanderer marked by a faint cursor-ring and their own familiar (species,
  * palette, and growth stage seeded by THEIR home seed, not yours).
  *
- * Each traveler is steered by a tiny neural network (neural_brain.js): it
- * senses your cursor, the nearest point of interest, the walls, its own
- * motion and an internal rhythm, and outputs urges — steer, dwell,
- * sociability (a high social urge near your cursor makes its familiar
- * startle in a little wave). When a visitor departs, the visit is scored by
- * how it actually went — time spent near you, points of interest watched,
- * staying on screen, moving like a living thing — and good minds enter a
- * localStorage gene pool (traveler_minds.js). Most future travelers are
- * mutated offspring of past well-received visitors, so across your sessions
- * the population evolves toward personalities you engage with; occasional
- * fresh "immigrant" minds keep it diverse.
+ * Each traveler is steered by a tiny recurrent neural network
+ * (neural_brain.js): it senses your cursor, the nearest point of interest,
+ * the walls, its own motion, an internal rhythm, visit progress, and its own
+ * previous steering (fed back as inputs, so minds carry momentum and gait).
+ * Outputs are urges — steer, dwell, sociability (a high social urge near
+ * your cursor makes its familiar startle in a little wave).
  *
- * The HUD introduces each visitor — "✦ Ilbra is visiting · a curious mind,
- * gen 3 · home: VOID-MAW-2121-III" — and the home seed is a real, shareable
- * seed. Fully procedural and client-side; no network, no servers, and
- * traveler familiars never touch your familiar's memory.
+ * Departures are scored FAIRLY (traveler_minds.js gene pool): "time near
+ * you" only counts against ticks your cursor was actually active, "watching
+ * points of interest" only against ticks one existed in sensing range, and
+ * liveliness is measured as area explored plus fraction-of-time moving —
+ * never raw speed, so a mind that hovers affectionately beside your idle
+ * cursor isn't punished for stillness. Fitness lands in [0, 1] regardless of
+ * how much opportunity the visit offered.
+ *
+ * Reproduction: most travelers descend from the pool via fitness-weighted
+ * parent selection, uniform crossover when two distinct parents exist, then
+ * mutation; the rest are fresh immigrants. Niching in the pool stops the
+ * population collapsing into clones. The convergence of this whole loop is
+ * proven in tests/neural_test.mjs against a known objective.
+ *
+ * HUD: "✦ Ilbra is visiting · a curious mind, gen 3 · home:
+ * VOID-MAW-2121-III" — the personality is classified from measured visit
+ * behavior, and the home seed is a real, shareable seed. Fully client-side.
  */
 
 import { CursorFamiliar } from './cursor_familiar.js';
@@ -32,10 +40,15 @@ import { travelerMinds } from './traveler_minds.js';
 
 const GEN_SUFFIX = ['', '', '-II', '-III', '-IV', '-V']; // most travelers are gen I-III
 
-// Brain layout: senses → urges
-const BRAIN_IN = 10;   // cursor dx/dy, poi dx/dy, vx/vy, wall x/y, rhythm, visit progress
+// Brain layout: senses → urges. The last two inputs are the brain's own
+// previous steering outputs (simple recurrence).
+const BRAIN_IN = 12;
 const BRAIN_HID = 8;
 const BRAIN_OUT = 4;   // steerX, steerY, dwell, social
+
+// Exploration coverage grid (coarse cells across the viewport)
+const CELLS_X = 8;
+const CELLS_Y = 5;
 
 class Travelers {
     constructor() {
@@ -45,6 +58,9 @@ class Travelers {
         this._maxConcurrent = 1;
         this._lcg = 1;
         this._inputs = new Float32Array(BRAIN_IN);
+        this._prevMx = 0;
+        this._prevMy = 0;
+        this._cursorIdleTicks = 9999;
         /** @type {{ name: string, homeSeed: string, mind: string } | null} for the HUD */
         this.current = null;
     }
@@ -60,6 +76,7 @@ class Travelers {
         this.current = null;
         this._lcg = ((rng() * 4294967296) >>> 0) || 1;
         this._blueprintName = blueprintName || '';
+        this._cursorIdleTicks = 9999;
         // Sociable universes get visitors sooner; hermit universes rarely
         this._maxConcurrent = rng() < 0.12 ? 2 : 1;
         // First arrival 2-5 minutes in, then every 4-9 minutes
@@ -87,14 +104,25 @@ class Travelers {
             { h: (homeHue + 140) % 360, s: 85, l: 68 },
         ], this._blueprintName);
 
-        // The mind: usually a mutated descendant of a past well-received
-        // visitor, otherwise a fresh immigrant
+        // The mind: fitness-weighted descent with uniform crossover when two
+        // distinct parents exist, then mutation; otherwise a fresh immigrant
         const genomeLen = TinyBrain.genomeSize(BRAIN_IN, BRAIN_HID, BRAIN_OUT);
-        const parent = r() < 0.7 ? travelerMinds.sample(r, genomeLen) : null;
-        const genome = parent
-            ? TinyBrain.mutate(parent.g, r)
-            : TinyBrain.randomGenome(r, BRAIN_IN, BRAIN_HID, BRAIN_OUT);
-        const mindGen = parent ? parent.gen + 1 : 0;
+        const parentA = r() < 0.75 ? travelerMinds.sample(r, genomeLen) : null;
+        let genome;
+        let mindGen;
+        if (parentA) {
+            let parentB = null;
+            if (travelerMinds.size > 1 && r() < 0.5) {
+                parentB = travelerMinds.sample(r, genomeLen);
+                if (parentB === parentA) parentB = null;
+            }
+            const base = parentB ? TinyBrain.crossover(parentA.g, parentB.g, r) : parentA.g;
+            genome = TinyBrain.mutate(base, r);
+            mindGen = Math.max(parentA.gen, parentB ? parentB.gen : 0) + 1;
+        } else {
+            genome = TinyBrain.randomGenome(r, BRAIN_IN, BRAIN_HID, BRAIN_OUT);
+            mindGen = 0;
+        }
 
         // Enter from a random edge
         const edge = Math.floor(r() * 4);
@@ -112,6 +140,7 @@ class Travelers {
             rhythmRate: 0.012 + r() * 0.02,
             x, y,
             vx: 0, vy: 0,
+            prevSteerX: 0, prevSteerY: 0,
             alpha: 0,
             state: 'visiting',       // 'visiting' | 'leaving'
             bornAt: this._tick,
@@ -119,12 +148,16 @@ class Travelers {
             stay,
             waveCooldown: 0,
             clickFrames: 0,
-            // Fitness accumulators — how the visit actually goes
+            // Fairly-scored fitness accumulators (see _fitness)
             statTicks: 0,
-            nearTicks: 0,
-            poiTicks: 0,
+            cursorActiveTicks: 0,
+            nearActiveTicks: 0,
+            poiOppTicks: 0,
+            poiNearTicks: 0,
             onscreenTicks: 0,
-            speedSum: 0,
+            movingTicks: 0,
+            cells: new Uint8Array(CELLS_X * CELLS_Y),
+            cellsVisited: 0,
             mindLabel: 'a new mind',
         };
         this._travelers.push(t);
@@ -140,32 +173,56 @@ class Travelers {
         };
     }
 
+    /** Opportunity-normalized behavior scores for this visit so far. */
+    _scores(t) {
+        const near = t.cursorActiveTicks > 60 ? t.nearActiveTicks / t.cursorActiveTicks : null;
+        const poi = t.poiOppTicks > 60 ? t.poiNearTicks / t.poiOppTicks : null;
+        const explore = Math.min(1, t.cellsVisited / 14);
+        const moving = t.statTicks > 0 ? t.movingTicks / t.statTicks : 0;
+        return { near, poi, explore, moving };
+    }
+
     /** Read the visit so far as a personality, e.g. "an affectionate mind". */
     _classify(t) {
         if (t.statTicks < 600) return 'a new mind';
-        const near = t.nearTicks / t.statTicks;
-        const poi = t.poiTicks / t.statTicks;
-        const avgSpeed = t.speedSum / t.statTicks;
-        if (near > 0.35) return 'an affectionate mind';
-        if (poi > 0.35) return 'a curious mind';
-        if (avgSpeed > 2.4) return 'a restless mind';
-        if (avgSpeed < 0.7) return 'a patient mind';
+        const s = this._scores(t);
+        if (s.near !== null && s.near > 0.4) return 'an affectionate mind';
+        if (s.poi !== null && s.poi > 0.4) return 'a curious mind';
+        if (s.explore > 0.7 && s.moving > 0.6) return 'a restless mind';
+        if (s.moving < 0.25) return 'a patient mind';
         return 'a wandering mind';
     }
 
-    /** Score the finished visit for the gene pool. */
+    /**
+     * Score the finished visit for the gene pool, in [0, 1]. Each behavior
+     * term only counts when the visit actually offered the opportunity
+     * (an idle user can't make any mind look unaffectionate; a universe with
+     * no points of interest can't make one look incurious), so fitness stays
+     * comparable across very different visits.
+     */
     _fitness(t) {
-        if (t.statTicks === 0) return 0;
+        if (t.statTicks < 60) return 0;
+        const s = this._scores(t);
         const onscreen = t.onscreenTicks / t.statTicks;
-        const near = t.nearTicks / t.statTicks;
-        const poi = t.poiTicks / t.statTicks;
-        const avgSpeed = t.speedSum / t.statTicks;
-        const alive = Math.min(1, avgSpeed / 0.6); // frozen brains score poorly
-        return onscreen * alive * (1 + near * 2 + poi);
+        // Liveliness: area covered + some fraction of time in motion. A mind
+        // hovering beside the player still moves a little; a frozen one doesn't.
+        const alive = Math.min(1, (s.moving / 0.2) * 0.5 + (s.explore / 0.3) * 0.5);
+        let attained = 0.5 * s.explore;
+        let available = 0.5;
+        if (s.near !== null) { attained += 1.5 * s.near; available += 1.5; }
+        if (s.poi !== null) { attained += 1.0 * s.poi; available += 1.0; }
+        return onscreen * alive * (attained / available);
     }
 
     update(mx, my, isClicking) {
         this._tick++;
+
+        // Is the player actually here? (their cursor moved recently)
+        const cursorMoved = Math.abs(mx - this._prevMx) + Math.abs(my - this._prevMy) > 1.5;
+        this._prevMx = mx;
+        this._prevMy = my;
+        this._cursorIdleTicks = cursorMoved ? 0 : this._cursorIdleTicks + 1;
+        const cursorActive = this._cursorIdleTicks < 90;
 
         if (this._tick >= this._nextArrivalAt && this._travelers.length < this._maxConcurrent) {
             this._spawn();
@@ -209,11 +266,15 @@ class Travelers {
             inp[7] = (t.y / Math.max(1, h)) * 2 - 1;
             inp[8] = Math.sin(this._tick * t.rhythmRate + t.rhythmPhase);
             inp[9] = Math.max(-1, Math.min(1, ((this._tick - t.bornAt) / t.stay) * 2 - 1));
+            inp[10] = t.prevSteerX; // recurrence: yesterday's urge is today's sense
+            inp[11] = t.prevSteerY;
 
             // ── Urges ──
             const out = t.brain.think(inp);
             const dwell = (out[2] + 1) / 2;      // 0..1 damping
             const social = (out[3] + 1) / 2;     // 0..1 friendliness
+            t.prevSteerX = out[0];
+            t.prevSteerY = out[1];
 
             let steerX = out[0];
             let steerY = out[1];
@@ -246,17 +307,28 @@ class Travelers {
                 t.waveCooldown = 600;
             }
 
-            // ── Fitness bookkeeping ──
+            // ── Fitness bookkeeping (only against real opportunity) ──
             if (t.state === 'visiting' && t.alpha > 0.5) {
                 t.statTicks++;
-                if (cDistSq < 260 * 260) t.nearTicks++;
+                if (cursorActive) {
+                    t.cursorActiveTicks++;
+                    if (cDistSq < 260 * 260) t.nearActiveTicks++;
+                }
                 if (poi) {
+                    t.poiOppTicks++;
                     const pdx = poi.x - t.x;
                     const pdy = poi.y - t.y;
-                    if (pdx * pdx + pdy * pdy < 140 * 140) t.poiTicks++;
+                    if (pdx * pdx + pdy * pdy < 140 * 140) t.poiNearTicks++;
                 }
                 if (t.x > margin && t.x < w - margin && t.y > margin && t.y < h - margin) t.onscreenTicks++;
-                t.speedSum += Math.hypot(t.vx * 4, t.vy * 4);
+                if (Math.hypot(t.vx * 4, t.vy * 4) > 0.35) t.movingTicks++;
+                const cx = Math.min(CELLS_X - 1, Math.max(0, Math.floor((t.x / Math.max(1, w)) * CELLS_X)));
+                const cy = Math.min(CELLS_Y - 1, Math.max(0, Math.floor((t.y / Math.max(1, h)) * CELLS_Y)));
+                const cell = cy * CELLS_X + cx;
+                if (t.cells[cell] === 0) {
+                    t.cells[cell] = 1;
+                    t.cellsVisited++;
+                }
                 if (t.statTicks % 300 === 0) {
                     t.mindLabel = this._classify(t);
                     if (this.current && this.current.name === t.name) this._refreshCurrent(t);

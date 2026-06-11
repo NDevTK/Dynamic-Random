@@ -41,6 +41,22 @@ export class TinyBrain {
         return g;
     }
 
+    /** Uniform crossover: each weight comes from either parent with p=0.5. */
+    static crossover(a, b, rng) {
+        const g = Float32Array.from(a);
+        for (let i = 0; i < g.length; i++) {
+            if (rng() < 0.5) g[i] = b[i];
+        }
+        return g;
+    }
+
+    /** Mean absolute weight difference — used for diversity niching. */
+    static distance(a, b) {
+        let sum = 0;
+        for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+        return sum / a.length;
+    }
+
     /**
      * Mutated copy of a genome: each weight jitters with probability `rate`,
      * and occasionally one weight takes a large jolt (escape local habits).
